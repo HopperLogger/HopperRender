@@ -1,0 +1,12 @@
+*.user
+*.suo
+*.sdf
+*.opensdf
+*.aps
+*.db
+*.opendb
+
+/ipch
+/bin_*
+/.vs
+/.old

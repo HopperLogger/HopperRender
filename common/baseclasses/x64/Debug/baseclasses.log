@@ -1,0 +1,36 @@
+﻿  amextra.cpp
+  amfilter.cpp
+  amvideo.cpp
+  arithutil.cpp
+  combase.cpp
+  cprop.cpp
+  ctlutil.cpp
+  ddmm.cpp
+  dllentry.cpp
+  dllsetup.cpp
+C:\Users\Julian Reichen\Desktop\HopperRender V4\common\baseclasses\dllentry.cpp(305,17): warning C4996: 'GetVersionExW': was declared deprecated
+  mtype.cpp
+  outputq.cpp
+  perflog.cpp
+  pstream.cpp
+  pullpin.cpp
+  refclock.cpp
+  renbase.cpp
+  schedule.cpp
+  seekpt.cpp
+  source.cpp
+  Generating Code...
+  Compiling...
+  strmctl.cpp
+  sysclock.cpp
+  transfrm.cpp
+  transip.cpp
+  videoctl.cpp
+  vtrans.cpp
+  winctrl.cpp
+  winutil.cpp
+  wxdebug.cpp
+  wxlist.cpp
+  wxutil.cpp
+  Generating Code...
+  baseclasses.vcxproj -> C:\Users\Julian Reichen\Desktop\HopperRender V4\bin_x64d\lib\strmbasd.lib
