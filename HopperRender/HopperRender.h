@@ -1,3 +1,7 @@
+#pragma once
+
+#include "GPUArrayLib.cuh"
+
 class CHopperRender : public CTransformFilter,
          public IIPEffect,
          public ISpecifyPropertyPages,
@@ -51,6 +55,7 @@ private:
     CRefTime    m_effectStartTime;      // When the effect will begin
     CRefTime    m_effectTime;           // And how long it will last for
     const long m_lBufferRequest;        // The number of buffers to use
+    GPUArray<unsigned char> m_frame;    // The GPU frame
+    bool m_bGPUFrameIsInitialized;      // Is the GPU frame initialized
 
 }; // HopperRender
-
