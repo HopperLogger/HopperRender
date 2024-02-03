@@ -9,4 +9,6 @@
 /ipch
 /bin_*
 /.vs
+/common/cuda/.vs
 /.old
+/.backup

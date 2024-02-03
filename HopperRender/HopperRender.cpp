@@ -9,11 +9,10 @@
 #endif
 
 #include "uids.h"
-#include "iEZ.h"
+#include "iez.h"
 #include "HopperRenderSettings.h"
 #include "HopperRender.h"
 #include "resource.h"
-
 
 // Setup information
 
@@ -126,7 +125,9 @@ CHopperRender::CHopperRender(TCHAR* tszName,
     CTransformFilter(tszName, punk, CLSID_HopperRender),
     m_effect(IDC_RED),
     m_lBufferRequest(1),
-    CPersistStream(punk, phr)
+    CPersistStream(punk, phr),
+    m_frame({ 3, 1, 1 }, 0),
+    m_bGPUFrameIsInitialized(false)
 {
     char sz[60];
 
@@ -347,12 +348,23 @@ HRESULT CHopperRender::Transform(IMediaSample* pMediaSample)
     int cyImage = pvi->bmiHeader.biHeight;
     int numPixels = cxImage * cyImage;
 
+    // Initialize the GPU Array if it hasn't been initialized yet
+    if (!m_bGPUFrameIsInitialized)
+	{
+        m_frame.changeDims({ 3, cyImage, cxImage });
+		m_bGPUFrameIsInitialized = true;
+	}
+
     // int iPixelSize = pvi->bmiHeader.biBitCount / 8;
     // int cbImage    = cyImage * cxImage * iPixelSize;
 
     switch (m_effect)
     {
-    case IDC_NONE: break;
+    case IDC_NONE:
+        m_frame.fillData(pData);
+        m_frame.mul(-1);
+        m_frame.download(pData);
+        break;
 
         // Zero out the green and blue components to leave only the red
         // so acting as a filter - for better visual results, compute a
