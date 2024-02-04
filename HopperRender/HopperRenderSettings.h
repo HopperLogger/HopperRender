@@ -22,8 +22,8 @@ private:
 
     BOOL m_bIsInitialized;      // Used to ignore startup messages
     int m_effect;               // Which effect are we processing
-    REFTIME m_start;            // When the effect will begin
-    REFTIME m_length;           // And how long it will last for
+    int m_numSteps;             // Number of steps executed to find the ideal offset (limits the maximum offset)
+    int m_maxOffsetDivider;     // The divider used to calculate the initial global offset
     IIPEffect *m_pIPEffect;     // The custom interface on the filter
 
 }; // HopperRenderSettings

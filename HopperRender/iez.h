@@ -13,14 +13,14 @@ extern "C" {
     {
         STDMETHOD(get_IPEffect) (THIS_
                     int *effectNum,         // The current effect
-                    REFTIME *StartTime,     // Start time of effect
-                    REFTIME *Length         // length of effect
+                    int *numSteps,          // Number of steps executed to find the ideal offset (limits the maximum offset)
+                    int *maxOffsetDivider   // The divider used to calculate the initial global offset
                  ) PURE;
 
         STDMETHOD(put_IPEffect) (THIS_
                     int effectNum,          // Change to this effect
-                    REFTIME StartTime,      // Start time of effect
-                    REFTIME Length          // Length of effect
+                    int numSteps,           // Number of steps executed to find the ideal offset (limits the maximum offset)
+                    int maxOffsetDivider    // The divider used to calculate the initial global offset
                  ) PURE;
     };
 

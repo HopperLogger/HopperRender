@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "GPUArrayLib.cuh"
 #include "opticalFlowCalc.cuh"
 
@@ -32,8 +34,8 @@ public:
 
     // These implement the custom IIPEffect interface
 
-    STDMETHODIMP get_IPEffect(int *IPEffect, REFTIME *StartTime, REFTIME *Length);
-    STDMETHODIMP put_IPEffect(int IPEffect, REFTIME StartTime, REFTIME Length);
+    STDMETHODIMP get_IPEffect(int* IPEffect, int* pNumSteps, int* pMaxOffsetDivider);
+    STDMETHODIMP put_IPEffect(int IPEffect, int numSteps, int maxOffsetDivider);
 
     // ISpecifyPropertyPages interface
     STDMETHODIMP GetPages(CAUUID *pPages);
@@ -53,13 +55,15 @@ private:
 
     CCritSec    m_HopperRenderLock;     // Private play critical section
     int         m_effect;               // Which effect are we processing
-    CRefTime    m_effectStartTime;      // When the effect will begin
-    CRefTime    m_effectTime;           // And how long it will last for
+    int m_numSteps;                     // Number of steps executed to find the ideal offset (limits the maximum offset)
+    int m_maxOffsetDivider;             // The divider used to calculate the initial global offset
     const long m_lBufferRequest;        // The number of buffers to use
     GPUArray<unsigned char> m_frameA;   // GPU frame A
     GPUArray<unsigned char> m_frameB;   // GPU frame B
     GPUArray<unsigned char> m_outFrame; // GPU output frame
     bool m_bAbeforeB;                   // Which frame order are we using
     OpticalFlowCalc m_opticalFlowCalc;  // Optical flow calculator
+    std::string m_debugMessage = "";    // Debug message
+    int m_frameCounter = 0;             // Frame counter (relative! i.e. number of frames presented)
 
 }; // HopperRender
