@@ -729,7 +729,7 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages)
 //
 // Return the current effect selected
 //
-STDMETHODIMP CHopperRender::get_IPEffect(int* IPEffect, REFTIME* pStart, REFTIME* pLength)
+STDMETHODIMP CHopperRender::get_IPEffect(int* IPEffect)
 {
     CAutoLock cAutolock(&m_HopperRenderLock);
     CheckPointer(IPEffect, E_POINTER);
