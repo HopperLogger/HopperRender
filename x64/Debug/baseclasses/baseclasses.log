@@ -7,8 +7,8 @@
   ctlutil.cpp
   ddmm.cpp
   dllentry.cpp
-C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\baseclasses\dllentry.cpp(305,17): warning C4996: 'GetVersionExW': was declared deprecated
   dllsetup.cpp
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\baseclasses\dllentry.cpp(305,17): warning C4996: 'GetVersionExW': was declared deprecated
   mtype.cpp
   outputq.cpp
   perflog.cpp

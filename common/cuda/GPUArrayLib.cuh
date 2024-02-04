@@ -40,6 +40,13 @@ public:
 	bool isOnGPU;
 
 	/*
+	* Default constructor for a standard multidimensional array
+	*
+	* @return: GPUArray object
+	*/
+	GPUArray();
+
+	/*
 	* Constructor for a standard multidimensional array
 	*
 	* @param arrayShape: Dimensions of the array (e.g. {2, 3, 4} for a 3D array with 2 layers, 3 rows and 4 columns)
@@ -94,8 +101,32 @@ public:
 	* Changes the dimensions of the array
 	*
 	* @param arrayShape: Dimensions of the array (e.g. {2, 3, 4} for a 3D array with 2 layers, 3 rows and 4 columns)
+	* @param initializer: Value to initialize all array entries with
 	*/
-	void changeDims(std::vector<int> arrayShape);
+	void changeDims(std::vector<int> arrayShape, T initializer = 0);
+
+	/*
+	* Initializes the array with the provided dimensions
+	*
+	* @param arrayShape: Dimensions of the array (e.g. {2, 3, 4} for a 3D array with 2 layers, 3 rows and 4 columns)
+	*/
+	void init(std::vector<int> arrayShape) {
+		changeDims(arrayShape, 0);
+	}
+
+	/*
+	* Returns whether the array is initialized (i.e. has allocated memory)
+	*
+	* @return: True if the array is initialized, false otherwise
+	*/
+	bool isInitialized();
+
+	/*
+	* Copies the array and returns the copy
+	*
+	* @return: Copy of the array
+	*/
+	GPUArray<T> copy();
 
 	/*
 	* Adds a value to the array

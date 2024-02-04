@@ -278,9 +278,42 @@ __global__ void memTestKernal(long* arrayPtrGPU, long steps) {
 	}
 }
 
+// Kernal that copies the entries of one array to another
+template <typename T>
+__global__ void copyEntries(T* DstArrayPtrGPU, T* SrcArrayPtrGPU, int dimZ, int dimY, int dimX) {
+	// Current entry to be copied by the thread
+	int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	int absIdx = cz * dimY * dimX + cy * dimX + cx;
+
+	// Check if result is within matrix boundaries
+	if (cz < dimZ && cy < dimY && cx < dimX) {
+		DstArrayPtrGPU[absIdx] = SrcArrayPtrGPU[absIdx];
+	}
+}
+
 /*
 * -------------------- GPUArray CLASS --------------------
 */
+
+/*
+* Default constructor for a standard multidimensional array
+*
+* @return: GPUArray object
+*/
+template <typename T>
+GPUArray<T>::GPUArray() {
+	arrayPtrCPU = nullptr;
+	arrayPtrGPU = nullptr;
+	dims = 0;
+	std::vector<int> shape{ 0 };
+	dimX = 0;
+	dimY = 0;
+	dimZ = 0;
+	bytes = 0;
+	isOnGPU = false;
+}
 
 /*
 * Constructor for a standard multidimensional array
@@ -573,9 +606,10 @@ void GPUArray<T>::download(T* memPointer) {
 * Changes the dimensions of the array
 *
 * @param arrayShape: Dimensions of the array (e.g. {2, 3, 4} for a 3D array with 2 layers, 3 rows and 4 columns)
+* @param initializer: Value to initialize all array entries with
 */
 template <typename T>
-void GPUArray<T>::changeDims(std::vector<int> arrayShape) {
+void GPUArray<T>::changeDims(std::vector<int> arrayShape, T initializer = 0) {
 	// Set dimensions
 	shape = arrayShape;
 	dims = (int)arrayShape.size();
@@ -617,6 +651,15 @@ void GPUArray<T>::changeDims(std::vector<int> arrayShape) {
 	// Allocate host memory
 	arrayPtrCPU = (T*)malloc(bytes);
 
+	// Set all array entries to 0
+	for (int z = 0; z < dimZ; z++) {
+		for (int y = 0; y < dimY; y++) {
+			for (int x = 0; x < dimX; x++) {
+				*(arrayPtrCPU + z * dimY * dimX + y * dimX + x) = initializer;
+			}
+		}
+	}
+
 	// Allocate VRAM
 	cudaMalloc(&arrayPtrGPU, bytes);
 
@@ -626,6 +669,61 @@ void GPUArray<T>::changeDims(std::vector<int> arrayShape) {
 
 	// Free host memory
 	free(arrayPtrCPU);
+}
+
+/*
+* Returns whether the array is initialized (i.e. has allocated memory)
+*
+* @return: True if the array is initialized, false otherwise
+*/
+template <typename T>
+bool GPUArray<T>::isInitialized() {
+	return bytes;
+}
+
+/*
+* Copies the array and returns the copy
+*
+* @return: Copy of the array
+*/
+template <typename T>
+GPUArray<T> GPUArray<T>::copy() {
+	// Create a new array with the same dimensions
+	GPUArray<T> copyArray;
+	
+	// Set dimensions
+	copyArray.shape = shape;
+	copyArray.dims = dims;
+	copyArray.dimX = dimX;
+	copyArray.dimY = dimY;
+	copyArray.dimZ = dimZ;
+	copyArray.bytes = bytes;
+
+	// Allocate VRAM
+	cudaMalloc(&copyArray.arrayPtrGPU, copyArray.bytes);
+	isOnGPU = true;
+
+	// Copy entries from the original array to the copy
+	// Calculate the number of blocks needed
+	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+
+	// Use dim3 structs for block and grid size
+	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
+	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
+
+	// Launch kernel
+	copyEntries << <grid, threads >> > (copyArray.arrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
+
+	// Check for CUDA errors
+	cudaError_t cudaError = cudaGetLastError();
+	if (cudaError != cudaSuccess) {
+		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
+		exit(-1);
+	}
+
+	return copyArray;
 }
 
 /*

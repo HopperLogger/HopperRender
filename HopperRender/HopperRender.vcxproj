@@ -81,6 +81,7 @@
       <CompileOut Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
       <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">compute_89,sm_89</CodeGeneration>
       <FastMath Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</FastMath>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">EditAndContinue</DebugInformationFormat>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">

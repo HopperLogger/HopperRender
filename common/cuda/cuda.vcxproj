@@ -63,6 +63,7 @@
       <SplitCompileCustomThreads>16</SplitCompileCustomThreads>
       <FastMath>true</FastMath>
       <PtxAsOptionV>true</PtxAsOptionV>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
     </CudaCompile>
     <CudaLink>
       <LinkOut>$(SolutionDir)$(Platform)\$(Configuration)\.device-link.obj</LinkOut>

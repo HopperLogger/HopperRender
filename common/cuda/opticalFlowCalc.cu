@@ -1,9 +1,5 @@
 // opticalFlowCalc.cu
 
-// CUDA libaries
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
-
 // Project Includes
 #include "opticalFlowCalc.cuh"
 
@@ -302,6 +298,46 @@ __global__ void artifactRemovalKernal(unsigned char* frame1, int* hitCount, unsi
 	}
 }
 
+// Constructor
+OpticalFlowCalc::OpticalFlowCalc()
+{
+}
+
+/*
+* Initializes the optical flow calculation
+*
+* @param dimY: The height of the frame
+* @param dimX: The width of the frame
+*/
+void OpticalFlowCalc::init(int dimY, int dimX)
+{
+	NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	grid.x = NUM_BLOCKS_X;
+	grid.y = NUM_BLOCKS_Y;
+	grid.z = 1;
+	threads3.x = NUM_THREADS;
+	threads3.y = NUM_THREADS;
+	threads3.z = 3;
+	threads2.x = NUM_THREADS;
+	threads2.y = NUM_THREADS;
+	threads2.z = 2;
+	threads1.x = NUM_THREADS;
+	threads1.y = NUM_THREADS;
+	threads1.z = 1;
+	imageDeltaArray.changeDims({ 3, dimY, dimX });
+	offsetArray.changeDims({ 2, dimY, dimX });
+	statusArray.changeDims({ dimY, dimX });
+	summedUpDeltaArray.changeDims({ dimY, dimX });
+	normalizedDeltaArrayA.changeDims({ dimY, dimX });
+	normalizedDeltaArrayB.changeDims({ dimY, dimX });
+	isValueDecreasedArray.changeDims({ dimY, dimX });
+	windowDimX = dimX;
+	windowDimY = dimY;
+	currentGlobalOffset = fmax(dimX / MAX_OFFSET_DIVIDER, 1);
+	numIterations = ceil(log2f(dimX));
+}
+
 /*
 * Calculates the optical flow between frame1 and frame2
 *
@@ -310,123 +346,9 @@ __global__ void artifactRemovalKernal(unsigned char* frame1, int* hitCount, unsi
 *
 * @return: The flow array containing the relative vectors
 */
-GPUArray<int> calculateOpticalFlow(GPUArray<unsigned char>& frame1, GPUArray<unsigned char>& frame2) {
-	if (DEBUG_MODE) {
-		// Check if the dimensions match
-		if (frame1.dimZ != 3 || frame2.dimZ != 3 || frame1.dimY != frame2.dimY || frame1.dimX != frame2.dimX) {
-			fprintf(stderr, "ERROR: Frame dimensions do not match!\n");
-			exit(-1);
-		}
-
-		// Check if the frames are on the GPU
-		if (!frame1.isOnGPU) {
-			frame1.toGPU();
-		}
-		if (!frame2.isOnGPU) {
-			frame2.toGPU();
-		}
-	}
-
-	// Calculate the number of cuda blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(frame1.dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(frame1.dimY / NUM_THREADS), 1);
-
-	// Calculate the number of cuda threads needed
-	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, 1);
-	dim3 threads3(NUM_THREADS, NUM_THREADS, 3);
-	dim3 threads2(NUM_THREADS, NUM_THREADS, 2);
-	dim3 threads1(NUM_THREADS, NUM_THREADS, 1);
-
-	// Initialize result arrays
-	GPUArray<unsigned char> imageDeltaArray(frame1.shape, 0); // Array containing the absolute difference between the two frames
-	GPUArray<int> offsetArray({ 2, frame1.dimY, frame1.dimX }, 0); // Array containing x,y offsets for each pixel of frame1
-	GPUArray<int> statusArray({ frame1.dimY, frame1.dimX }, 0); // Array containing the calculation status of each pixel of frame1
-	GPUArray<unsigned int> summedUpDeltaArray({ frame1.dimY, frame1.dimX }, 0); // Array containing the summed up delta values of each window
-	GPUArray<float> normalizedDeltaArrayA({ frame1.dimY, frame1.dimX }, 0); // Array containing the normalized delta values of each window
-	GPUArray<float> normalizedDeltaArrayB({ frame1.dimY, frame1.dimX }, 0); // Array containing the normalized delta values of each window
-	GPUArray<bool> isValueDecreasedArray({ frame1.dimY, frame1.dimX }, 0); // Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
-	int windowDimX = frame1.dimX; // Initial window size
-	int windowDimY = frame1.dimY; // Initial window size
-	int currentGlobalOffset = fmax(frame1.dimX / MAX_OFFSET_DIVIDER, 1); // Initial global offset
-	int numIterations = ceil(log2f(frame1.dimX)); // Number of iterations needed to get to the smallest window size
-
-	auto start = std::chrono::high_resolution_clock::now();
-
-	// We calculate the ideal offset array for each window size (entire frame, ..., individual pixels)
-	for (int iter = 0; iter < numIterations; iter++) {
-		// Each step we adjust the offset array to find the ideal offset
-		for (int step = 0; step < NUM_STEPS; step++) {
-			// Calculate the image deltas with the current offset array
-			calcImageDelta << <grid, threads3 >> > (frame1.arrayPtrGPU, frame2.arrayPtrGPU, imageDeltaArray.arrayPtrGPU, offsetArray.arrayPtrGPU, frame1.dimY, frame1.dimX);
-
-			// Sum up the deltas of each window
-			calcDeltaSums << <grid, threads3 >> > (imageDeltaArray.arrayPtrGPU, summedUpDeltaArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
-
-			// Switch between the two normalized delta arrays to avoid copying
-			if (step % 2 == 0) {
-				// Normalize the summed up delta array
-				normalizeDeltaSums << <grid, threads1 >> > (summedUpDeltaArray.arrayPtrGPU, normalizedDeltaArrayB.arrayPtrGPU, offsetArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
-
-				if (DEBUG_MODE) {
-					printf("Offset Xe:\n");
-					offsetArray.print<int>(0, 1);
-					offsetArray.toGPU();
-					printf("Offset Ye:\n");
-					offsetArray.print<int>(frame1.dimY * frame1.dimX, 1);
-					offsetArray.toGPU();
-					printf("Normalized Delta:\n");
-					normalizedDeltaArrayB.print<float>(0, 1);
-					normalizedDeltaArrayB.toGPU();
-					printf("\n");
-				}
-
-				// Check if the new normalized delta array is better than the old one
-				compareArrays << <grid, threads1 >> > (normalizedDeltaArrayA.arrayPtrGPU, normalizedDeltaArrayB.arrayPtrGPU, isValueDecreasedArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
-			}
-			else {
-				// Normalize the summed up delta array
-				normalizeDeltaSums << <grid, threads1 >> > (summedUpDeltaArray.arrayPtrGPU, normalizedDeltaArrayA.arrayPtrGPU, offsetArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
-
-				if (DEBUG_MODE) {
-					printf("Offset Xu:\n");
-					offsetArray.print<int>(0, 1);
-					offsetArray.toGPU();
-					printf("Offset Yu:\n");
-					offsetArray.print<int>(frame1.dimY * frame1.dimX, 1);
-					offsetArray.toGPU();
-					printf("Normalized Delta:\n");
-					normalizedDeltaArrayA.print<float>(0, 1);
-					normalizedDeltaArrayA.toGPU();
-					printf("\n");
-				}
-
-				// Check if the new normalized delta array is better than the old one
-				compareArrays << <grid, threads1 >> > (normalizedDeltaArrayB.arrayPtrGPU, normalizedDeltaArrayA.arrayPtrGPU, isValueDecreasedArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
-			}
-
-			// Adjust the offset array based on the comparison results
-			compositeOffsetArray << <grid, threads1 >> > (offsetArray.arrayPtrGPU, isValueDecreasedArray.arrayPtrGPU, statusArray.arrayPtrGPU, currentGlobalOffset, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
-
-			// Wait for all threads to finish
-			cudaDeviceSynchronize();
-
-			// Reset the summed up delta array
-			summedUpDeltaArray.fill(0);
-		}
-		// Adjust window size
-		windowDimX = fmax(windowDimX / 2, 1);
-		windowDimY = fmax(windowDimY / 2, 1);
-
-		// Adjust global offset
-		currentGlobalOffset = fmax(currentGlobalOffset / 2, 1);
-
-		// Reset the status array
-		statusArray.fill(0);
-	}
-
-	auto stop = std::chrono::high_resolution_clock::now();
-	auto duration = std::chrono::duration<double, std::milli>(stop - start).count();
-	std::cout << "\nOpt. Flow Calc Time: " << std::fixed << std::setprecision(4) << duration << " milliseconds" << std::endl;
+GPUArray<unsigned char> OpticalFlowCalc::calculateOpticalFlow(GPUArray<unsigned char>& frame1, GPUArray<unsigned char>& frame2) {
+	// Calculate the image deltas with the current offset array
+	calcImageDelta << <grid, threads3 >> > (frame1.arrayPtrGPU, frame2.arrayPtrGPU, imageDeltaArray.arrayPtrGPU, offsetArray.arrayPtrGPU, frame1.dimY, frame1.dimX);
 
 	// Check for CUDA errors
 	cudaError_t cudaError = cudaGetLastError();
@@ -435,16 +357,8 @@ GPUArray<int> calculateOpticalFlow(GPUArray<unsigned char>& frame1, GPUArray<uns
 		exit(-1);
 	}
 
-	// Free memory
-	imageDeltaArray.del();
-	statusArray.del();
-	summedUpDeltaArray.del();
-	normalizedDeltaArrayA.del();
-	normalizedDeltaArrayB.del();
-	isValueDecreasedArray.del();
-
 	// Return result array
-	return offsetArray;
+	return imageDeltaArray;
 }
 
 /*
@@ -455,7 +369,7 @@ GPUArray<int> calculateOpticalFlow(GPUArray<unsigned char>& frame1, GPUArray<uns
 *
 * @return: The warped frame
 */
-GPUArray<unsigned char> warpFrame(GPUArray<unsigned char>& frame1, GPUArray<int>& offsetArray) {
+GPUArray<unsigned char> OpticalFlowCalc::warpFrame(GPUArray<unsigned char>& frame1, GPUArray<int>& offsetArray) {
 	if (DEBUG_MODE) {
 		// Check if the dimensions match
 		if (frame1.dimZ != 3 || offsetArray.dimZ != 3 || frame1.dimY != offsetArray.dimY || frame1.dimX != offsetArray.dimX) {
