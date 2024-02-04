@@ -49,7 +49,7 @@ IDD_HopperRenderSettings DIALOG DISCARDABLE  0, 0, 215, 120
 STYLE WS_CHILD
 FONT 8, "MS Shell Dlg"
 BEGIN
-    GROUPBOX        "Special Effect",IDS_STATIC,4,10,115,95
+    GROUPBOX        "Interpolation Settings",IDS_STATIC,4,10,115,95
     CONTROL         "Emboss",IDC_EMBOSS,"Button",BS_AUTORADIOBUTTON,57,70,44,
                     14
     CONTROL         "Grey",IDC_GREY,"Button",BS_AUTORADIOBUTTON,57,54,44,14
@@ -65,24 +65,24 @@ BEGIN
     CONTROL         "Red",IDC_RED,"Button",BS_AUTORADIOBUTTON,11,22,41,14
     CONTROL         "No Effects",IDC_NONE,"Button",BS_AUTORADIOBUTTON,57,88,
                     47,10
-    GROUPBOX        "Timing",IDS_STATIC,125,23,87,51
-    EDITTEXT        IDC_START,165,34,40,13,ES_AUTOHSCROLL
-    EDITTEXT        IDC_LENGTH,165,53,40,13,ES_AUTOHSCROLL
-    LTEXT           "&Start",IDS_STATIC,132,37,25,9
-    LTEXT           "&Length",IDS_STATIC,132,55,25,9
+    GROUPBOX        "Parameters", IDS_STATIC, 125, 23, 130, 51
+    EDITTEXT        IDC_NUMSTEPS, 200, 34, 40, 13, ES_AUTOHSCROLL
+    EDITTEXT        IDC_MAXOFFSETDIV, 200, 53, 40, 13, ES_AUTOHSCROLL
+    LTEXT           "NumSteps", IDS_STATIC, 132, 37, 150, 9
+    LTEXT           "MaxOffsetDivider", IDS_STATIC, 132, 55, 150, 9
 END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    IDS_TITLE,      "Special Effects"
+    IDS_TITLE,      "Interpolation"
 END
 
 //
 // Version
 //
 
-#define VERSION_RES_BIN_NAME        "HopperRender.ax\0"
-#define VERSION_RES_BIN_DESCRIPTION "Special Effects Sample\0"
+#define VERSION_RES_BIN_NAME        "HopperRender.dll\0"
+#define VERSION_RES_BIN_DESCRIPTION "HopperRender Settings\0"
 
 #define AMOVIE_SELF_REGISTER
 

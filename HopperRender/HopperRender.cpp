@@ -130,11 +130,11 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 {
     char sz[60];
 
-    GetProfileStringA("Quartz", "EffectStart", "0.0", sz, 60);
-    m_effectStartTime = COARefTime(atof(sz));
+    GetProfileStringA("Quartz", "EffectStart", "40", sz, 60);
+    m_numSteps = atoi(sz);
 
-    GetProfileStringA("Quartz", "EffectLength", "500.0", sz, 60);
-    m_effectTime = COARefTime(atof(sz));
+    GetProfileStringA("Quartz", "EffectLength", "192", sz, 60);
+    m_maxOffsetDivider = atoi(sz);
 
 } // (Constructor)
 
@@ -209,19 +209,10 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut)
     }
 
     // Check to see if it is time to do the sample
+    //CRefTime tStart, tStop;
+    //hr = pIn->GetTime((REFERENCE_TIME*)&tStart, (REFERENCE_TIME*)&tStop);
 
-    CRefTime tStart, tStop;
-    hr = pIn->GetTime((REFERENCE_TIME*)&tStart, (REFERENCE_TIME*)&tStop);
-
-    if (tStart >= m_effectStartTime)
-    {
-        if (tStop <= (m_effectStartTime + m_effectTime))
-        {
-            return Transform(pOut);
-        }
-    }
-
-    return NOERROR;
+    return Transform(pOut);
 
 } // Transform
 
@@ -356,6 +347,9 @@ HRESULT CHopperRender::Transform(IMediaSample* pMediaSample)
         m_opticalFlowCalc.init(cyImage, cxImage);
 	}
 
+    // Increment the counter
+    m_frameCounter++;
+
     // int iPixelSize = pvi->bmiHeader.biBitCount / 8;
     // int cbImage    = cyImage * cxImage * iPixelSize;
 
@@ -377,6 +371,14 @@ HRESULT CHopperRender::Transform(IMediaSample* pMediaSample)
             m_outFrame.download(pData);
 		}
         m_bAbeforeB = !m_bAbeforeB;
+
+        // Output the debug message every 60 frames
+        if ((m_frameCounter % 60) == 0)
+        {
+            m_debugMessage = "Num Steps: " + std::to_string(m_numSteps) + " - Max Offset Divider: " + std::to_string(m_maxOffsetDivider) + "\n";
+            OutputDebugStringA(m_debugMessage.c_str());
+        }
+        
         break;
 
         // Zero out the green and blue components to leave only the red
@@ -677,8 +679,8 @@ HRESULT CHopperRender::ScribbleToStream(IStream* pStream)
     HRESULT hr;
 
     WRITEOUT(m_effect);
-    WRITEOUT(m_effectStartTime);
-    WRITEOUT(m_effectTime);
+    WRITEOUT(m_numSteps);
+    WRITEOUT(m_maxOffsetDivider);
 
     return NOERROR;
 
@@ -695,8 +697,8 @@ HRESULT CHopperRender::ReadFromStream(IStream* pStream)
     HRESULT hr;
 
     READIN(m_effect);
-    READIN(m_effectStartTime);
-    READIN(m_effectTime);
+    READIN(m_numSteps);
+    READIN(m_maxOffsetDivider);
 
     return NOERROR;
 
@@ -729,16 +731,16 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages)
 //
 // Return the current effect selected
 //
-STDMETHODIMP CHopperRender::get_IPEffect(int* IPEffect)
+STDMETHODIMP CHopperRender::get_IPEffect(int* IPEffect, int* pNumSteps, int* pMaxOffsetDivider)
 {
     CAutoLock cAutolock(&m_HopperRenderLock);
     CheckPointer(IPEffect, E_POINTER);
-    CheckPointer(pStart, E_POINTER);
-    CheckPointer(pLength, E_POINTER);
+    CheckPointer(pNumSteps, E_POINTER);
+    CheckPointer(pMaxOffsetDivider, E_POINTER);
 
     *IPEffect = m_effect;
-    *pStart = COARefTime(m_effectStartTime);
-    *pLength = COARefTime(m_effectTime);
+    *pNumSteps = m_numSteps;
+    *pMaxOffsetDivider = m_maxOffsetDivider;
 
     return NOERROR;
 
@@ -750,13 +752,13 @@ STDMETHODIMP CHopperRender::get_IPEffect(int* IPEffect)
 //
 // Set the required video effect
 //
-STDMETHODIMP CHopperRender::put_IPEffect(int IPEffect, REFTIME start, REFTIME length)
+STDMETHODIMP CHopperRender::put_IPEffect(int IPEffect, int numSteps, int maxOffsetDivider)
 {
     CAutoLock cAutolock(&m_HopperRenderLock);
 
     m_effect = IPEffect;
-    m_effectStartTime = COARefTime(start);
-    m_effectTime = COARefTime(length);
+    m_numSteps = numSteps;
+    m_maxOffsetDivider = maxOffsetDivider;
 
     SetDirty(TRUE);
     return NOERROR;

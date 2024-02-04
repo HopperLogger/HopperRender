@@ -98,7 +98,7 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown *pUnknown)
 
     // Get the initial image FX property
     CheckPointer(m_pIPEffect,E_FAIL);
-    m_pIPEffect->get_IPEffect(&m_effect, &m_start, &m_length);
+    m_pIPEffect->get_IPEffect(&m_effect, &m_numSteps, &m_maxOffsetDivider);
 
     m_bIsInitialized = FALSE ;
     return NOERROR;
@@ -133,11 +133,11 @@ HRESULT CHopperRenderSettings::OnActivate()
 {
     TCHAR sz[60];
 
-    (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%f\0"), m_length);
-    Edit_SetText(GetDlgItem(m_Dlg, IDC_LENGTH), sz);
+    (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_maxOffsetDivider);
+    Edit_SetText(GetDlgItem(m_Dlg, IDC_MAXOFFSETDIV), sz);
 
-    (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%f\0"), m_start);
-    Edit_SetText(GetDlgItem(m_Dlg, IDC_START), sz);
+    (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_numSteps);
+    Edit_SetText(GetDlgItem(m_Dlg, IDC_NUMSTEPS), sz);
 
     CheckRadioButton(m_Dlg, IDC_EMBOSS, IDC_NONE, m_effect);
     m_bIsInitialized = TRUE;
@@ -174,7 +174,7 @@ HRESULT CHopperRenderSettings::OnApplyChanges()
     GetControlValues();
 
     CheckPointer(m_pIPEffect,E_POINTER);
-    m_pIPEffect->put_IPEffect(m_effect, m_start, m_length);
+    m_pIPEffect->put_IPEffect(m_effect, m_numSteps, m_maxOffsetDivider);
 
     return NOERROR;
 
@@ -187,7 +187,7 @@ void CHopperRenderSettings::GetControlValues()
     REFTIME tmp1, tmp2 ;
 
     // Get the start and effect times
-    Edit_GetText(GetDlgItem(m_Dlg, IDC_LENGTH), sz, STR_MAX_LENGTH);
+    Edit_GetText(GetDlgItem(m_Dlg, IDC_MAXOFFSETDIV), sz, STR_MAX_LENGTH);
 
 #ifdef UNICODE
     // Convert Multibyte string to ANSI
@@ -199,7 +199,7 @@ void CHopperRenderSettings::GetControlValues()
     tmp2 = COARefTime(atof(sz));
 #endif
 
-    Edit_GetText(GetDlgItem(m_Dlg, IDC_START), sz, STR_MAX_LENGTH);
+    Edit_GetText(GetDlgItem(m_Dlg, IDC_NUMSTEPS), sz, STR_MAX_LENGTH);
 
 #ifdef UNICODE
     // Convert Multibyte string to ANSI
@@ -212,8 +212,8 @@ void CHopperRenderSettings::GetControlValues()
     // Quick validation of the fields
 
     if (tmp1 >= 0 && tmp2 >= 0) {
-        m_start  = tmp1;
-        m_length = tmp2;
+        m_numSteps  = tmp1;
+        m_maxOffsetDivider = tmp2;
     }
 
     // Find which special effect we have selected

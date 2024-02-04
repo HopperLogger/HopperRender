@@ -15,8 +15,8 @@
 #define IDC_GREEN                       1009
 #define IDC_RED                         1010
 #define IDC_NONE                        1011
-#define IDC_START                       1012
-#define IDC_LENGTH                      1014
+#define IDC_NUMSTEPS                    1012
+#define IDC_MAXOFFSETDIV                1014
 #define IDS_STATIC                      -1
 #define IDS_TITLE                       1015
 
