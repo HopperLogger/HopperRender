@@ -123,18 +123,17 @@ CHopperRender::CHopperRender(TCHAR* tszName,
     LPUNKNOWN punk,
     HRESULT* phr) :
     CTransformFilter(tszName, punk, CLSID_HopperRender),
-    m_effect(IDC_RED),
+    m_effect(IDC_NONE),
     m_lBufferRequest(1),
     CPersistStream(punk, phr),
-    m_frame({ 3, 1, 1 }, 0),
-    m_bGPUFrameIsInitialized(false)
+    m_bAbeforeB(true)
 {
     char sz[60];
 
-    GetProfileStringA("Quartz", "EffectStart", "2.0", sz, 60);
+    GetProfileStringA("Quartz", "EffectStart", "0.0", sz, 60);
     m_effectStartTime = COARefTime(atof(sz));
 
-    GetProfileStringA("Quartz", "EffectLength", "5.0", sz, 60);
+    GetProfileStringA("Quartz", "EffectLength", "500.0", sz, 60);
     m_effectTime = COARefTime(atof(sz));
 
 } // (Constructor)
@@ -348,11 +347,13 @@ HRESULT CHopperRender::Transform(IMediaSample* pMediaSample)
     int cyImage = pvi->bmiHeader.biHeight;
     int numPixels = cxImage * cyImage;
 
-    // Initialize the GPU Array if it hasn't been initialized yet
-    if (!m_bGPUFrameIsInitialized)
+    // Initialize the GPU Arrays if they haven't been initialized yet
+    if (!m_frameA.isInitialized())
 	{
-        m_frame.changeDims({ 3, cyImage, cxImage });
-		m_bGPUFrameIsInitialized = true;
+        m_frameA.init({ 3, cyImage, cxImage });
+        m_frameB.init({ 3, cyImage, cxImage });
+        m_frameB.fillData(pData);
+        m_opticalFlowCalc.init(cyImage, cxImage);
 	}
 
     // int iPixelSize = pvi->bmiHeader.biBitCount / 8;
@@ -361,9 +362,21 @@ HRESULT CHopperRender::Transform(IMediaSample* pMediaSample)
     switch (m_effect)
     {
     case IDC_NONE:
-        m_frame.fillData(pData);
-        m_frame.mul(-1);
-        m_frame.download(pData);
+        // Either fill the A or B frame with the new data, so that
+        // we always have the current frame and the previous frame
+        if (m_bAbeforeB)
+        {
+			m_frameA.fillData(pData);
+            m_outFrame = m_opticalFlowCalc.calculateOpticalFlow(m_frameB, m_frameA);
+            m_outFrame.download(pData);
+		}
+        else
+        {
+			m_frameB.fillData(pData);
+            m_outFrame = m_opticalFlowCalc.calculateOpticalFlow(m_frameA, m_frameB);
+            m_outFrame.download(pData);
+		}
+        m_bAbeforeB = !m_bAbeforeB;
         break;
 
         // Zero out the green and blue components to leave only the red

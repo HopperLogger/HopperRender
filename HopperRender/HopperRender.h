@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GPUArrayLib.cuh"
+#include "opticalFlowCalc.cuh"
 
 class CHopperRender : public CTransformFilter,
          public IIPEffect,
@@ -55,7 +56,10 @@ private:
     CRefTime    m_effectStartTime;      // When the effect will begin
     CRefTime    m_effectTime;           // And how long it will last for
     const long m_lBufferRequest;        // The number of buffers to use
-    GPUArray<unsigned char> m_frame;    // The GPU frame
-    bool m_bGPUFrameIsInitialized;      // Is the GPU frame initialized
+    GPUArray<unsigned char> m_frameA;   // GPU frame A
+    GPUArray<unsigned char> m_frameB;   // GPU frame B
+    GPUArray<unsigned char> m_outFrame; // GPU output frame
+    bool m_bAbeforeB;                   // Which frame order are we using
+    OpticalFlowCalc m_opticalFlowCalc;  // Optical flow calculator
 
 }; // HopperRender
