@@ -276,7 +276,9 @@ __global__ void warpFrameKernal(unsigned char* frame1, int* offsetArray, int* hi
 	if (cz < 3 && cy < dimY && cx < dimX) {
 		// Check if the current pixel is inside of the frame
 		if ((cy + offsetY >= 0) && (cy + offsetY < dimY) && (cx + offsetX >= 0) && (cx + offsetX < dimX)) {
-			warpedFrame[cz * dimY * dimX + cy * dimX + cx + (offsetY * dimX + offsetX)] = frame1[cz * dimY * dimX + cy * dimX + cx];
+			int newCy = fminf(fmaxf(cy + offsetY, 0), dimY - 1);
+			int newCx = fminf(fmaxf(cx + offsetX, 0), dimX - 1);
+			warpedFrame[cz * dimY * dimX + newCy * dimX + newCx] = frame1[cz * dimY * dimX + cy * dimX + cx];
 			atomicAdd(&hitCount[cz * dimY * dimX + cy * dimX + cx + (offsetY * dimX + offsetX)], ones[cz * dimY * dimX + cy * dimX + cx]);
 		}
 	}
@@ -295,6 +297,50 @@ __global__ void artifactRemovalKernal(unsigned char* frame1, int* hitCount, unsi
 		if (hitCount[cz * dimY * dimX + cy * dimX + cx] != 1) {
 			warpedFrame[cz * dimY * dimX + cy * dimX + cx] = frame1[cz * dimY * dimX + cy * dimX + cx];
 		}
+	}
+}
+
+// Kernal that rearanges the image data from RGBRGBRGB... to each channel in a seperate layer
+__global__ void rearangeImageDataRGBtoLayerOFC(unsigned char* RGBArray, unsigned char* layerArray, int dimZ, int dimY, int dimX) {
+	// Current entry to be computed by the thread
+	int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	int czi = cz;
+
+	// Account for BGR to RGB
+	if (cz == 0) {
+		czi = 2;
+	}
+	else if (cz == 2) {
+		czi = 0;
+	}
+
+	// Check if result is within matrix boundaries
+	if (cz < dimZ && cy < dimY && cx < dimX) {
+		layerArray[czi * dimY * dimX + cy * dimX + cx] = RGBArray[cz + (3 * cy * dimX) + (3 * cx)];
+	}
+}
+
+// Kernal that rearanges the image data from each channel in a seperate layer to RGBRGBRGB...
+__global__ void rearangeImageDataLayertoRGBOFC(unsigned char* layerArray, unsigned char* RGBArray, int dimZ, int dimY, int dimX) {
+	// Current entry to be computed by the thread
+	int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	int czi = cz;
+
+	// Account for BGR to RGB
+	if (cz == 0) {
+		czi = 2;
+	}
+	else if (cz == 2) {
+		czi = 0;
+	}
+
+	// Check if result is within matrix boundaries
+	if (cz < dimZ && cy < dimY && cx < dimX) {
+		RGBArray[czi + (3 * cy * dimX) + (3 * cx)] = layerArray[cz * dimY * dimX + cy * dimX + cx];
 	}
 }
 
@@ -325,13 +371,18 @@ void OpticalFlowCalc::init(int dimY, int dimX)
 	threads1.x = NUM_THREADS;
 	threads1.y = NUM_THREADS;
 	threads1.z = 1;
-	imageDeltaArray.changeDims({ 3, dimY, dimX });
-	offsetArray.changeDims({ 2, dimY, dimX });
-	statusArray.changeDims({ dimY, dimX });
-	summedUpDeltaArray.changeDims({ dimY, dimX });
-	normalizedDeltaArrayA.changeDims({ dimY, dimX });
-	normalizedDeltaArrayB.changeDims({ dimY, dimX });
-	isValueDecreasedArray.changeDims({ dimY, dimX });
+	imageDeltaArray.init({ 3, dimY, dimX });
+	offsetArray.init({ 2, dimY, dimX });
+	statusArray.init({ dimY, dimX });
+	summedUpDeltaArray.init({ dimY, dimX });
+	normalizedDeltaArrayA.init({ dimY, dimX });
+	normalizedDeltaArrayB.init({ dimY, dimX });
+	isValueDecreasedArray.init({ dimY, dimX });
+	warpedFrame.init({ 3, dimY, dimX });
+	hitCount.init({ 3, dimY, dimX });
+	ones.init({ 3, dimY, dimX }, 1);
+	layerFrame.init({ 3, dimY, dimX });
+	RGBFrame.init({ 3, dimY, dimX });
 	windowDimX = dimX;
 	windowDimY = dimY;
 	currentGlobalOffset = fmax(dimX / MAX_OFFSET_DIVIDER, 1);
@@ -346,9 +397,56 @@ void OpticalFlowCalc::init(int dimY, int dimX)
 *
 * @return: The flow array containing the relative vectors
 */
-GPUArray<unsigned char> OpticalFlowCalc::calculateOpticalFlow(GPUArray<unsigned char>& frame1, GPUArray<unsigned char>& frame2) {
-	// Calculate the image deltas with the current offset array
-	calcImageDelta << <grid, threads3 >> > (frame1.arrayPtrGPU, frame2.arrayPtrGPU, imageDeltaArray.arrayPtrGPU, offsetArray.arrayPtrGPU, frame1.dimY, frame1.dimX);
+GPUArray<int> OpticalFlowCalc::calculateOpticalFlow(GPUArray<unsigned char>& frame1, GPUArray<unsigned char>& frame2) {
+	// Reset the arrays
+	offsetArray.fill(0);
+	summedUpDeltaArray.fill(0);
+
+	// We calculate the ideal offset array for each window size (entire frame, ..., individual pixels)
+	for (int iter = 0; iter < numIterations; iter++) {
+		// Each step we adjust the offset array to find the ideal offset
+		for (int step = 0; step < NUM_STEPS; step++) {
+			// Calculate the image deltas with the current offset array
+			calcImageDelta << <grid, threads3 >> > (frame1.arrayPtrGPU, frame2.arrayPtrGPU, imageDeltaArray.arrayPtrGPU, offsetArray.arrayPtrGPU, frame1.dimY, frame1.dimX);
+
+			// Sum up the deltas of each window
+			calcDeltaSums << <grid, threads3 >> > (imageDeltaArray.arrayPtrGPU, summedUpDeltaArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
+
+			// Switch between the two normalized delta arrays to avoid copying
+			if (step % 2 == 0) {
+				// Normalize the summed up delta array
+				normalizeDeltaSums << <grid, threads1 >> > (summedUpDeltaArray.arrayPtrGPU, normalizedDeltaArrayB.arrayPtrGPU, offsetArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
+
+				// Check if the new normalized delta array is better than the old one
+				compareArrays << <grid, threads1 >> > (normalizedDeltaArrayA.arrayPtrGPU, normalizedDeltaArrayB.arrayPtrGPU, isValueDecreasedArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
+			}
+			else {
+				// Normalize the summed up delta array
+				normalizeDeltaSums << <grid, threads1 >> > (summedUpDeltaArray.arrayPtrGPU, normalizedDeltaArrayA.arrayPtrGPU, offsetArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
+
+				// Check if the new normalized delta array is better than the old one
+				compareArrays << <grid, threads1 >> > (normalizedDeltaArrayB.arrayPtrGPU, normalizedDeltaArrayA.arrayPtrGPU, isValueDecreasedArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
+			}
+
+			// Adjust the offset array based on the comparison results
+			compositeOffsetArray << <grid, threads1 >> > (offsetArray.arrayPtrGPU, isValueDecreasedArray.arrayPtrGPU, statusArray.arrayPtrGPU, currentGlobalOffset, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
+
+			// Wait for all threads to finish
+			cudaDeviceSynchronize();
+
+			// Reset the summed up delta array
+			summedUpDeltaArray.fill(0);
+		}
+		// Adjust window size
+		windowDimX = fmax(windowDimX / 2, 1);
+		windowDimY = fmax(windowDimY / 2, 1);
+
+		// Adjust global offset
+		currentGlobalOffset = fmax(currentGlobalOffset / 2, 1);
+
+		// Reset the status array
+		statusArray.fill(0);
+	}
 
 	// Check for CUDA errors
 	cudaError_t cudaError = cudaGetLastError();
@@ -358,7 +456,7 @@ GPUArray<unsigned char> OpticalFlowCalc::calculateOpticalFlow(GPUArray<unsigned 
 	}
 
 	// Return result array
-	return imageDeltaArray;
+	return offsetArray;
 }
 
 /*
@@ -370,49 +468,19 @@ GPUArray<unsigned char> OpticalFlowCalc::calculateOpticalFlow(GPUArray<unsigned 
 * @return: The warped frame
 */
 GPUArray<unsigned char> OpticalFlowCalc::warpFrame(GPUArray<unsigned char>& frame1, GPUArray<int>& offsetArray) {
-	if (DEBUG_MODE) {
-		// Check if the dimensions match
-		if (frame1.dimZ != 3 || offsetArray.dimZ != 3 || frame1.dimY != offsetArray.dimY || frame1.dimX != offsetArray.dimX) {
-			fprintf(stderr, "ERROR: Frame and offset array dimensions do not match!\n");
-			exit(-1);
-		}
-
-		// Check if the arrays are on the GPU
-		if (!frame1.isOnGPU) {
-			frame1.toGPU();
-		}
-		if (!offsetArray.isOnGPU) {
-			offsetArray.toGPU();
-		}
-	}
-
-	// Calculate the number of cuda blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(frame1.dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(frame1.dimY / NUM_THREADS), 1);
-
-	// Calculate the number of cuda threads needed
-	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, 1);
-	dim3 threads3(NUM_THREADS, NUM_THREADS, 3);
-
-	// Initialize result arrays
-	GPUArray<unsigned char> warpedFrame(frame1.shape, 0); // Array containing the warped frame
-	GPUArray<int> hitCount(frame1.shape, 0); // Array containing the number of times a pixel was hit
-	GPUArray<int> ones(frame1.shape, 1); // Array containing only ones for atomic add
-
-	auto start = std::chrono::high_resolution_clock::now();
+	// Reset the hit count array
+	hitCount.fill(0);
 
 	// Warp the frame
-	warpFrameKernal << <grid, threads3 >> > (frame1.arrayPtrGPU, offsetArray.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
+	rearangeImageDataRGBtoLayerOFC << <grid, threads3 >> > (frame1.arrayPtrGPU, layerFrame.arrayPtrGPU, 3, frame1.dimY, frame1.dimX);
+	warpFrameKernal << <grid, threads3 >> > (layerFrame.arrayPtrGPU, offsetArray.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
+	rearangeImageDataLayertoRGBOFC << <grid, threads3 >> > (warpedFrame.arrayPtrGPU, RGBFrame.arrayPtrGPU, 3, frame1.dimY, frame1.dimX);
 
 	// Wait for all threads to finish
 	cudaDeviceSynchronize();
 
 	// Remove artifacts
-	artifactRemovalKernal << <grid, threads3 >> > (frame1.arrayPtrGPU, hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
-
-	auto stop = std::chrono::high_resolution_clock::now();
-	auto duration = std::chrono::duration<double, std::milli>(stop - start).count();
-	std::cout << "\nWarp Calc Time: " << std::fixed << std::setprecision(4) << duration << " milliseconds" << std::endl;
+	//artifactRemovalKernal << <grid, threads3 >> > (frame1.arrayPtrGPU, hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
 
 	// Check for CUDA errors
 	cudaError_t cudaError = cudaGetLastError();
@@ -422,5 +490,5 @@ GPUArray<unsigned char> OpticalFlowCalc::warpFrame(GPUArray<unsigned char>& fram
 	}
 
 	// Return result array
-	return warpedFrame;
+	return RGBFrame;
 }

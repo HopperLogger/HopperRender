@@ -110,8 +110,8 @@ public:
 	*
 	* @param arrayShape: Dimensions of the array (e.g. {2, 3, 4} for a 3D array with 2 layers, 3 rows and 4 columns)
 	*/
-	void init(std::vector<int> arrayShape) {
-		changeDims(arrayShape, 0);
+	void init(std::vector<int> arrayShape, T initializer = 0) {
+		changeDims(arrayShape, initializer);
 	}
 
 	/*

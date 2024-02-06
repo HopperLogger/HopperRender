@@ -33,7 +33,7 @@ public:
 	*
 	* @return: The flow array containing the relative vectors
 	*/
-	GPUArray<unsigned char> calculateOpticalFlow(GPUArray<unsigned char>& frame1, GPUArray<unsigned char>& frame2);
+	GPUArray<int> calculateOpticalFlow(GPUArray<unsigned char>& frame1, GPUArray<unsigned char>& frame2);
 
 	/*
 	* Warps frame1 according to the offset array
@@ -64,6 +64,11 @@ private:
 	GPUArray<float> normalizedDeltaArrayA; // Array containing the normalized delta values of each window
 	GPUArray<float> normalizedDeltaArrayB; // Array containing the normalized delta values of each window
 	GPUArray<bool> isValueDecreasedArray; // Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
+	GPUArray<unsigned char> warpedFrame; // Array containing the warped frame
+	GPUArray<int> hitCount; // Array containing the number of times a pixel was hit
+	GPUArray<int> ones; // Array containing only ones for atomic add
+	GPUArray<unsigned char> layerFrame;
+	GPUArray<unsigned char> RGBFrame;
 	
 	// Helper variables
 	int windowDimX; // Initial window size

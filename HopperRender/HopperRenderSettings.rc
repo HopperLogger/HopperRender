@@ -68,8 +68,8 @@ BEGIN
     GROUPBOX        "Parameters", IDS_STATIC, 125, 23, 130, 51
     EDITTEXT        IDC_NUMSTEPS, 200, 34, 40, 13, ES_AUTOHSCROLL
     EDITTEXT        IDC_MAXOFFSETDIV, 200, 53, 40, 13, ES_AUTOHSCROLL
-    LTEXT           "NumSteps", IDS_STATIC, 132, 37, 150, 9
-    LTEXT           "MaxOffsetDivider", IDS_STATIC, 132, 55, 150, 9
+    LTEXT           "NumSteps", IDS_STATIC, 132, 37, 60, 9
+    LTEXT           "MaxOffsetDivider", IDS_STATIC, 132, 55, 60, 9
 END
 
 STRINGTABLE DISCARDABLE

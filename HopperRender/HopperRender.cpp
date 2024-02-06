@@ -242,10 +242,14 @@ HRESULT CHopperRender::Copy(IMediaSample* pSource, IMediaSample* pDest) const
 
     CopyMemory((PVOID)pDestBuffer, (PVOID)pSourceBuffer, lSourceSize);
 
-    // Copy the sample times
+    // Copy the sample times with framerate modification
 
     REFERENCE_TIME TimeStart, TimeEnd;
     if (NOERROR == pSource->GetTime(&TimeStart, &TimeEnd)) {
+        // Adjust the time values based on the frameRateMultiplier
+        TimeStart = static_cast<REFERENCE_TIME>(TimeStart * 2);
+        TimeEnd = static_cast<REFERENCE_TIME>(TimeEnd * 2);
+
         pDest->SetTime(&TimeStart, &TimeEnd);
     }
 
@@ -361,14 +365,16 @@ HRESULT CHopperRender::Transform(IMediaSample* pMediaSample)
         if (m_bAbeforeB)
         {
 			m_frameA.fillData(pData);
-            m_outFrame = m_opticalFlowCalc.calculateOpticalFlow(m_frameB, m_frameA);
-            m_outFrame.download(pData);
+            m_offsetArray = m_opticalFlowCalc.calculateOpticalFlow(m_frameB, m_frameA);
+            m_warpedFrame = m_opticalFlowCalc.warpFrame(m_frameB, m_offsetArray);
+            m_warpedFrame.download(pData);
 		}
         else
         {
 			m_frameB.fillData(pData);
-            m_outFrame = m_opticalFlowCalc.calculateOpticalFlow(m_frameA, m_frameB);
-            m_outFrame.download(pData);
+            m_offsetArray = m_opticalFlowCalc.calculateOpticalFlow(m_frameA, m_frameB);
+            m_warpedFrame = m_opticalFlowCalc.warpFrame(m_frameA, m_offsetArray);
+            m_warpedFrame.download(pData);
 		}
         m_bAbeforeB = !m_bAbeforeB;
 
@@ -568,7 +574,7 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
     CheckPointer(pProperties, E_POINTER);
     HRESULT hr = NOERROR;
 
-    pProperties->cBuffers = 1;
+    pProperties->cBuffers = 5;
     pProperties->cbBuffer = m_pInput->CurrentMediaType().GetSampleSize();
     ASSERT(pProperties->cbBuffer);
 
@@ -582,7 +588,7 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
         return hr;
     }
 
-    ASSERT(Actual.cBuffers == 1);
+    ASSERT(Actual.cBuffers == 5);
 
     if (pProperties->cBuffers > Actual.cBuffers ||
         pProperties->cbBuffer > Actual.cbBuffer) {
@@ -601,12 +607,6 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
 //
 HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType)
 {
-    // Is the input pin connected
-
-    if (m_pInput->IsConnected() == FALSE) {
-        return E_UNEXPECTED;
-    }
-
     // This should never happen
 
     if (iPosition < 0) {

@@ -1,6 +1,2 @@
 ﻿  HopperRender.cpp
-  HopperRenderSettings.cpp
-C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\HopperRender\HopperRenderSettings.cpp(215,23): warning C4244: '=': conversion from 'REFTIME' to 'int', possible loss of data
-C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\HopperRender\HopperRenderSettings.cpp(216,30): warning C4244: '=': conversion from 'REFTIME' to 'int', possible loss of data
-  Generating Code...
   HopperRender.vcxproj -> C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\x64\Debug\HopperRender.dll
