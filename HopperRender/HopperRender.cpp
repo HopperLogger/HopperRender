@@ -14,6 +14,13 @@
 #include "HopperRender.h"
 #include "resource.h"
 
+// Debug message function
+
+void DebugMessage(const std::string& message) {
+    std::string m_debugMessage = message + "\n";
+    OutputDebugStringA(m_debugMessage.c_str());
+}
+
 // Setup information
 
 const AMOVIESETUP_MEDIATYPE sudPinTypes =
@@ -207,15 +214,14 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut)
     if (FAILED(hr)) {
         return hr;
     }
-
-    // Check to see if it is time to do the sample
-    //CRefTime tStart, tStop;
-    //hr = pIn->GetTime((REFERENCE_TIME*)&tStart, (REFERENCE_TIME*)&tStop);
+    hr = DeliverNewSamples(pIn);
+    if (FAILED(hr)) {
+        return hr;
+    }
 
     return Transform(pOut);
 
 } // Transform
-
 
 //
 // Copy
@@ -247,9 +253,7 @@ HRESULT CHopperRender::Copy(IMediaSample* pSource, IMediaSample* pDest) const
     REFERENCE_TIME TimeStart, TimeEnd;
     if (NOERROR == pSource->GetTime(&TimeStart, &TimeEnd)) {
         // Adjust the time values based on the frameRateMultiplier
-        TimeStart = static_cast<REFERENCE_TIME>(TimeStart * 2);
-        TimeEnd = static_cast<REFERENCE_TIME>(TimeEnd * 2);
-
+        TimeEnd = static_cast<REFERENCE_TIME>(TimeStart + 166667);
         pDest->SetTime(&TimeStart, &TimeEnd);
     }
 
@@ -314,6 +318,116 @@ HRESULT CHopperRender::Copy(IMediaSample* pSource, IMediaSample* pDest) const
 } // Copy
 
 
+HRESULT CHopperRender::DeliverNewSamples(IMediaSample* pSource) const
+{
+    HRESULT hr = NOERROR;
+    CheckPointer(pSource, E_POINTER);
+
+    // Get pointers to the sample buffers
+    BYTE* pSourceBuffer;
+    pSource->GetPointer(&pSourceBuffer);
+
+    // Get the size of each sample
+    long lSourceSize = pSource->GetActualDataLength();
+    long lDestSize = lSourceSize * 6;
+
+    // Calculate how many times to copy the input sample into the output buffer
+    int numCopies = lDestSize / lSourceSize;
+
+    // Assuming you want to output 7 frames for each input frame
+    BYTE* pNewDestBuffer;
+    for (int i = 1; i < numCopies; ++i) {
+        // Create a new output sample
+        IMediaSample* pNewDest;
+        hr = m_pOutput->GetDeliveryBuffer(&pNewDest, NULL, NULL, 0);
+        if (FAILED(hr)) {
+            return hr;
+        }
+
+        // Get the buffer pointer for the new output sample
+        pNewDest->GetPointer(&pNewDestBuffer);
+
+        // Calculate the size of each output frame (assuming equal size)
+        LONG outSize = lSourceSize;
+
+        // Copy the relevant portion of the input buffer to the output buffer
+        memset(pNewDestBuffer, 0, outSize);
+
+        // Set the presentation time for the new output sample
+        REFERENCE_TIME startTime, endTime;
+        pSource->GetTime(&startTime, &endTime);
+        startTime = startTime + (i * 166667);
+        endTime = startTime + 166667;
+        pNewDest->SetTime(&startTime, &endTime);
+
+        // Process any other properties or modifications as needed
+        LONGLONG MediaStart, MediaEnd;
+        if (NOERROR == pSource->GetMediaTime(&MediaStart, &MediaEnd)) {
+            pNewDest->SetMediaTime(&MediaStart, &MediaEnd);
+        }
+
+        // Copy the Sync point property
+
+        hr = pSource->IsSyncPoint();
+        if (hr == S_OK) {
+            pNewDest->SetSyncPoint(TRUE);
+        }
+        else if (hr == S_FALSE) {
+            pNewDest->SetSyncPoint(FALSE);
+        }
+        else {  // an unexpected error has occured...
+            return E_UNEXPECTED;
+        }
+
+        // Copy the media type
+
+        AM_MEDIA_TYPE* pMediaType;
+        pSource->GetMediaType(&pMediaType);
+        pNewDest->SetMediaType(pMediaType);
+        DeleteMediaType(pMediaType);
+
+        // Copy the preroll property
+
+        hr = pSource->IsPreroll();
+        if (hr == S_OK) {
+            pNewDest->SetPreroll(TRUE);
+        }
+        else if (hr == S_FALSE) {
+            pNewDest->SetPreroll(FALSE);
+        }
+        else {  // an unexpected error has occured...
+            return E_UNEXPECTED;
+        }
+
+        // Copy the discontinuity property
+
+        hr = pSource->IsDiscontinuity();
+        if (hr == S_OK) {
+            pNewDest->SetDiscontinuity(TRUE);
+        }
+        else if (hr == S_FALSE) {
+            pNewDest->SetDiscontinuity(FALSE);
+        }
+        else {  // an unexpected error has occured...
+            return E_UNEXPECTED;
+        }
+
+        // Copy the actual data length
+
+        long lDataLength = pSource->GetActualDataLength();
+        pNewDest->SetActualDataLength(lDataLength);
+
+        // Deliver the new output sample downstream
+        m_pOutput->Deliver(pNewDest);
+
+        // Release the new output sample to avoid memory leaks
+        pNewDest->Release();
+    }
+
+    return NOERROR;
+
+} // Copy
+
 //
 // Transform (in place)
 //
@@ -362,29 +476,23 @@ HRESULT CHopperRender::Transform(IMediaSample* pMediaSample)
     case IDC_NONE:
         // Either fill the A or B frame with the new data, so that
         // we always have the current frame and the previous frame
-        if (m_bAbeforeB)
-        {
-			m_frameA.fillData(pData);
-            m_offsetArray = m_opticalFlowCalc.calculateOpticalFlow(m_frameB, m_frameA);
-            m_warpedFrame = m_opticalFlowCalc.warpFrame(m_frameB, m_offsetArray);
-            m_warpedFrame.download(pData);
-		}
-        else
-        {
-			m_frameB.fillData(pData);
-            m_offsetArray = m_opticalFlowCalc.calculateOpticalFlow(m_frameA, m_frameB);
-            m_warpedFrame = m_opticalFlowCalc.warpFrame(m_frameA, m_offsetArray);
-            m_warpedFrame.download(pData);
-		}
-        m_bAbeforeB = !m_bAbeforeB;
-
-        // Output the debug message every 60 frames
-        if ((m_frameCounter % 60) == 0)
-        {
-            m_debugMessage = "Num Steps: " + std::to_string(m_numSteps) + " - Max Offset Divider: " + std::to_string(m_maxOffsetDivider) + "\n";
-            OutputDebugStringA(m_debugMessage.c_str());
+        if (0) {
+            if (m_bAbeforeB)
+            {
+                m_frameA.fillData(pData);
+                m_offsetArray = m_opticalFlowCalc.calculateOpticalFlow(m_frameB, m_frameA);
+                m_warpedFrame = m_opticalFlowCalc.warpFrame(m_frameB, m_offsetArray);
+                m_warpedFrame.download(pData);
+            }
+            else
+            {
+                m_frameB.fillData(pData);
+                m_offsetArray = m_opticalFlowCalc.calculateOpticalFlow(m_frameA, m_frameB);
+                m_warpedFrame = m_opticalFlowCalc.warpFrame(m_frameA, m_offsetArray);
+                m_warpedFrame.download(pData);
+            }
+            m_bAbeforeB = !m_bAbeforeB;
         }
-        
         break;
 
         // Zero out the green and blue components to leave only the red
@@ -574,8 +682,8 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
     CheckPointer(pProperties, E_POINTER);
     HRESULT hr = NOERROR;
 
-    pProperties->cBuffers = 5;
-    pProperties->cbBuffer = m_pInput->CurrentMediaType().GetSampleSize();
+    pProperties->cBuffers = 1;
+    pProperties->cbBuffer = m_pInput->CurrentMediaType().GetSampleSize() * 6;
     ASSERT(pProperties->cbBuffer);
 
     // Ask the allocator to reserve us some sample memory, NOTE the function
@@ -588,7 +696,7 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
         return hr;
     }
 
-    ASSERT(Actual.cBuffers == 5);
+    ASSERT(Actual.cBuffers == 1);
 
     if (pProperties->cBuffers > Actual.cBuffers ||
         pProperties->cbBuffer > Actual.cbBuffer) {

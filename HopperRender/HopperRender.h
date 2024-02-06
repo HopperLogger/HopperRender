@@ -51,6 +51,7 @@ private:
     // Look after doing the special effect
     BOOL CanPerformHopperRender(const CMediaType *pMediaType) const;
     HRESULT Copy(IMediaSample *pSource, IMediaSample *pDest) const;
+    HRESULT DeliverNewSamples(IMediaSample* pSource) const;
     HRESULT Transform(IMediaSample *pMediaSample);
 
     CCritSec    m_HopperRenderLock;        // Private play critical section
@@ -64,7 +65,6 @@ private:
     GPUArray<unsigned char> m_warpedFrame; // GPU warped frame
     bool m_bAbeforeB;                      // Which frame order are we using
     OpticalFlowCalc m_opticalFlowCalc;     // Optical flow calculator
-    std::string m_debugMessage = "";       // Debug message
     int m_frameCounter = 0;                // Frame counter (relative! i.e. number of frames presented)
 
 }; // HopperRender

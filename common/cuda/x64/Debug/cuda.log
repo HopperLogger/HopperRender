@@ -1,8 +1,41 @@
 ﻿  Compiling CUDA source file opticalFlowCalc.cu...
+  Compiling CUDA source file GPUArrayLib.cu...
+  
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda>"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.3\bin\nvcc.exe" -gencode=arch=compute_89,code=\"sm_89,compute_89\" -gencode=arch=compute_61,code=\"sm_61,compute_61\" --use-local-env -ccbin "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\bin\HostX64\x64" -x cu   -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.3\include" -I"C:\Program Files\vcpkg\vcpkg\installed\x64-windows\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.3\include"  -G   --keep-dir x64\Debug -use_fast_math -maxrregcount=0 --ptxas-options=-v --split-compile=0 --machine 64 --compile -cudart static  -g  -DWIN32 -DWIN64 -D_DEBUG -D_CONSOLE -D_MBCS -Xcompiler "/EHsc /W3 /nologo /Od /FS /ZI /RTC1 /MDd " -Xcompiler "/Fd\"C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\x64\Debug\lib\cuda.pdb\"" -o "C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\x64\Debug\GPUArrayLib.cu.obj" "C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu" 
   
   C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda>"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.3\bin\nvcc.exe" -gencode=arch=compute_89,code=\"sm_89,compute_89\" -gencode=arch=compute_61,code=\"sm_61,compute_61\" --use-local-env -ccbin "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\bin\HostX64\x64" -x cu   -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.3\include" -I"C:\Program Files\vcpkg\vcpkg\installed\x64-windows\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.3\include"  -G   --keep-dir x64\Debug -use_fast_math -maxrregcount=0 --ptxas-options=-v --split-compile=0 --machine 64 --compile -cudart static  -g  -DWIN32 -DWIN64 -D_DEBUG -D_CONSOLE -D_MBCS -Xcompiler "/EHsc /W3 /nologo /Od /FS /ZI /RTC1 /MDd " -Xcompiler "/Fd\"C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\x64\Debug\lib\cuda.pdb\"" -o "C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\x64\Debug\opticalFlowCalc.cu.obj" "C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\opticalFlowCalc.cu" 
 cl : Command line warning D9025: overriding '/ZI' with '/Zi'
 cl : Command line warning D9025: overriding '/ZI' with '/Zi'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(612): warning #347-D: default argument is not allowed
+    void GPUArray<T>::changeDims(std::vector<int> arrayShape, T initializer = 0) {
+                                                                              ^
+  
+  Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+  
+cl : Command line warning D9025: overriding '/ZI' with '/Zi'
+cl : Command line warning D9025: overriding '/ZI' with '/Zi'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\utils/stb/stb_image.h(4262): warning #550-D: variable "old_limit" was set but never used
+       unsigned int cur, limit, old_limit;
+                                ^
+  
+  Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\utils/stb/stb_image.h(5184): warning #550-D: variable "idata_limit_old" was set but never used
+                   stbi__uint32 idata_limit_old = idata_limit;
+                                ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\utils/stb/stb_image.h(6971): warning #550-D: variable "out_size" was set but never used
+          int out_size = 0;
+              ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\utils/stb/stb_image.h(6972): warning #550-D: variable "delays_size" was set but never used
+          int delays_size = 0;
+              ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(612): warning #347-D: default argument is not allowed
+    void GPUArray<T>::changeDims(std::vector<int> arrayShape, T initializer = 0) {
+                                                                              ^
+  
   ptxas info    : 0 bytes gmem
   ptxas info    : Compiling entry function '_Z14calcImageDeltaPhS_S_Piii' for 'sm_89'
   ptxas info    : Function properties for _Z14calcImageDeltaPhS_S_Piii
@@ -54,6 +87,308 @@ cl : Command line warning D9025: overriding '/ZI' with '/Zi'
       24 bytes stack frame, 20 bytes spill stores, 20 bytes spill loads
   ptxas info    : Function properties for _ZN49_INTERNAL_dd415f84_18_opticalFlowCalc_cu_e1c2f9139atomicAddEPjj
       24 bytes stack frame, 20 bytes spill stores, 20 bytes spill loads
+cl : Command line warning D9025: overriding '/ZI' with '/Zi'
+  ptxas info    : 39 bytes gmem
+  ptxas info    : Compiling entry function '_Z27rearangeImageDataRGBtoLayerPhS_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z27rearangeImageDataRGBtoLayerPhS_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 17 registers, 380 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z27rearangeImageDataLayertoRGBPhS_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z27rearangeImageDataLayertoRGBPhS_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 380 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z26rearangeFlowDataLayertoRGBPiPhiiii' for 'sm_89'
+  ptxas info    : Function properties for _Z26rearangeFlowDataLayertoRGBPiPhiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 28 registers, 384 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z13memTestKernalPll' for 'sm_89'
+  ptxas info    : Function properties for _Z13memTestKernalPll
+      16 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 28 registers, 16 bytes cumulative stack size, 364 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIhEvPT_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z11copyEntriesIhEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 17 registers, 380 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIhEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarAddIhEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIhEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarSubIhEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIhEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarMulIhEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIhEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarDivIhEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIhEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIhEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIhEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIhEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIhhEvPT_PT0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z16matrixElementMulIhhEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIhEvPT_S0_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIhEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 376 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIhEvPT_S0_iiiii' for 'sm_89'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIhEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 384 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIiEvPT_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z11copyEntriesIiEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 380 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIiEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarAddIiEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIiEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarSubIiEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIiEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarMulIiEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIiEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarDivIiEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIiEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIiEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIiEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIiEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIiiEvPT_PT0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z16matrixElementMulIiiEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIiEvPT_S0_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIiEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 376 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIiEvPT_S0_iiiii' for 'sm_89'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIiEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 384 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIjEvPT_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z11copyEntriesIjEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 380 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIjEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarAddIjEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIjEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarSubIjEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIjEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarMulIjEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIjEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarDivIjEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIjEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIjEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIjEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIjEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIjjEvPT_PT0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z16matrixElementMulIjjEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIjEvPT_S0_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIjEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 376 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIjEvPT_S0_iiiii' for 'sm_89'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIjEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 384 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIfEvPT_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z11copyEntriesIfEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 380 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIfEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarAddIfEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIfEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarSubIfEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIfEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarMulIfEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIfEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarDivIfEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIfEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIfEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIfEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIfEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIffEvPT_PT0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z16matrixElementMulIffEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIfEvPT_S0_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIfEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 376 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIfEvPT_S0_iiiii' for 'sm_89'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIfEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 384 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIdEvPT_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z11copyEntriesIdEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 380 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIdEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarAddIdEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 20 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIdEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarSubIdEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 20 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIdEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarMulIdEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 20 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIdEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarDivIdEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 45 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIdEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIdEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 20 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIdEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIdEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 20 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIddEvPT_PT0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z16matrixElementMulIddEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 20 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIdEvPT_S0_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIdEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 17 registers, 380 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIdEvPT_S0_iiiii' for 'sm_89'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIdEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIlEvPT_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z11copyEntriesIlEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 380 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIlEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarAddIlEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIlEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarSubIlEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIlEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarMulIlEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIlEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarDivIlEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIlEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIlEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIlEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIlEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIllEvPT_PT0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z16matrixElementMulIllEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIlEvPT_S0_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIlEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 376 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIlEvPT_S0_iiiii' for 'sm_89'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIlEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 384 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIbEvPT_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z11copyEntriesIbEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 17 registers, 380 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIbEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarAddIbEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIbEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarSubIbEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIbEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarMulIbEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIbEvPT_S0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixScalarDivIbEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIbEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIbEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIbEvPT_S1_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIbEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIbbEvPT_PT0_S1_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z16matrixElementMulIbbEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 388 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIbEvPT_S0_iii' for 'sm_89'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIbEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 376 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIbEvPT_S0_iiiii' for 'sm_89'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIbEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 384 bytes cmem[0]
+  ptxas info    : Function properties for fminf
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for fmaxf
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 cl : Command line warning D9025: overriding '/ZI' with '/Zi'
   ptxas info    : 0 bytes gmem
   ptxas info    : Compiling entry function '_Z14calcImageDeltaPhS_S_Piii' for 'sm_61'
@@ -109,7 +444,333 @@ cl : Command line warning D9025: overriding '/ZI' with '/Zi'
 CUDACOMPILE : nvcc warning : '--device-debug (-G)' overrides '-split-compile'
   opticalFlowCalc.cu
 cl : Command line warning D9025: overriding '/ZI' with '/Zi'
-  tmpxft_000080ac_00000000-7_opticalFlowCalc.compute_61.cudafe1.cpp
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\utils/stb/stb_image.h(4262): warning #550-D: variable "old_limit" was set but never used
+       unsigned int cur, limit, old_limit;
+                                ^
+  
+  Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\utils/stb/stb_image.h(5184): warning #550-D: variable "idata_limit_old" was set but never used
+                   stbi__uint32 idata_limit_old = idata_limit;
+                                ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\utils/stb/stb_image.h(6971): warning #550-D: variable "out_size" was set but never used
+          int out_size = 0;
+              ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\utils/stb/stb_image.h(6972): warning #550-D: variable "delays_size" was set but never used
+          int delays_size = 0;
+              ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(612): warning #347-D: default argument is not allowed
+    void GPUArray<T>::changeDims(std::vector<int> arrayShape, T initializer = 0) {
+                                                                              ^
+  
+  ptxas info    : 39 bytes gmem
+  ptxas info    : Compiling entry function '_Z27rearangeImageDataRGBtoLayerPhS_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z27rearangeImageDataRGBtoLayerPhS_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 348 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z27rearangeImageDataLayertoRGBPhS_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z27rearangeImageDataLayertoRGBPhS_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 12 registers, 348 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z26rearangeFlowDataLayertoRGBPiPhiiii' for 'sm_61'
+  ptxas info    : Function properties for _Z26rearangeFlowDataLayertoRGBPiPhiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 21 registers, 352 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z13memTestKernalPll' for 'sm_61'
+  ptxas info    : Function properties for _Z13memTestKernalPll
+      16 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 22 registers, 16 bytes cumulative stack size, 332 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIhEvPT_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z11copyEntriesIhEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 13 registers, 348 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIhEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarAddIhEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIhEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarSubIhEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIhEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarMulIhEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIhEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarDivIhEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIhEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIhEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIhEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIhEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIhhEvPT_PT0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z16matrixElementMulIhhEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIhEvPT_S0_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIhEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 12 registers, 344 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIhEvPT_S0_iiiii' for 'sm_61'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIhEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 352 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIiEvPT_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z11copyEntriesIiEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 13 registers, 348 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIiEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarAddIiEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIiEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarSubIiEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIiEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarMulIiEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIiEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarDivIiEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIiEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIiEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIiEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIiEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIiiEvPT_PT0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z16matrixElementMulIiiEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIiEvPT_S0_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIiEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 12 registers, 344 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIiEvPT_S0_iiiii' for 'sm_61'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIiEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 352 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIjEvPT_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z11copyEntriesIjEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 13 registers, 348 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIjEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarAddIjEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIjEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarSubIjEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIjEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarMulIjEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIjEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarDivIjEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIjEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIjEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIjEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIjEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIjjEvPT_PT0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z16matrixElementMulIjjEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIjEvPT_S0_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIjEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 12 registers, 344 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIjEvPT_S0_iiiii' for 'sm_61'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIjEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 352 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIfEvPT_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z11copyEntriesIfEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 13 registers, 348 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIfEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarAddIfEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIfEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarSubIfEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIfEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarMulIfEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIfEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarDivIfEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIfEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIfEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIfEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIfEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIffEvPT_PT0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z16matrixElementMulIffEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIfEvPT_S0_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIfEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 12 registers, 344 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIfEvPT_S0_iiiii' for 'sm_61'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIfEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 352 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIdEvPT_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z11copyEntriesIdEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 348 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIdEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarAddIdEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIdEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarSubIdEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIdEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarMulIdEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIdEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarDivIdEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 44 registers, 356 bytes cmem[0], 20 bytes cmem[2]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIdEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIdEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIdEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIdEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIddEvPT_PT0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z16matrixElementMulIddEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIdEvPT_S0_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIdEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 13 registers, 348 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIdEvPT_S0_iiiii' for 'sm_61'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIdEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIlEvPT_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z11copyEntriesIlEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 13 registers, 348 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIlEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarAddIlEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIlEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarSubIlEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIlEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarMulIlEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIlEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarDivIlEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIlEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIlEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIlEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIlEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIllEvPT_PT0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z16matrixElementMulIllEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIlEvPT_S0_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIlEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 12 registers, 344 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIlEvPT_S0_iiiii' for 'sm_61'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIlEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 352 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z11copyEntriesIbEvPT_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z11copyEntriesIbEvPT_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 13 registers, 348 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarAddIbEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarAddIbEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarSubIbEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarSubIbEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarMulIbEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarMulIbEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixScalarDivIbEvPT_S0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixScalarDivIbEvPT_S0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixAddIbEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixAddIbEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15matrixMatrixSubIbEvPT_S1_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z15matrixMatrixSubIbEvPT_S1_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16matrixElementMulIbbEvPT_PT0_S1_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z16matrixElementMulIbbEvPT_PT0_S1_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 15 registers, 356 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18setArrayEntriesAllIbEvPT_S0_iii' for 'sm_61'
+  ptxas info    : Function properties for _Z18setArrayEntriesAllIbEvPT_S0_iii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 12 registers, 344 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22setArrayEntriesInRangeIbEvPT_S0_iiiii' for 'sm_61'
+  ptxas info    : Function properties for _Z22setArrayEntriesInRangeIbEvPT_S0_iiiii
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 352 bytes cmem[0]
+  ptxas info    : Function properties for fminf
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for fmaxf
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+CUDACOMPILE : nvcc warning : '--device-debug (-G)' overrides '-split-compile'
+  GPUArrayLib.cu
+cl : Command line warning D9025: overriding '/ZI' with '/Zi'
+  tmpxft_00008bf4_00000000-7_opticalFlowCalc.compute_61.cudafe1.cpp
 C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(360): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
 C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(360): warning C4244: '=': conversion from 'float' to 'int', possible loss of data
 C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(361): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
@@ -120,4 +781,208 @@ C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DSh
 C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(441): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
 C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(442): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
 C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(445): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+  tmpxft_000033c4_00000000-7_GPUArrayLib.compute_61.cudafe1.cpp
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(445): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(445): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(446): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(446): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(532): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(532): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(533): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(533): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(534): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(534): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1245): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1245): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1246): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1246): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1247): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1247): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1264): warning C4244: 'argument': conversion from 'double' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1770): warning C4267: 'argument': conversion from 'size_t' to 'long', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(236): warning C4661: 'GPUArray<int>::GPUArray(const char *,int,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(81): note: see declaration of 'GPUArray<int>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(236): warning C4661: 'GPUArray<int>::GPUArray(const char *,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(69): note: see declaration of 'GPUArray<int>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(236): warning C4661: 'void GPUArray<unsigned char>::exportFlowImage(const char *,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(230): note: see declaration of 'GPUArray<unsigned char>::exportFlowImage'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1789): warning C4661: 'GPUArray<unsigned int>::GPUArray(const char *,int,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(81): note: see declaration of 'GPUArray<unsigned int>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1789): warning C4661: 'GPUArray<unsigned int>::GPUArray(const char *,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(69): note: see declaration of 'GPUArray<unsigned int>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1789): warning C4661: 'void GPUArray<unsigned int>::exportFlowImage(const char *,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(230): note: see declaration of 'GPUArray<unsigned int>::exportFlowImage'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1790): warning C4661: 'GPUArray<float>::GPUArray(const char *,int,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(81): note: see declaration of 'GPUArray<float>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1790): warning C4661: 'GPUArray<float>::GPUArray(const char *,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(69): note: see declaration of 'GPUArray<float>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1790): warning C4661: 'void GPUArray<float>::exportFlowImage(const char *,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(230): note: see declaration of 'GPUArray<float>::exportFlowImage'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1791): warning C4661: 'GPUArray<double>::GPUArray(const char *,int,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(81): note: see declaration of 'GPUArray<double>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1791): warning C4661: 'GPUArray<double>::GPUArray(const char *,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(69): note: see declaration of 'GPUArray<double>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1791): warning C4661: 'void GPUArray<double>::exportFlowImage(const char *,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(230): note: see declaration of 'GPUArray<double>::exportFlowImage'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1792): warning C4661: 'GPUArray<long>::GPUArray(const char *,int,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(81): note: see declaration of 'GPUArray<long>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1792): warning C4661: 'GPUArray<long>::GPUArray(const char *,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(69): note: see declaration of 'GPUArray<long>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1792): warning C4661: 'void GPUArray<long>::exportFlowImage(const char *,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(230): note: see declaration of 'GPUArray<long>::exportFlowImage'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1794): warning C4661: 'GPUArray<bool>::GPUArray(const char *,int,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(81): note: see declaration of 'GPUArray<bool>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1794): warning C4661: 'GPUArray<bool>::GPUArray(const char *,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(69): note: see declaration of 'GPUArray<bool>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1794): warning C4661: 'void GPUArray<bool>::exportFlowImage(const char *,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(230): note: see declaration of 'GPUArray<bool>::exportFlowImage'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(708): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(708): note: the template instantiation context (the oldest one first) is
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1224): note: see reference to class template instantiation 'GPUArray<int>' being compiled
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(690): note: while compiling class template member function 'GPUArray<int> GPUArray<int>::copy(void)'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(708): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(709): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(709): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(710): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(710): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(879): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(879): note: the template instantiation context (the oldest one first) is
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(863): note: while compiling class template member function 'void GPUArray<int>::add(GPUArray<int> &)'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(879): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(880): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(880): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(881): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(881): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(742): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(742): note: the template instantiation context (the oldest one first) is
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(735): note: while compiling class template member function 'void GPUArray<int>::add(T)'
+          with
+          [
+              T=int
+          ]
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(742): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(743): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(743): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(744): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(744): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(920): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(920): note: the template instantiation context (the oldest one first) is
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(904): note: while compiling class template member function 'void GPUArray<int>::sub(GPUArray<int> &)'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(920): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(921): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(921): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(922): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(922): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(774): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(774): note: the template instantiation context (the oldest one first) is
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(767): note: while compiling class template member function 'void GPUArray<int>::sub(T)'
+          with
+          [
+              T=int
+          ]
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(774): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(775): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(775): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(776): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(776): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(806): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(806): note: the template instantiation context (the oldest one first) is
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(799): note: while compiling class template member function 'void GPUArray<int>::mul(T)'
+          with
+          [
+              T=int
+          ]
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(806): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(807): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(807): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(808): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(808): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(838): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(838): note: the template instantiation context (the oldest one first) is
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(831): note: while compiling class template member function 'void GPUArray<int>::div(T)'
+          with
+          [
+              T=int
+          ]
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(838): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(839): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(839): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(840): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(840): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(961): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(961): note: the template instantiation context (the oldest one first) is
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(945): note: while compiling class template member function 'void GPUArray<int>::elementMul(GPUArray<int> &)'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(961): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(962): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(962): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(963): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(963): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1033): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1033): note: the template instantiation context (the oldest one first) is
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1020): note: while compiling class template member function 'void GPUArray<int>::fill(T,int,int)'
+          with
+          [
+              T=int
+          ]
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1033): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1034): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1034): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1035): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1035): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(993): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(993): note: the template instantiation context (the oldest one first) is
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(986): note: while compiling class template member function 'void GPUArray<int>::fill(T)'
+          with
+          [
+              T=int
+          ]
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(993): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(994): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(994): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(995): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(995): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1163): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1163): note: the template instantiation context (the oldest one first) is
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1143): note: while compiling class template member function 'void GPUArray<int>::exportPNG(const char *)'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1163): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1164): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1164): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1165): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(1165): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'GPUArray<int>::GPUArray(const char *,int,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(81): note: see declaration of 'GPUArray<int>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'GPUArray<int>::GPUArray(const char *,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(69): note: see declaration of 'GPUArray<int>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'void GPUArray<unsigned char>::exportFlowImage(const char *,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(230): note: see declaration of 'GPUArray<unsigned char>::exportFlowImage'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'GPUArray<unsigned int>::GPUArray(const char *,int,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(81): note: see declaration of 'GPUArray<unsigned int>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'GPUArray<unsigned int>::GPUArray(const char *,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(69): note: see declaration of 'GPUArray<unsigned int>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'void GPUArray<unsigned int>::exportFlowImage(const char *,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(230): note: see declaration of 'GPUArray<unsigned int>::exportFlowImage'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'GPUArray<float>::GPUArray(const char *,int,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(81): note: see declaration of 'GPUArray<float>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'GPUArray<float>::GPUArray(const char *,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(69): note: see declaration of 'GPUArray<float>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'void GPUArray<float>::exportFlowImage(const char *,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(230): note: see declaration of 'GPUArray<float>::exportFlowImage'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'GPUArray<double>::GPUArray(const char *,int,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(81): note: see declaration of 'GPUArray<double>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'GPUArray<double>::GPUArray(const char *,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(69): note: see declaration of 'GPUArray<double>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'void GPUArray<double>::exportFlowImage(const char *,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(230): note: see declaration of 'GPUArray<double>::exportFlowImage'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'GPUArray<long>::GPUArray(const char *,int,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(81): note: see declaration of 'GPUArray<long>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'GPUArray<long>::GPUArray(const char *,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(69): note: see declaration of 'GPUArray<long>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'void GPUArray<long>::exportFlowImage(const char *,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(230): note: see declaration of 'GPUArray<long>::exportFlowImage'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'GPUArray<bool>::GPUArray(const char *,int,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(81): note: see declaration of 'GPUArray<bool>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'GPUArray<bool>::GPUArray(const char *,int,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(69): note: see declaration of 'GPUArray<bool>::GPUArray'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cu(327): warning C4661: 'void GPUArray<bool>::exportFlowImage(const char *,int)': no suitable definition provided for explicit template instantiation request
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\common\cuda\GPUArrayLib.cuh(230): note: see declaration of 'GPUArray<bool>::exportFlowImage'
   cuda.vcxproj -> C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2024-01-08 - HopperRender DShow\x64\Debug\lib\cuda.lib
