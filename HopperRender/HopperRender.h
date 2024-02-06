@@ -53,17 +53,18 @@ private:
     HRESULT Copy(IMediaSample *pSource, IMediaSample *pDest) const;
     HRESULT Transform(IMediaSample *pMediaSample);
 
-    CCritSec    m_HopperRenderLock;     // Private play critical section
-    int         m_effect;               // Which effect are we processing
-    int m_numSteps;                     // Number of steps executed to find the ideal offset (limits the maximum offset)
-    int m_maxOffsetDivider;             // The divider used to calculate the initial global offset
-    const long m_lBufferRequest;        // The number of buffers to use
-    GPUArray<unsigned char> m_frameA;   // GPU frame A
-    GPUArray<unsigned char> m_frameB;   // GPU frame B
-    GPUArray<unsigned char> m_outFrame; // GPU output frame
-    bool m_bAbeforeB;                   // Which frame order are we using
-    OpticalFlowCalc m_opticalFlowCalc;  // Optical flow calculator
-    std::string m_debugMessage = "";    // Debug message
-    int m_frameCounter = 0;             // Frame counter (relative! i.e. number of frames presented)
+    CCritSec    m_HopperRenderLock;        // Private play critical section
+    int         m_effect;                  // Which effect are we processing
+    int m_numSteps;                        // Number of steps executed to find the ideal offset (limits the maximum offset)
+    int m_maxOffsetDivider;                // The divider used to calculate the initial global offset
+    const long m_lBufferRequest;           // The number of buffers to use
+    GPUArray<unsigned char> m_frameA;      // GPU frame A
+    GPUArray<unsigned char> m_frameB;      // GPU frame B
+    GPUArray<int> m_offsetArray;           // GPU offset array
+    GPUArray<unsigned char> m_warpedFrame; // GPU warped frame
+    bool m_bAbeforeB;                      // Which frame order are we using
+    OpticalFlowCalc m_opticalFlowCalc;     // Optical flow calculator
+    std::string m_debugMessage = "";       // Debug message
+    int m_frameCounter = 0;                // Frame counter (relative! i.e. number of frames presented)
 
 }; // HopperRender
