@@ -17,41 +17,36 @@ public:
     static CUnknown * WINAPI CreateInstance(LPUNKNOWN punk, HRESULT *phr);
 
     // Reveals IHopperRender and ISpecifyPropertyPages
-    STDMETHODIMP NonDelegatingQueryInterface(REFIID riid, void ** ppv);
+    STDMETHODIMP NonDelegatingQueryInterface(REFIID riid, void ** ppv) override;
 
     // CPersistStream stuff
-    HRESULT ScribbleToStream(IStream *pStream);
-    HRESULT ReadFromStream(IStream *pStream);
+    HRESULT ScribbleToStream(IStream *pStream) const;
+    HRESULT ReadFromStream(IStream *pStream) override;
 
-    // Overrriden from CTransformFilter base class
-
-    HRESULT Transform(IMediaSample *pIn, IMediaSample *pOut);
-    HRESULT CheckInputType(const CMediaType *mtIn);
-    HRESULT CheckTransform(const CMediaType *mtIn, const CMediaType *mtOut);
+    // Overriden from CTransformFilter base class
+    HRESULT CheckInputType(const CMediaType *mtIn) override;
+    HRESULT CheckTransform(const CMediaType *mtIn, const CMediaType *mtOut) override;
     HRESULT DecideBufferSize(IMemAllocator *pAlloc,
-                             ALLOCATOR_PROPERTIES *pProperties);
-    HRESULT GetMediaType(int iPosition, CMediaType *pMediaType);
+                             ALLOCATOR_PROPERTIES *ppropInputRequest) override;
+    HRESULT GetMediaType(int iPosition, CMediaType *pMediaType) override;
+	HRESULT Transform(IMediaSample *pIn, IMediaSample *pOut) override;
 
     // These implement the custom IIPEffect interface
-
-    STDMETHODIMP get_IPEffect(int* IPEffect, int* pNumSteps, int* pMaxOffsetDivider);
-    STDMETHODIMP put_IPEffect(int IPEffect, int numSteps, int maxOffsetDivider);
+    STDMETHODIMP get_IPEffect(int* IPEffect, int* pNumSteps, int* pMaxOffsetDivider) override;
+    STDMETHODIMP put_IPEffect(int IPEffect, int numSteps, int maxOffsetDivider) override;
 
     // ISpecifyPropertyPages interface
-    STDMETHODIMP GetPages(CAUUID *pPages);
+    STDMETHODIMP GetPages(CAUUID *pPages) override;
 
     // CPersistStream override
-    STDMETHODIMP GetClassID(CLSID *pClsid);
+    STDMETHODIMP GetClassID(CLSID *pClsid) override;
 
 private:
 
     // Constructor
     CHopperRender(TCHAR *tszName, LPUNKNOWN punk, HRESULT *phr);
 
-    // Look after doing the special effect
-    BOOL CanPerformHopperRender(const CMediaType *pMediaType) const;
-    HRESULT Copy(IMediaSample *pSource, IMediaSample *pDest) const;
-    HRESULT DeliverNewSamples(IMediaSample* pSource) const;
+    HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, int iNumSamples) const;
     HRESULT Transform(IMediaSample *pMediaSample);
 
     CCritSec    m_HopperRenderLock;        // Private play critical section
