@@ -1,7 +1,5 @@
 #pragma once
 
-#include <string>
-
 #include "GPUArrayLib.cuh"
 #include "opticalFlowCalc.cuh"
 
@@ -46,7 +44,7 @@ private:
     // Constructor
     CHopperRender(TCHAR *tszName, LPUNKNOWN punk, HRESULT *phr);
 
-    HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, int iNumSamples) const;
+    HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, int iNumSamples, REFERENCE_TIME rtAvgFrameTimeTarget) const;
     HRESULT Transform(IMediaSample *pMediaSample);
 
     CCritSec    m_HopperRenderLock;        // Private play critical section
@@ -60,6 +58,6 @@ private:
     GPUArray<unsigned char> m_warpedFrame; // GPU warped frame
     bool m_bAbeforeB;                      // Which frame order are we using
     OpticalFlowCalc m_opticalFlowCalc;     // Optical flow calculator
-    int m_frameCounter = 0;                // Frame counter (relative! i.e. number of frames presented)
+    int m_iFrameCounter = 0;               // Frame counter (relative! i.e. number of frames presented)
 
-}; // HopperRender
+};

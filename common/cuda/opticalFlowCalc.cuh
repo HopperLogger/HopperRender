@@ -1,7 +1,7 @@
 // opticalFlowCalc.cuh
 #pragma once
 
-// CUDA libaries
+// CUDA libraries
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
@@ -33,7 +33,7 @@ public:
 	*
 	* @return: The flow array containing the relative vectors
 	*/
-	GPUArray<int> calculateOpticalFlow(GPUArray<unsigned char>& frame1, GPUArray<unsigned char>& frame2);
+	GPUArray<int> calculateOpticalFlow(const GPUArray<unsigned char>& frame1, const GPUArray<unsigned char>& frame2);
 
 	/*
 	* Warps frame1 according to the offset array
@@ -43,7 +43,7 @@ public:
 	*
 	* @return: The warped frame
 	*/
-	GPUArray<unsigned char> warpFrame(GPUArray<unsigned char>& frame1, GPUArray<int>& offsetArray);
+	GPUArray<unsigned char> warpFrame(const GPUArray<unsigned char>& frame1, const GPUArray<int>& offsetArray);
 
 private:
 	// The number of cuda blocks needed

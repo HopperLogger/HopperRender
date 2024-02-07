@@ -14,80 +14,55 @@
 #include "HopperRenderSettings.h"
 
 
-//
-// CreateInstance
-//
 // Used by the DirectShow base classes to create instances
-//
-CUnknown *CHopperRenderSettings::CreateInstance(LPUNKNOWN lpunk, HRESULT *phr)
-{
+CUnknown *CHopperRenderSettings::CreateInstance(LPUNKNOWN lpunk, HRESULT *phr) {
     ASSERT(phr);
 
     CUnknown *punk = new CHopperRenderSettings(lpunk, phr);
 
-    if (punk == NULL) {
+    if (punk == nullptr) {
         if (phr)
         	*phr = E_OUTOFMEMORY;
     }
 
     return punk;
+}
 
-} // CreateInstance
 
-
-//
 // Constructor
-//
 CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT *phr) :
     CBasePropertyPage(NAME("HopperRender Settings"), pUnk,
                       IDD_HopperRenderSettings, IDS_TITLE),
     m_pIPEffect(NULL),
-    m_bIsInitialized(FALSE)
-{
+    m_bIsInitialized(FALSE) {
+
     ASSERT(phr);
+}
 
-} // (Constructor)
 
-
-//
-// OnReceiveMessage
-//
 // Handles the messages for our property window
-//
 INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd,
                                           UINT uMsg,
                                           WPARAM wParam,
-                                          LPARAM lParam)
-{
-    switch (uMsg)
-    {
-        case WM_COMMAND:
-        {
-            if (m_bIsInitialized)
-            {
+                                          LPARAM lParam) {
+    switch (uMsg) {
+        case WM_COMMAND: {
+            if (m_bIsInitialized) {
                 m_bDirty = TRUE;
-                if (m_pPageSite)
-                {
+                if (m_pPageSite) {
                     m_pPageSite->OnStatusChange(PROPPAGESTATUS_DIRTY);
                 }
             }
             return (LRESULT) 1;
         }
-
     }
 
     return CBasePropertyPage::OnReceiveMessage(hwnd,uMsg,wParam,lParam);
+}
 
-} // OnReceiveMessage
 
-
-//
-// OnConnect
-//
 // Called when we connect to a transform filter
-//
-HRESULT CHopperRenderSettings::OnConnect(IUnknown *pUnknown)
-{
+HRESULT CHopperRenderSettings::OnConnect(IUnknown *pUnknown) {
     CheckPointer(pUnknown,E_POINTER);
     ASSERT(m_pIPEffect == NULL);
 
@@ -102,35 +77,22 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown *pUnknown)
 
     m_bIsInitialized = FALSE ;
     return NOERROR;
+}
 
-} // OnConnect
 
-
-//
-// OnDisconnect
-//
 // Likewise called when we disconnect from a filter
-//
-HRESULT CHopperRenderSettings::OnDisconnect()
-{
+HRESULT CHopperRenderSettings::OnDisconnect() {
     // Release of Interface after setting the appropriate old effect value
-    if(m_pIPEffect)
-    {
+    if(m_pIPEffect) {
         m_pIPEffect->Release();
-        m_pIPEffect = NULL;
+        m_pIPEffect = nullptr;
     }
     return NOERROR;
+}
 
-} // OnDisconnect
 
-
-//
-// OnActivate
-//
 // We are being activated
-//
-HRESULT CHopperRenderSettings::OnActivate()
-{
+HRESULT CHopperRenderSettings::OnActivate() {
     TCHAR sz[60];
 
     (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_maxOffsetDivider);
@@ -143,46 +105,32 @@ HRESULT CHopperRenderSettings::OnActivate()
     m_bIsInitialized = TRUE;
 
     return NOERROR;
+}
 
-} // OnActivate
 
-
-//
-// OnDeactivate
-//
 // We are being deactivated
-//
-HRESULT CHopperRenderSettings::OnDeactivate(void)
-{
+HRESULT CHopperRenderSettings::OnDeactivate() {
     ASSERT(m_pIPEffect);
 
     m_bIsInitialized = FALSE;
     GetControlValues();
 
     return NOERROR;
+}
 
-} // OnDeactivate
 
-
-//
-// OnApplyChanges
-//
 // Apply any changes so far made
-//
-HRESULT CHopperRenderSettings::OnApplyChanges()
-{
+HRESULT CHopperRenderSettings::OnApplyChanges() {
     GetControlValues();
 
-    CheckPointer(m_pIPEffect,E_POINTER);
+    CheckPointer(m_pIPEffect,E_POINTER)
     m_pIPEffect->put_IPEffect(m_effect, m_numSteps, m_maxOffsetDivider);
 
     return NOERROR;
+}
 
-} // OnApplyChanges
 
-
-void CHopperRenderSettings::GetControlValues()
-{
+void CHopperRenderSettings::GetControlValues() {
     TCHAR sz[STR_MAX_LENGTH];
     REFTIME tmp1, tmp2 ;
 
@@ -193,7 +141,7 @@ void CHopperRenderSettings::GetControlValues()
     // Convert Multibyte string to ANSI
     char szANSI[STR_MAX_LENGTH];
 
-    int rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, NULL, NULL);
+    int rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
     tmp2 = COARefTime(atof(szANSI));
 #else
     tmp2 = COARefTime(atof(sz));
@@ -203,25 +151,21 @@ void CHopperRenderSettings::GetControlValues()
 
 #ifdef UNICODE
     // Convert Multibyte string to ANSI
-    rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, NULL, NULL);
+    rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
     tmp1 = COARefTime(atof(szANSI));
 #else
     tmp1 = COARefTime(atof(sz));
 #endif
 
     // Quick validation of the fields
-
     if (tmp1 >= 0 && tmp2 >= 0) {
         m_numSteps  = tmp1;
         m_maxOffsetDivider = tmp2;
     }
 
     // Find which special effect we have selected
-
-    for (int i = IDC_EMBOSS; i <= IDC_NONE; i++) 
-    {
-        if (IsDlgButtonChecked(m_Dlg, i)) 
-        {
+    for (int i = IDC_EMBOSS; i <= IDC_NONE; i++) {
+        if (IsDlgButtonChecked(m_Dlg, i)) {
             m_effect = i;
             break;
         }

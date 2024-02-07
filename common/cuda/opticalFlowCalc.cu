@@ -3,23 +3,23 @@
 // Project Includes
 #include "opticalFlowCalc.cuh"
 
-// C++ libaries
+// C++ libraries
 #include <iostream>
 #include <iomanip>
 #include <chrono>
 #include <vector>
 #include <math.h>
 
-// Kernal that calculates the absolute difference between two frames using the offset array
-__global__ void calcImageDelta(unsigned char* frame1, unsigned char* frame2, unsigned char* imageDeltaArray, int* offsetArray, int dimY, int dimX) {
+// Kernel that calculates the absolute difference between two frames using the offset array
+__global__ void calcImageDelta(const unsigned char* frame1, const unsigned char* frame2, unsigned char* imageDeltaArray, const int* offsetArray, int dimY, int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = threadIdx.z;
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = threadIdx.z;
 
 	// Get the current offsets to use
-	int offsetX = -offsetArray[cy * dimX + cx];
-	int offsetY = -offsetArray[dimY * dimX + cy * dimX + cx];
+	const int offsetX = -offsetArray[cy * dimX + cx];
+	const int offsetY = -offsetArray[dimY * dimX + cy * dimX + cx];
 
 	// Check if the thread is inside the frame (without offsets)
 	if (cz < 3 && cy < dimY && cx < dimX) {
@@ -34,14 +34,14 @@ __global__ void calcImageDelta(unsigned char* frame1, unsigned char* frame2, uns
 	}
 }
 
-// Kernal that sums up all the pixel deltas of each window
+// Kernel that sums up all the pixel deltas of each window
 __global__ void calcDeltaSums(unsigned char* imageDeltaArray, unsigned int* summedUpDeltaArray, int windowDimY, int windowDimX, int dimY, int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = threadIdx.z;
-	int windowIndexX = cx / windowDimX;
-	int windowIndexY = cy / windowDimY;
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = threadIdx.z;
+	const int windowIndexX = cx / windowDimX;
+	const int windowIndexY = cy / windowDimY;
 
 	// Check if the thread is inside the frame
 	if (cz < 3 && cy < dimY && cx < dimX) {
@@ -49,17 +49,17 @@ __global__ void calcDeltaSums(unsigned char* imageDeltaArray, unsigned int* summ
 	}
 }
 
-// Kernal that normalizes all the pixel deltas of each window
-__global__ void normalizeDeltaSums(unsigned int* summedUpDeltaArray, float* normalizedDeltaArray, int* offsetArray, int windowDimY, int windowDimX, int dimY, int dimX) {
+// Kernel that normalizes all the pixel deltas of each window
+__global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, float* normalizedDeltaArray, const int* offsetArray, int windowDimY, int windowDimX, int dimY, int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
 
 	// Check if the thread is a window represent
 	if (cy % windowDimY == 0 && cx % windowDimX == 0) {
 		// Get the current window information
-		int offsetX = offsetArray[cy * dimX + cx];
-		int offsetY = offsetArray[dimY * dimX + cy * dimX + cx];
+		const int offsetX = offsetArray[cy * dimX + cx];
+		const int offsetY = offsetArray[dimY * dimX + cy * dimX + cx];
 
 		// Calculate the number of pixels in the window
 		int numPixels = windowDimY * windowDimX;
@@ -98,11 +98,11 @@ __global__ void normalizeDeltaSums(unsigned int* summedUpDeltaArray, float* norm
 	}
 }
 
-// Kernal that compares two arrays to find the lowest values
-__global__ void compareArrays(float* normalizedDeltaArrayOld, float* normalizedDeltaArrayNew, bool* isValueDecreasedArray, int windowDimY, int windowDimX, int dimY, int dimX) {
+// Kernel that compares two arrays to find the lowest values
+__global__ void compareArrays(const float* normalizedDeltaArrayOld, const float* normalizedDeltaArrayNew, bool* isValueDecreasedArray, int windowDimY, int windowDimX, int dimY, int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
 
 	// Check if the thread is a window represent
 	if (cy % windowDimY == 0 && cx % windowDimX == 0) {
@@ -111,13 +111,13 @@ __global__ void compareArrays(float* normalizedDeltaArrayOld, float* normalizedD
 	}
 }
 
-// Kernal that adjusts the offset array based on the comparison results
-__global__ void compositeOffsetArray(int* offsetArray, bool* isValueDecreasedArray, int* statusArray, int currentGlobalOffset, int windowDimY, int windowDimX, int dimY, int dimX) {
+// Kernel that adjusts the offset array based on the comparison results
+__global__ void compositeOffsetArray(int* offsetArray, const bool* isValueDecreasedArray, int* statusArray, const int currentGlobalOffset, const int windowDimY, const int windowDimX, const int dimY, const int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int wx = (cx / windowDimX) * windowDimX;
-	int wy = (cy / windowDimY) * windowDimY;
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int wx = (cx / windowDimX) * windowDimX;
+	const int wy = (cy / windowDimY) * windowDimY;
 
 	/*
 	* Status Array Key:
@@ -137,7 +137,7 @@ __global__ void compositeOffsetArray(int* offsetArray, bool* isValueDecreasedArr
 	*/
 
 	if (cy < dimY && cx < dimX) {
-		int currentStatus = statusArray[cy * dimX + cx];
+		const int currentStatus = statusArray[cy * dimX + cx];
 
 		switch (currentStatus) {
 			/*
@@ -261,30 +261,30 @@ __global__ void compositeOffsetArray(int* offsetArray, bool* isValueDecreasedArr
 	return;
 }
 
-// Kernal that warps frame1 according to the offset array
-__global__ void warpFrameKernal(unsigned char* frame1, int* offsetArray, int* hitCount, int* ones, unsigned char* warpedFrame, int dimY, int dimX) {
+// Kernel that warps frame1 according to the offset array
+__global__ void warpFrameKernal(const unsigned char* frame1, const int* offsetArray, int* hitCount, int* ones, unsigned char* warpedFrame, const int dimY, const int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = threadIdx.z;
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = threadIdx.z;
 
 	// Get the current offsets to use
-	int offsetX = offsetArray[cy * dimX + cx];
-	int offsetY = offsetArray[dimY * dimX + cy * dimX + cx];
+	const int offsetX = offsetArray[cy * dimX + cx];
+	const int offsetY = offsetArray[dimY * dimX + cy * dimX + cx];
 
 	// Check if the thread is inside the frame (without offsets)
 	if (cz < 3 && cy < dimY && cx < dimX) {
-		// Check if the current pixel is inside of the frame
+		// Check if the current pixel is inside the frame
 		if ((cy + offsetY >= 0) && (cy + offsetY < dimY) && (cx + offsetX >= 0) && (cx + offsetX < dimX)) {
-			int newCy = fminf(fmaxf(cy + offsetY, 0), dimY - 1);
-			int newCx = fminf(fmaxf(cx + offsetX, 0), dimX - 1);
+			const int newCy = fminf(fmaxf(cy + offsetY, 0), dimY - 1);
+			const int newCx = fminf(fmaxf(cx + offsetX, 0), dimX - 1);
 			warpedFrame[cz * dimY * dimX + newCy * dimX + newCx] = frame1[cz * dimY * dimX + cy * dimX + cx];
 			atomicAdd(&hitCount[cz * dimY * dimX + cy * dimX + cx + (offsetY * dimX + offsetX)], ones[cz * dimY * dimX + cy * dimX + cx]);
 		}
 	}
 }
 
-// Kernal that removes artifacts from the warped frame
+// Kernel that removes artifacts from the warped frame
 __global__ void artifactRemovalKernal(unsigned char* frame1, int* hitCount, unsigned char* warpedFrame, int dimY, int dimX) {
 	// Current entry to be computed by the thread
 	int cx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -300,12 +300,12 @@ __global__ void artifactRemovalKernal(unsigned char* frame1, int* hitCount, unsi
 	}
 }
 
-// Kernal that rearanges the image data from RGBRGBRGB... to each channel in a seperate layer
-__global__ void rearangeImageDataRGBtoLayerOFC(unsigned char* RGBArray, unsigned char* layerArray, int dimZ, int dimY, int dimX) {
+// Kernel that rearranges the image data from RGBRGBRGB... to each channel in a separate layer
+__global__ void rearangeImageDataRGBtoLayerOFC(const unsigned char* RGBArray, unsigned char* layerArray, const int dimZ, const int dimY, const int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = blockIdx.z * blockDim.z + threadIdx.z;
 	int czi = cz;
 
 	// Account for BGR to RGB
@@ -322,12 +322,12 @@ __global__ void rearangeImageDataRGBtoLayerOFC(unsigned char* RGBArray, unsigned
 	}
 }
 
-// Kernal that rearanges the image data from each channel in a seperate layer to RGBRGBRGB...
-__global__ void rearangeImageDataLayertoRGBOFC(unsigned char* layerArray, unsigned char* RGBArray, int dimZ, int dimY, int dimX) {
+// Kernel that rearranges the image data from each channel in a separate layer to RGBRGBRGB...
+__global__ void rearangeImageDataLayertoRGBOFC(const unsigned char* layerArray, unsigned char* RGBArray, const int dimZ, const int dimY, const int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = blockIdx.z * blockDim.z + threadIdx.z;
 	int czi = cz;
 
 	// Account for BGR to RGB
@@ -345,9 +345,7 @@ __global__ void rearangeImageDataLayertoRGBOFC(unsigned char* layerArray, unsign
 }
 
 // Constructor
-OpticalFlowCalc::OpticalFlowCalc()
-{
-}
+OpticalFlowCalc::OpticalFlowCalc() = default;
 
 /*
 * Initializes the optical flow calculation
@@ -397,7 +395,7 @@ void OpticalFlowCalc::init(int dimY, int dimX)
 *
 * @return: The flow array containing the relative vectors
 */
-GPUArray<int> OpticalFlowCalc::calculateOpticalFlow(GPUArray<unsigned char>& frame1, GPUArray<unsigned char>& frame2) {
+GPUArray<int> OpticalFlowCalc::calculateOpticalFlow(const GPUArray<unsigned char>& frame1, const GPUArray<unsigned char>& frame2) {
 	// Reset the arrays
 	offsetArray.fill(0);
 	summedUpDeltaArray.fill(0);
@@ -449,7 +447,7 @@ GPUArray<int> OpticalFlowCalc::calculateOpticalFlow(GPUArray<unsigned char>& fra
 	}
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -467,7 +465,7 @@ GPUArray<int> OpticalFlowCalc::calculateOpticalFlow(GPUArray<unsigned char>& fra
 *
 * @return: The warped frame
 */
-GPUArray<unsigned char> OpticalFlowCalc::warpFrame(GPUArray<unsigned char>& frame1, GPUArray<int>& offsetArray) {
+GPUArray<unsigned char> OpticalFlowCalc::warpFrame(const GPUArray<unsigned char>& frame1, const GPUArray<int>& offsetArray) {
 	// Reset the hit count array
 	hitCount.fill(0);
 
@@ -483,7 +481,7 @@ GPUArray<unsigned char> OpticalFlowCalc::warpFrame(GPUArray<unsigned char>& fram
 	//artifactRemovalKernal << <grid, threads3 >> > (frame1.arrayPtrGPU, hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);

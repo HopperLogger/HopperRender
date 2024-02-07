@@ -3,24 +3,24 @@
 // Project Includes
 #include "GPUArrayLib.cuh"
 
-// CUDA libaries
+// CUDA libraries
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-// C++ libaries
+// C++ libraries
 #include <iostream>
 #include <sstream>
 #include <vector>
 #include <iomanip>
 
-// Image loading/saving libary
+// Image loading/saving library
 #define STB_IMAGE_IMPLEMENTATION
 #include "utils/stb/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "utils/stb/stb_image_write.h"
 
 /*
-* -------------------- KERNALS --------------------
+* -------------------- KERNELS --------------------
 */
 
 // Matrix - Scalar addition kernel
@@ -187,7 +187,7 @@ __global__ void matrixAddIndexed(T* a, T* b, int* i, T* c, int dimZ, int dimY, i
 	}
 }
 
-// Kernal that rearanges the image data from RGBRGBRGB... to each channel in a seperate layer
+// Kernel that rearranges the image data from RGBRGBRGB... to each channel in a separate layer
 __global__ void rearangeImageDataRGBtoLayer(unsigned char* RGBArray, unsigned char* layerArray, int dimZ, int dimY, int dimX) {
 	// Current entry to be computed by the thread
 	int cx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -200,7 +200,7 @@ __global__ void rearangeImageDataRGBtoLayer(unsigned char* RGBArray, unsigned ch
 	}
 }
 
-// Kernal that rearanges the image data from each channel in a seperate layer to RGBRGBRGB...
+// Kernel that rearranges the image data from each channel in a separate layer to RGBRGBRGB...
 __global__ void rearangeImageDataLayertoRGB(unsigned char* layerArray, unsigned char* RGBArray, int dimZ, int dimY, int dimX) {
 	// Current entry to be computed by the thread
 	int cx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -213,7 +213,7 @@ __global__ void rearangeImageDataLayertoRGB(unsigned char* layerArray, unsigned 
 	}
 }
 
-// Kernal that rearanges the flow data from each direction layer to RGBRGBRGB...
+// Kernel that rearranges the flow data from each direction layer to RGBRGBRGB...
 __global__ void rearangeFlowDataLayertoRGB(int* layerArray, unsigned char* RGBArray, int dimZ, int dimY, int dimX, int direction) {
 	// Current entry to be computed by the thread
 	int cx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -226,7 +226,7 @@ __global__ void rearangeFlowDataLayertoRGB(int* layerArray, unsigned char* RGBAr
 	}
 }
 
-// Kernal that sets all array entries in the provided range to the provided value
+// Kernel that sets all array entries in the provided range to the provided value
 template <typename T>
 __global__ void setArrayEntriesAll(T* arrayPtrGPU, T value, int dimZ, int dimY, int dimX) {
 	// Current entry to be computed by the thread
@@ -242,7 +242,7 @@ __global__ void setArrayEntriesAll(T* arrayPtrGPU, T value, int dimZ, int dimY, 
 
 }
 
-// Kernal that sets all array entries in the provided range to the provided value
+// Kernel that sets all array entries in the provided range to the provided value
 template <typename T>
 __global__ void setArrayEntriesInRange(T* arrayPtrGPU, T value, int startIdx, int endIndex, int dimZ, int dimY, int dimX) {
 	// Current entry to be computed by the thread
@@ -259,7 +259,7 @@ __global__ void setArrayEntriesInRange(T* arrayPtrGPU, T value, int startIdx, in
 	}
 }
 
-// Kernal that tests the VRAM of the GPU
+// Kernel that tests the VRAM of the GPU
 __global__ void memTestKernal(long* arrayPtrGPU, long steps) {
 	// Current entry to be computed by the thread
 	long x = threadIdx.x;
@@ -278,7 +278,7 @@ __global__ void memTestKernal(long* arrayPtrGPU, long steps) {
 	}
 }
 
-// Kernal that copies the entries of one array to another
+// Kernel that copies the entries of one array to another
 template <typename T>
 __global__ void copyEntries(T* DstArrayPtrGPU, T* SrcArrayPtrGPU, int dimZ, int dimY, int dimX) {
 	// Current entry to be copied by the thread
@@ -442,8 +442,8 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, int height, int width) {
 	stbi_image_free(rawArrayPtrCPU);
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, 1);
@@ -456,7 +456,7 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, int height, int width) {
 	rearangeImageDataRGBtoLayer << <grid, threads >> > (rawArrayPtrGPU, arrayPtrGPU, 3, dimY, dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -529,9 +529,9 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, int batchSize, int width
 	stbi_image_free(rawArrayPtrCPU);
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -544,7 +544,7 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, int batchSize, int width
 	rearangeImageDataRGBtoLayer << <grid, threads >> > (rawArrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -705,9 +705,9 @@ GPUArray<T> GPUArray<T>::copy() {
 
 	// Copy entries from the original array to the copy
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -717,7 +717,7 @@ GPUArray<T> GPUArray<T>::copy() {
 	copyEntries << <grid, threads >> > (copyArray.arrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -739,9 +739,9 @@ void GPUArray<T>::add(T value) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -751,7 +751,7 @@ void GPUArray<T>::add(T value) {
 	matrixScalarAdd << <grid, threads >> > (arrayPtrGPU, value, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -771,9 +771,9 @@ void GPUArray<T>::sub(T value) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -783,7 +783,7 @@ void GPUArray<T>::sub(T value) {
 	matrixScalarSub << <grid, threads >> > (arrayPtrGPU, value, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -803,9 +803,9 @@ void GPUArray<T>::mul(T scalar) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -815,7 +815,7 @@ void GPUArray<T>::mul(T scalar) {
 	matrixScalarMul << <grid, threads >> > (arrayPtrGPU, scalar, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -835,9 +835,9 @@ void GPUArray<T>::div(T value) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -847,7 +847,7 @@ void GPUArray<T>::div(T value) {
 	matrixScalarDiv << <grid, threads >> > (arrayPtrGPU, value, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -876,9 +876,9 @@ void GPUArray<T>::add(GPUArray<T>& array) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -888,7 +888,7 @@ void GPUArray<T>::add(GPUArray<T>& array) {
 	matrixMatrixAdd << <grid, threads >> > (arrayPtrGPU, array.arrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -917,9 +917,9 @@ void GPUArray<T>::sub(GPUArray<T>& array) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -929,7 +929,7 @@ void GPUArray<T>::sub(GPUArray<T>& array) {
 	matrixMatrixSub << <grid, threads >> > (arrayPtrGPU, array.arrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -958,9 +958,9 @@ void GPUArray<T>::elementMul(GPUArray<T>& array) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -970,7 +970,7 @@ void GPUArray<T>::elementMul(GPUArray<T>& array) {
 	matrixElementMul << <grid, threads >> > (arrayPtrGPU, array.arrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -990,9 +990,9 @@ void GPUArray<T>::fill(T value) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -1002,7 +1002,7 @@ void GPUArray<T>::fill(T value) {
 	setArrayEntriesAll << <grid, threads >> > (arrayPtrGPU, value, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -1030,9 +1030,9 @@ void GPUArray<T>::fill(T value, int startIdx, int endIndex) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -1042,7 +1042,7 @@ void GPUArray<T>::fill(T value, int startIdx, int endIndex) {
 	setArrayEntriesInRange << <grid, threads >> > (arrayPtrGPU, value, startIdx, endIndex, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR1: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -1160,9 +1160,9 @@ void GPUArray<T>::exportPNG(const char* filePath) {
 	unsigned char* rawArrayPtrCPU = (unsigned char*)malloc(bytes);
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 	if (dims == 3) {
 		NUM_BLOCKS_Z = 1;
 	}
@@ -1182,7 +1182,7 @@ void GPUArray<T>::exportPNG(const char* filePath) {
 	rearangeImageDataLayertoRGB << <grid, threads >> > ((unsigned char*)arrayPtrGPU, rawArrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -1238,12 +1238,12 @@ void GPUArray<int>::exportFlowImage(const char* filePath, int direction) {
 	}
 
 	// Allocate host memory
-	size_t rgb_bytes = 3 * dimY * dimX;
+	const size_t rgb_bytes = 3 * dimY * dimX;
 	unsigned char* rawArrayPtrCPU = (unsigned char*)malloc(rgb_bytes);
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
 	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 	if (dims == 3) {
 		NUM_BLOCKS_Z = 1;
@@ -1264,7 +1264,7 @@ void GPUArray<int>::exportFlowImage(const char* filePath, int direction) {
 	rearangeFlowDataLayertoRGB << <grid, threads >> > (arrayPtrGPU, rawArrayPtrGPU, fmax(dimZ, 3), dimY, dimX, direction);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -1334,9 +1334,9 @@ GPUArray<T> add(GPUArray<T>& array, T value) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(array.dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(array.dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(array.dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(array.dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(array.dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(array.dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -1349,7 +1349,7 @@ GPUArray<T> add(GPUArray<T>& array, T value) {
 	matrixScalarAdd << <grid, threads >> > (array.arrayPtrGPU, value, resultArray.arrayPtrGPU, array.dimZ, array.dimY, array.dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -1375,9 +1375,9 @@ GPUArray<T> sub(GPUArray<T>& array, T value) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(array.dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(array.dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(array.dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(array.dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(array.dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(array.dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -1390,7 +1390,7 @@ GPUArray<T> sub(GPUArray<T>& array, T value) {
 	matrixScalarSub << <grid, threads >> > (array.arrayPtrGPU, value, resultArray.arrayPtrGPU, array.dimZ, array.dimY, array.dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -1416,9 +1416,9 @@ GPUArray<T> mul(GPUArray<T>& array, T scalar) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(array.dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(array.dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(array.dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(array.dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(array.dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(array.dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -1431,7 +1431,7 @@ GPUArray<T> mul(GPUArray<T>& array, T scalar) {
 	matrixScalarMul << <grid, threads >> > (array.arrayPtrGPU, scalar, resultArray.arrayPtrGPU, array.dimZ, array.dimY, array.dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -1457,9 +1457,9 @@ GPUArray<T> div(GPUArray<T>& array, T value) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(array.dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(array.dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(array.dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(array.dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(array.dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(array.dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -1472,7 +1472,7 @@ GPUArray<T> div(GPUArray<T>& array, T value) {
 	matrixScalarDiv << <grid, threads >> > (array.arrayPtrGPU, value, resultArray.arrayPtrGPU, array.dimZ, array.dimY, array.dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -1515,9 +1515,9 @@ GPUArray<T> add(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(arrayA.dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(arrayA.dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(arrayA.dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(arrayA.dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(arrayA.dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(arrayA.dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -1530,7 +1530,7 @@ GPUArray<T> add(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 	matrixMatrixAdd << <grid, threads >> > (arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, resultArray.arrayPtrGPU, arrayA.dimZ, arrayA.dimY, arrayA.dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -1565,9 +1565,9 @@ GPUArray<T> sub(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(arrayA.dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(arrayA.dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(arrayA.dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(arrayA.dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(arrayA.dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(arrayA.dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -1580,7 +1580,7 @@ GPUArray<T> sub(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 	matrixMatrixSub << <grid, threads >> > (arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, resultArray.arrayPtrGPU, arrayA.dimZ, arrayA.dimY, arrayA.dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -1615,8 +1615,8 @@ GPUArray<T> mul(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_XY = fmaxf(ceilf(arrayA.dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(arrayA.dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_XY = fmaxf(ceilf(arrayA.dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(arrayA.dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_XY, NUM_BLOCKS_XY, NUM_BLOCKS_Z);
@@ -1629,7 +1629,7 @@ GPUArray<T> mul(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 	matrixMatrixMul << <grid, threads >> > (arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, resultArray.arrayPtrGPU, NUM_BLOCKS_XY, arrayA.dimZ, arrayA.dimY, arrayA.dimX, arrayB.dimY, arrayB.dimX, resultArray.dimY, resultArray.dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -1664,9 +1664,9 @@ GPUArray<T> elementMul(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(arrayA.dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(arrayA.dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(arrayA.dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(arrayA.dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(arrayA.dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(arrayA.dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -1679,7 +1679,7 @@ GPUArray<T> elementMul(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 	matrixElementMul << <grid, threads >> > (arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, resultArray.arrayPtrGPU, arrayA.dimZ, arrayA.dimY, arrayA.dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -1718,9 +1718,9 @@ GPUArray<T> addIndexed(GPUArray<T>& arrayA, GPUArray<T>& arrayB, GPUArray<int>& 
 	}
 
 	// Calculate the number of blocks needed
-	int NUM_BLOCKS_X = fmaxf(ceilf(arrayA.dimX / NUM_THREADS), 1);
-	int NUM_BLOCKS_Y = fmaxf(ceilf(arrayA.dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(arrayA.dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(arrayA.dimX / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(arrayA.dimY / NUM_THREADS), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(arrayA.dimZ / NUM_THREADS), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -1733,7 +1733,7 @@ GPUArray<T> addIndexed(GPUArray<T>& arrayA, GPUArray<T>& arrayB, GPUArray<int>& 
 	matrixAddIndexed << <grid, threads >> > (arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, i.arrayPtrGPU, resultArray.arrayPtrGPU, arrayA.dimZ, arrayA.dimY, arrayA.dimX);
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
@@ -1771,7 +1771,7 @@ void memTest(size_t bytes) {
 	cudaDeviceSynchronize();
 
 	// Check for CUDA errors
-	cudaError_t cudaError = cudaGetLastError();
+	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
