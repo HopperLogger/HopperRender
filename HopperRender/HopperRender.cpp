@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <streams.h>
+#include <string>
 #include <initguid.h>
 
 #if (1100 > _MSC_VER)
@@ -14,11 +15,13 @@
 #include "HopperRender.h"
 #include "resource.h"
 
+
 // Debug message function
 void DebugMessage(const std::string& message) {
     const std::string m_debugMessage = message + "\n";
     OutputDebugStringA(m_debugMessage.c_str());
 }
+
 
 // Input/Output pin types
 constexpr AMOVIESETUP_MEDIATYPE sudPinTypes =
@@ -26,6 +29,7 @@ constexpr AMOVIESETUP_MEDIATYPE sudPinTypes =
     &MEDIATYPE_Video,       // Major type
     &MEDIASUBTYPE_RGB24     // Minor type
 };
+
 
 // Input/Output pin information
 const AMOVIESETUP_PIN sudpPins[] =
@@ -51,6 +55,7 @@ const AMOVIESETUP_PIN sudpPins[] =
       &sudPinTypes          // Pin information
     }
 };
+
 
 // Filter information
 constexpr AMOVIESETUP_FILTER sudHopperRender =
@@ -79,6 +84,7 @@ CFactoryTemplate g_Templates[] = {
 };
 int g_cTemplates = sizeof(g_Templates) / sizeof(g_Templates[0]);
 
+
 // Handles sample registry
 STDAPI DllRegisterServer() {
     return AMovieDllRegisterServer2(TRUE);
@@ -90,6 +96,7 @@ STDAPI DllUnregisterServer() {
     return AMovieDllRegisterServer2(FALSE);
 }
 
+
 // DllEntryPoint
 extern "C" BOOL WINAPI DllEntryPoint(HINSTANCE, ULONG, LPVOID);
 
@@ -99,6 +106,7 @@ BOOL APIENTRY DllMain(HANDLE hModule,
 
     return DllEntryPoint((HINSTANCE)(hModule), dwReason, lpReserved);
 }
+
 
 // Constructor
 CHopperRender::CHopperRender(TCHAR* tszName,
@@ -119,6 +127,7 @@ CHopperRender::CHopperRender(TCHAR* tszName,
     m_maxOffsetDivider = atoi(sz);
 }
 
+
 // Provide the way for COM to create a HopperRender object
 CUnknown* CHopperRender::CreateInstance(LPUNKNOWN punk, HRESULT* phr) {
     ASSERT(phr);
@@ -132,6 +141,7 @@ CUnknown* CHopperRender::CreateInstance(LPUNKNOWN punk, HRESULT* phr) {
     return pNewObject;
 }
 
+
 // Reveals IIPEffect and ISpecifyPropertyPages
 STDMETHODIMP CHopperRender::NonDelegatingQueryInterface(REFIID riid, void** ppv) {
     CheckPointer(ppv, E_POINTER)
@@ -144,6 +154,7 @@ STDMETHODIMP CHopperRender::NonDelegatingQueryInterface(REFIID riid, void** ppv)
         return CTransformFilter::NonDelegatingQueryInterface(riid, ppv);
     }
 }
+
 
 // Checks whether a specified media type is acceptable for input.
 HRESULT CHopperRender::CheckInputType(const CMediaType* mtIn) {
@@ -164,6 +175,7 @@ HRESULT CHopperRender::CheckInputType(const CMediaType* mtIn) {
     return E_FAIL;
 }
 
+
 // Checks whether an input media type is compatible with an output media type.
 HRESULT CHopperRender::CheckTransform(const CMediaType* mtIn, const CMediaType* mtOut) {
     CheckPointer(mtIn, E_POINTER)
@@ -179,6 +191,7 @@ HRESULT CHopperRender::CheckTransform(const CMediaType* mtIn, const CMediaType* 
     }
     return E_FAIL;
 }
+
 
 // Sets the output pin's buffer requirements
 HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERTIES* ppropInputRequest) {
@@ -213,6 +226,7 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
     return NOERROR;
 }
 
+
 // Retrieves a preferred media type for the output pin
 HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType) {
     // This should never happen
@@ -231,13 +245,17 @@ HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType) {
     return NOERROR;
 }
 
+
 // Transforms an input sample to produce an output sample
 HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
     CheckPointer(pIn, E_POINTER)
-    CheckPointer(pOut, E_POINTER)
+        CheckPointer(pOut, E_POINTER)
+
+	// Increment the frame counter
+	m_iFrameCounter++;
 
     // Copy the properties across
-    HRESULT hr = DeliverToRenderer(pIn, pOut, 6);
+    HRESULT hr = DeliverToRenderer(pIn, pOut, 6, 166667);
     if (FAILED(hr)) {
         return hr;
     }
@@ -246,8 +264,9 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
     //return Transform(pOut);
 }
 
+
 // Delivers the first sample to the renderer
-HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, int iNumSamples) const {
+HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, int iNumSamples, REFERENCE_TIME rtAvgFrameTimeTarget) const {
     CheckPointer(pIn, E_POINTER)
     CheckPointer(pOut, E_POINTER)
 	HRESULT hr = NOERROR;
@@ -267,15 +286,16 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
     BYTE* pOutNewBuffer;
 
     for (int i = 0; i < iNumSamples; ++i) {
+        // Use the input sample for the first output sample
+        if (i == 0) {
+            pOutNew = pOut;
         // Create a new output sample
-        if (i > 0) {
+        } else {
             pOutNew = nullptr;
             hr = m_pOutput->GetDeliveryBuffer(&pOutNew, nullptr, nullptr, 0);
             if (FAILED(hr)) {
                 return hr;
             }
-        } else {
-            pOutNew = pOut;
         }
 
         // Get the buffer pointer for the new output sample
@@ -285,10 +305,10 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
         }
 
         // Copy the relevant portion of the input buffer to the output buffer
-        if (i > 0) {
-			memset(pOutNewBuffer, 0, lInSize);
+        if (i == 0) {
+			memcpy(pOutNewBuffer, pInBuffer, lInSize);
         } else {
-            memcpy(pOutNewBuffer, pInBuffer, lInSize);
+            memset(pOutNewBuffer, 0, lInSize);
         }
 
         // Set the presentation time for the new output sample
@@ -297,8 +317,8 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
         if (FAILED(hr)) {
             return hr;
         }
-        rtStartTime = rtStartTime + (i * 166667);
-        rtEndTime = rtStartTime + 166667;
+    	rtStartTime = rtStartTime + (i * rtAvgFrameTimeTarget);
+        rtEndTime = rtStartTime + rtAvgFrameTimeTarget;
         hr = pOutNew->SetTime(&rtStartTime, &rtEndTime);
         if (FAILED(hr)) {
             return hr;
@@ -400,6 +420,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
     return NOERROR;
 }
 
+
 // 'In place' apply the image effect to this sample
 HRESULT CHopperRender::Transform(IMediaSample* pMediaSample) {
     BYTE* pData;                // Pointer to the actual image buffer
@@ -427,9 +448,6 @@ HRESULT CHopperRender::Transform(IMediaSample* pMediaSample) {
         m_frameB.fillData(pData);
         m_opticalFlowCalc.init(cyImage, cxImage);
 	}
-
-    // Increment the counter
-    m_frameCounter++;
 
     // int iPixelSize = pvi->bmiHeader.biBitCount / 8;
     // int cbImage    = cyImage * cxImage * iPixelSize;
@@ -581,16 +599,19 @@ HRESULT CHopperRender::Transform(IMediaSample* pMediaSample) {
 	return NOERROR;
 }
 
+
 #define WRITEOUT(var)  hr = pStream->Write(&var, sizeof(var), NULL); \
                if (FAILED(hr)) return hr;
 
 #define READIN(var)    hr = pStream->Read(&var, sizeof(var), NULL); \
                if (FAILED(hr)) return hr;
 
+
 // This is the only method of IPersist
 STDMETHODIMP CHopperRender::GetClassID(CLSID* pClsid) {
     return CBaseFilter::GetClassID(pClsid);
 }
+
 
 // Overriden to write our state into a stream
 HRESULT CHopperRender::ScribbleToStream(IStream* pStream) const {
@@ -603,6 +624,7 @@ HRESULT CHopperRender::ScribbleToStream(IStream* pStream) const {
     return NOERROR;
 }
 
+
 // Likewise overriden to restore our state from a stream
 HRESULT CHopperRender::ReadFromStream(IStream* pStream) {
     HRESULT hr;
@@ -613,6 +635,7 @@ HRESULT CHopperRender::ReadFromStream(IStream* pStream) {
 
     return NOERROR;
 }
+
 
 // Returns the clsid's of the property pages we support
 STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
@@ -628,6 +651,7 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
     return NOERROR;
 }
 
+
 // Return the current effect selected
 STDMETHODIMP CHopperRender::get_IPEffect(int* IPEffect, int* pNumSteps, int* pMaxOffsetDivider) {
     CAutoLock cAutolock(&m_HopperRenderLock);
@@ -641,6 +665,7 @@ STDMETHODIMP CHopperRender::get_IPEffect(int* IPEffect, int* pNumSteps, int* pMa
 
     return NOERROR;
 }
+
 
 // Set the required video effect
 STDMETHODIMP CHopperRender::put_IPEffect(int IPEffect, int numSteps, int maxOffsetDivider) {

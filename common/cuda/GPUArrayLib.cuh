@@ -5,7 +5,7 @@
 #include <vector>
 
 // Constants
-const int NUM_THREADS = 8;
+constexpr int NUM_THREADS = 8;
 const size_t SHMEM_SIZE = 3 * NUM_THREADS * NUM_THREADS;
 
 /*

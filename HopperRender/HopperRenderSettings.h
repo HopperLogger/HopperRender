@@ -1,3 +1,5 @@
+#pragma once
+
 #include <strsafe.h>
 
 class CHopperRenderSettings : public CBasePropertyPage
@@ -9,12 +11,12 @@ public:
 
 private:
 
-    INT_PTR OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
-    HRESULT OnConnect(IUnknown *pUnknown);
-    HRESULT OnDisconnect();
-    HRESULT OnActivate();
-    HRESULT OnDeactivate();
-    HRESULT OnApplyChanges();
+    INT_PTR OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam) override;
+    HRESULT OnConnect(IUnknown *pUnknown) override;
+    HRESULT OnDisconnect() override;
+    HRESULT OnActivate() override;
+    HRESULT OnDeactivate() override;
+    HRESULT OnApplyChanges() override;
 
     void    GetControlValues();
 
@@ -26,5 +28,4 @@ private:
     int m_maxOffsetDivider;     // The divider used to calculate the initial global offset
     IIPEffect *m_pIPEffect;     // The custom interface on the filter
 
-}; // HopperRenderSettings
-
+};
