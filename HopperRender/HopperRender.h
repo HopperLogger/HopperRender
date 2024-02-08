@@ -44,7 +44,8 @@ private:
     // Constructor
     CHopperRender(TCHAR *tszName, LPUNKNOWN punk, HRESULT *phr);
 
-    HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, int iNumSamples, REFERENCE_TIME rtAvgFrameTimeTarget) const;
+    BOOL IsInterpolationNeeded(REFERENCE_TIME rtAvgFrameTimeTarget);
+    HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget);
     HRESULT Transform(IMediaSample *pMediaSample);
 
     CCritSec    m_HopperRenderLock;        // Private play critical section
@@ -59,5 +60,7 @@ private:
     bool m_bAbeforeB;                      // Which frame order are we using
     OpticalFlowCalc m_opticalFlowCalc;     // Optical flow calculator
     int m_iFrameCounter = 0;               // Frame counter (relative! i.e. number of frames presented)
-
+    REFERENCE_TIME m_rtCurrStartTime = LONGLONG_MAX;  // The start time of the current interpolated frame
+	REFERENCE_TIME m_rtLastStartTime = LONGLONG_MAX;  // The start time of the last input frame
+    BOOL m_bIntNeeded = false;               // Whether interpolation currently is needed or not
 };
