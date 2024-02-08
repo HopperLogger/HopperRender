@@ -18,8 +18,10 @@
 
 // Debug message function
 void DebugMessage(const std::string& message) {
+	#if defined(DEBUG)
     const std::string m_debugMessage = message + "\n";
     OutputDebugStringA(m_debugMessage.c_str());
+	#endif
 }
 
 
@@ -205,7 +207,7 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
     HRESULT hr = NOERROR;
 
     ppropInputRequest->cBuffers = 1;
-    ppropInputRequest->cbBuffer = m_pInput->CurrentMediaType().GetSampleSize() * 6;
+    ppropInputRequest->cbBuffer = m_pInput->CurrentMediaType().GetSampleSize() * 12;
     ASSERT(ppropInputRequest->cbBuffer);
 
     // Ask the allocator to reserve us some sample memory, NOTE the function
@@ -255,7 +257,7 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 	m_iFrameCounter++;
 
     // Copy the properties across
-    HRESULT hr = DeliverToRenderer(pIn, pOut, 6, 166667);
+    HRESULT hr = DeliverToRenderer(pIn, pOut, 166667);
     if (FAILED(hr)) {
         return hr;
     }
@@ -264,9 +266,28 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
     //return Transform(pOut);
 }
 
+// Checks if interpolation is needed
+BOOL CHopperRender::IsInterpolationNeeded(REFERENCE_TIME rtAvgFrameTimeTarget) {
+    // Get the current playback rate
+    double dRate = 0.0;
+	IMediaSeeking* pSeeking;
+    m_pGraph->QueryInterface(IID_IMediaSeeking, (void**)&pSeeking);
+    pSeeking->GetRate(&dRate);
+
+    // Get the frametime of the source
+    VIDEOINFOHEADER* vih = (VIDEOINFOHEADER*)m_pInput->CurrentMediaType().Format();
+    REFERENCE_TIME rtAvgFrameTime = vih->AvgTimePerFrame;
+
+    // Check if the current playback frametime is longer than the desired playback frametime
+    if (static_cast<double>(rtAvgFrameTime) * (1.0 / dRate) > static_cast<double>(rtAvgFrameTimeTarget)) {
+        return true;
+    }
+    return false;
+}
+
 
 // Delivers the first sample to the renderer
-HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, int iNumSamples, REFERENCE_TIME rtAvgFrameTimeTarget) const {
+HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget) {
     CheckPointer(pIn, E_POINTER)
     CheckPointer(pOut, E_POINTER)
 	HRESULT hr = NOERROR;
@@ -284,6 +305,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
     // Assemble the output samples
     IMediaSample* pOutNew;
     BYTE* pOutNewBuffer;
+    int iNumSamples = 1;
 
     for (int i = 0; i < iNumSamples; ++i) {
         // Use the input sample for the first output sample
@@ -317,12 +339,48 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
         if (FAILED(hr)) {
             return hr;
         }
-    	rtStartTime = rtStartTime + (i * rtAvgFrameTimeTarget);
-        rtEndTime = rtStartTime + rtAvgFrameTimeTarget;
+
+        // Check if interpolation is necessary
+        if (m_iFrameCounter % 10 == 0) {
+            m_bIntNeeded = IsInterpolationNeeded(rtAvgFrameTimeTarget);
+        }
+
+        if (m_bIntNeeded) {
+
+            if (i == 0) {
+                // Print the original start and end times
+                DebugMessage("Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime));
+
+                // Reset our frame time if necessary and calculate the current number of intermediate frames needed
+                if (rtStartTime < m_rtLastStartTime) {
+                    m_rtCurrStartTime = rtStartTime;
+                    iNumSamples = static_cast<int>(ceil((static_cast<double>(rtEndTime) - static_cast<double>(rtStartTime)) / static_cast<double>(rtAvgFrameTimeTarget)));
+                } else {
+                    iNumSamples = static_cast<int>(ceil(static_cast<double>((rtStartTime - m_rtLastStartTime + rtStartTime - m_rtCurrStartTime)) / static_cast<double>(rtAvgFrameTimeTarget)));
+                }
+                m_rtLastStartTime = rtStartTime;
+            }
+
+            // Ensure there was no mistake
+            if (iNumSamples < 1) {
+            	iNumSamples = 1;
+			}
+
+            // Set the new start and end times
+            rtStartTime = m_rtCurrStartTime;
+            rtEndTime = rtStartTime + rtAvgFrameTimeTarget;
+
+        } else {
+            iNumSamples = 1;
+        }
+
         hr = pOutNew->SetTime(&rtStartTime, &rtEndTime);
         if (FAILED(hr)) {
             return hr;
         }
+
+        // Increment the frame time for the next sample
+        m_rtCurrStartTime += rtAvgFrameTimeTarget;
 
         // Copy the media times
         LONGLONG llMediaStart, llMediaEnd;

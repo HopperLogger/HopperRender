@@ -1162,7 +1162,7 @@ void GPUArray<T>::exportPNG(const char* filePath) {
 	// Calculate the number of blocks needed
 	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
 	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
 	if (dims == 3) {
 		NUM_BLOCKS_Z = 1;
 	}
