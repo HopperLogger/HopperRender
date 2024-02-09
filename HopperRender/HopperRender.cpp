@@ -121,7 +121,7 @@ CHopperRender::CHopperRender(TCHAR* tszName,
     m_effect(IDC_NONE),
     m_lBufferRequest(1),
     CPersistStream(punk, phr),
-    m_bAbeforeB(true) {
+    m_bBisNewest(true) {
 
     char sz[60];
 
@@ -130,6 +130,9 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 
     GetProfileStringA("Quartz", "EffectLength", "192", sz, 60);
     m_maxOffsetDivider = atoi(sz);
+
+    //WriteProfileStringA("Quartz", "Int Active", "False");
+    //WriteProfileStringA("Quartz", "Source FPS", "60");
 
     // Initialize the past frame durations
     std::fill(std::begin(m_rtPastFrameDurations), std::end(m_rtPastFrameDurations), 0);
@@ -257,7 +260,7 @@ HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType) {
 // Transforms an input sample to produce an output sample
 HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
     CheckPointer(pIn, E_POINTER)
-        CheckPointer(pOut, E_POINTER)
+	CheckPointer(pOut, E_POINTER)
 
 	// Increment the frame counter
 	m_iFrameCounter++;
@@ -269,7 +272,6 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
     }
 
     return NOERROR;
-    //return Transform(pOut);
 }
 
 
@@ -277,11 +279,10 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget) {
     CheckPointer(pIn, E_POINTER)
     CheckPointer(pOut, E_POINTER)
-	HRESULT hr = NOERROR;
 
     // Get pointers to the sample buffer
     BYTE* pInBuffer;
-    hr = pIn->GetPointer(&pInBuffer);
+    HRESULT hr = pIn->GetPointer(&pInBuffer);
     if (FAILED(hr)) {
         return hr;
     }
@@ -294,9 +295,9 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
     BYTE* pOutNewBuffer;
     int iNumSamples = 1;
 
-    for (int i = 0; i < iNumSamples; ++i) {
+    for (int iIntFrameNum = 0; iIntFrameNum < iNumSamples; ++iIntFrameNum) {
         // Use the input sample for the first output sample
-        if (i == 0) {
+        if (iIntFrameNum == 0) {
             pOutNew = pOut;
         // Create a new output sample
         } else {
@@ -313,13 +314,6 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             return hr;
         }
 
-        // Copy the relevant portion of the input buffer to the output buffer
-        if (i == 0) {
-			memcpy(pOutNewBuffer, pInBuffer, lInSize);
-        } else {
-            memset(pOutNewBuffer, 0, lInSize);
-        }
-
         // Set the presentation time for the new output sample
         REFERENCE_TIME rtStartTime, rtEndTime;
         hr = pIn->GetTime(&rtStartTime, &rtEndTime);
@@ -328,7 +322,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
         }
 
         // Update the past frame durations
-        if (i == 0) {
+        if (iIntFrameNum == 0) {
             if (rtStartTime - m_rtLastStartTime > 0) {
                 m_rtPastFrameDurations[m_iFrameCounter % 10] = rtStartTime - m_rtLastStartTime;
             }
@@ -346,9 +340,16 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             }
         }
 
+        // Update the stats
+        //if (iIntFrameNum == 0) {
+            //m_IntActive = m_bIntNeeded;
+            //m_SourceFPS = 10000000.0 / static_cast<double>(m_rtAvgSourceFrameTime);
+            //ScribbleToStream(nullptr);
+        //}
+
         if (m_bIntNeeded) { // Interpolation needed
 
-            if (i == 0) {
+            if (iIntFrameNum == 0) {
                 // Print the original start and end times
                 DebugMessage("ACINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtAvgSourceFrameTime));
 
@@ -403,14 +404,12 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             if (FAILED(hr)) {
                 return hr;
             }
-        }
-        else if (hr == S_FALSE) {
+        } else if (hr == S_FALSE) {
             hr = pOutNew->SetSyncPoint(FALSE);
             if (FAILED(hr)) {
                 return hr;
             }
-        }
-        else {  // an unexpected error has occured...
+        } else {  // an unexpected error has occured...
             return E_UNEXPECTED;
         }
 
@@ -433,14 +432,12 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             if (FAILED(hr)) {
                 return hr;
             }
-        }
-        else if (hr == S_FALSE) {
+        } else if (hr == S_FALSE) {
             hr = pOutNew->SetPreroll(FALSE);
             if (FAILED(hr)) {
                 return hr;
             }
-        }
-        else {  // an unexpected error has occured...
+        } else {  // an unexpected error has occured...
             return E_UNEXPECTED;
         }
 
@@ -451,14 +448,12 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             if (FAILED(hr)) {
                 return hr;
             }
-        }
-        else if (hr == S_FALSE) {
+        } else if (hr == S_FALSE) {
             hr = pOutNew->SetDiscontinuity(FALSE);
             if (FAILED(hr)) {
                 return hr;
             }
-        }
-        else {  // an unexpected error has occured...
+        } else {  // an unexpected error has occured...
             return E_UNEXPECTED;
         }
 
@@ -468,8 +463,14 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             return hr;
         }
 
+        // Interpolate the frame
+        hr = InterpolateFrame(pInBuffer, pOutNewBuffer, iIntFrameNum, iNumSamples);
+        if (FAILED(hr)) {
+            return hr;
+        }
+
         // Deliver the new output sample downstream
-        if (i > 0) {
+        if (iIntFrameNum > 0) {
             hr = m_pOutput->Deliver(pOutNew);
             if (FAILED(hr)) {
                 return hr;
@@ -484,6 +485,48 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 }
 
 
+HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, int iIntFrameNum, int iNumSamples) {
+    // Get the image properties from the BITMAPINFOHEADER
+    AM_MEDIA_TYPE* pType = &m_pInput->CurrentMediaType();
+    VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)pType->pbFormat;
+    ASSERT(pvi);
+    int dimX = pvi->bmiHeader.biWidth;
+    int dimY = pvi->bmiHeader.biHeight;
+
+    // Initialize the GPU Arrays if they haven't been initialized yet
+    if (!m_frameA.isInitialized()) {
+        m_frameA.init({ 3, dimY, dimX });
+        m_frameB.init({ 3, dimY, dimX });
+        m_frameB.fillData(pInBuffer);
+        //memcpy(pOutBuffer, pInBuffer, 3 * dimY * dimX);
+        m_opticalFlowCalc.init(dimY, dimX);
+    }
+
+    // Either fill the A or B frame with the new data, so that
+    // we always have the current frame and the previous frame
+    if (iIntFrameNum == 0) {
+        if (m_bBisNewest) {
+            m_frameA.fillData(pInBuffer);
+        } else {
+            m_frameB.fillData(pInBuffer);
+        }
+    }
+
+    // Blend the frames together
+    if (m_bBisNewest) {
+        m_opticalFlowCalc.blendFrames(m_frameA, m_frameB, iIntFrameNum, iNumSamples);
+    } else {
+        m_opticalFlowCalc.blendFrames(m_frameB, m_frameA, iIntFrameNum, iNumSamples);
+    }
+    m_opticalFlowCalc.warpedFrame.download(pOutBuffer);
+
+    // Update the frame order
+    if (iIntFrameNum == 0) {
+    	m_bBisNewest = !m_bBisNewest;
+	}
+
+    return NOERROR;
+}
 // 'In place' apply the image effect to this sample
 HRESULT CHopperRender::Transform(IMediaSample* pMediaSample) {
     BYTE* pData;                // Pointer to the actual image buffer
@@ -521,21 +564,21 @@ HRESULT CHopperRender::Transform(IMediaSample* pMediaSample) {
 	        // Either fill the A or B frame with the new data, so that
 	        // we always have the current frame and the previous frame
 	        if (false) {
-	            if (m_bAbeforeB)
+	            if (m_bBisNewest)
 	            {
 	                m_frameA.fillData(pData);
 	                m_offsetArray = m_opticalFlowCalc.calculateOpticalFlow(m_frameB, m_frameA);
-	                m_warpedFrame = m_opticalFlowCalc.warpFrame(m_frameB, m_offsetArray);
+	                m_opticalFlowCalc.warpFrame(m_frameB, m_offsetArray);
 	                m_warpedFrame.download(pData);
 	            }
 	            else
 	            {
 	                m_frameB.fillData(pData);
 	                m_offsetArray = m_opticalFlowCalc.calculateOpticalFlow(m_frameA, m_frameB);
-	                m_warpedFrame = m_opticalFlowCalc.warpFrame(m_frameA, m_offsetArray);
+	                m_opticalFlowCalc.warpFrame(m_frameA, m_offsetArray);
 	                m_warpedFrame.download(pData);
 	            }
-	            m_bAbeforeB = !m_bAbeforeB;
+                m_bBisNewest = !m_bBisNewest;
 	        }
 	        break;
 

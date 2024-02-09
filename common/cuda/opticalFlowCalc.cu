@@ -344,6 +344,19 @@ __global__ void rearangeImageDataLayertoRGBOFC(const unsigned char* layerArray, 
 	}
 }
 
+// Kernel that blends frame1 to frame2
+__global__ void blendFrameKernel(const unsigned char* frame1, const unsigned char* frame2, unsigned char* blendedFrame, const double frame1Scalar, const double frame2Scalar, const unsigned int dimY, const unsigned int dimX) {
+	// Current entry to be computed by the thread
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+
+	// Check if result is within matrix boundaries
+	if (cz < 3 && cy < dimY && cx < dimX) {
+		blendedFrame[cz * dimY * dimX + cy * dimX + cx] = static_cast<unsigned char>(static_cast<double>(frame1[cz * dimY * dimX + cy * dimX + cx]) * frame1Scalar + static_cast<double>(frame2[cz * dimY * dimX + cy * dimX + cx]) * frame2Scalar);
+	}
+}
+
 // Constructor
 OpticalFlowCalc::OpticalFlowCalc() = default;
 
@@ -462,10 +475,8 @@ GPUArray<int> OpticalFlowCalc::calculateOpticalFlow(const GPUArray<unsigned char
 *
 * @param frame1: The frame to warp
 * @param offsetArray: The array containing the offsets
-*
-* @return: The warped frame
 */
-GPUArray<unsigned char> OpticalFlowCalc::warpFrame(const GPUArray<unsigned char>& frame1, const GPUArray<int>& offsetArray) {
+void OpticalFlowCalc::warpFrame(const GPUArray<unsigned char>& frame1, const GPUArray<int>& offsetArray) {
 	// Reset the hit count array
 	hitCount.fill(0);
 
@@ -486,7 +497,31 @@ GPUArray<unsigned char> OpticalFlowCalc::warpFrame(const GPUArray<unsigned char>
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
 	}
+}
 
-	// Return result array
-	return RGBFrame;
+/*
+* Blends frame1 to frame2
+*
+* @param frame1: The frame to blend from
+* @param frame2: The frame to blend to
+* @param iIntFrameNum: The current interpolated frame number
+* @param iNumSamples: The number of frames between frame1 and frame2
+*/
+void OpticalFlowCalc::blendFrames(const GPUArray<unsigned char>& frame1, const GPUArray<unsigned char>& frame2, int iIntFrameNum, int iNumSamples) {
+	// Calculate the blend scalar
+	const double frame2Scalar = (double)iIntFrameNum / (double)iNumSamples;
+	const double frame1Scalar = 1.0 - frame2Scalar;
+
+	// Blend the frame
+	blendFrameKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, frame2.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1Scalar, frame2Scalar, frame1.dimY, frame1.dimX);
+
+	// Wait for all threads to finish
+	cudaDeviceSynchronize();
+
+	// Check for CUDA errors
+	const cudaError_t cudaError = cudaGetLastError();
+	if (cudaError != cudaSuccess) {
+		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
+		exit(-1);
+	}
 }

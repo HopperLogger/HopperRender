@@ -40,12 +40,19 @@ public:
 	*
 	* @param frame1: The frame to warp
 	* @param offsetArray: The array containing the offsets
-	*
-	* @return: The warped frame
 	*/
-	GPUArray<unsigned char> warpFrame(const GPUArray<unsigned char>& frame1, const GPUArray<int>& offsetArray);
+	void warpFrame(const GPUArray<unsigned char>& frame1, const GPUArray<int>& offsetArray);
 
-private:
+	/*
+	* Blends frame1 to frame2
+	*
+	* @param frame1: The frame to blend from
+	* @param frame2: The frame to blend to
+	* @param iIntFrameNum: The current interpolated frame number
+	* @param iNumSamples: The number of frames between frame1 and frame2
+	*/
+	void blendFrames(const GPUArray<unsigned char>& frame1, const GPUArray<unsigned char>& frame2, int iIntFrameNum, int iNumSamples);
+
 	// The number of cuda blocks needed
 	int NUM_BLOCKS_X;
 	int NUM_BLOCKS_Y;
