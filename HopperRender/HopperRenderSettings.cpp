@@ -132,7 +132,7 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 
 void CHopperRenderSettings::GetControlValues() {
     TCHAR sz[STR_MAX_LENGTH];
-    REFTIME tmp1, tmp2 ;
+    int tmp1, tmp2 ;
 
     // Get the start and effect times
     Edit_GetText(GetDlgItem(m_Dlg, IDC_MAXOFFSETDIV), sz, STR_MAX_LENGTH);
@@ -142,9 +142,9 @@ void CHopperRenderSettings::GetControlValues() {
     char szANSI[STR_MAX_LENGTH];
 
     int rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
-    tmp2 = COARefTime(atof(szANSI));
+    tmp2 = atoi(szANSI);
 #else
-    tmp2 = COARefTime(atof(sz));
+    tmp2 = atoi(sz);
 #endif
 
     Edit_GetText(GetDlgItem(m_Dlg, IDC_NUMSTEPS), sz, STR_MAX_LENGTH);
@@ -152,9 +152,9 @@ void CHopperRenderSettings::GetControlValues() {
 #ifdef UNICODE
     // Convert Multibyte string to ANSI
     rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
-    tmp1 = COARefTime(atof(szANSI));
+    tmp1 = atoi(szANSI);
 #else
-    tmp1 = COARefTime(atof(sz));
+    tmp1 = atoi(sz);
 #endif
 
     // Quick validation of the fields

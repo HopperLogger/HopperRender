@@ -13,6 +13,9 @@
 #include "iez.h"
 #include "HopperRenderSettings.h"
 #include "HopperRender.h"
+
+#include <numeric>
+
 #include "resource.h"
 
 
@@ -127,6 +130,9 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 
     GetProfileStringA("Quartz", "EffectLength", "192", sz, 60);
     m_maxOffsetDivider = atoi(sz);
+
+    // Initialize the past frame durations
+    std::fill(std::begin(m_rtPastFrameDurations), std::end(m_rtPastFrameDurations), 0);
 }
 
 
@@ -266,25 +272,6 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
     //return Transform(pOut);
 }
 
-// Checks if interpolation is needed
-BOOL CHopperRender::IsInterpolationNeeded(REFERENCE_TIME rtAvgFrameTimeTarget) {
-    // Get the current playback rate
-    double dRate = 0.0;
-	IMediaSeeking* pSeeking;
-    m_pGraph->QueryInterface(IID_IMediaSeeking, (void**)&pSeeking);
-    pSeeking->GetRate(&dRate);
-
-    // Get the frametime of the source
-    VIDEOINFOHEADER* vih = (VIDEOINFOHEADER*)m_pInput->CurrentMediaType().Format();
-    REFERENCE_TIME rtAvgFrameTime = vih->AvgTimePerFrame;
-
-    // Check if the current playback frametime is longer than the desired playback frametime
-    if (static_cast<double>(rtAvgFrameTime) * (1.0 / dRate) > static_cast<double>(rtAvgFrameTimeTarget)) {
-        return true;
-    }
-    return false;
-}
-
 
 // Delivers the first sample to the renderer
 HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget) {
@@ -340,16 +327,30 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             return hr;
         }
 
+        // Update the past frame durations
+        if (i == 0) {
+            if (rtStartTime - m_rtLastStartTime > 0) {
+                m_rtPastFrameDurations[m_iFrameCounter % 10] = rtStartTime - m_rtLastStartTime;
+            }
+		}
+
         // Check if interpolation is necessary
         if (m_iFrameCounter % 10 == 0) {
-            m_bIntNeeded = IsInterpolationNeeded(rtAvgFrameTimeTarget);
+            const REFERENCE_TIME rtSum = std::accumulate(std::begin(m_rtPastFrameDurations), std::end(m_rtPastFrameDurations), static_cast<REFERENCE_TIME>(0));
+            m_rtAvgSourceFrameTime = rtSum / 10;
+
+            if (m_rtAvgSourceFrameTime > (rtAvgFrameTimeTarget + 833)) {
+                m_bIntNeeded = true;
+            } else {
+                m_bIntNeeded = false;
+            }
         }
 
-        if (m_bIntNeeded) {
+        if (m_bIntNeeded) { // Interpolation needed
 
             if (i == 0) {
                 // Print the original start and end times
-                DebugMessage("Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime));
+                DebugMessage("ACINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtAvgSourceFrameTime));
 
                 // Reset our frame time if necessary and calculate the current number of intermediate frames needed
                 if (rtStartTime < m_rtLastStartTime) {
@@ -370,10 +371,14 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             rtStartTime = m_rtCurrStartTime;
             rtEndTime = rtStartTime + rtAvgFrameTimeTarget;
 
-        } else {
+        } else { // No interpolation needed
+            DebugMessage("NOINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtAvgSourceFrameTime));
             iNumSamples = 1;
+            m_rtCurrStartTime = rtStartTime;
+            m_rtLastStartTime = rtStartTime;
         }
 
+        // Set the new time for the output sample
         hr = pOutNew->SetTime(&rtStartTime, &rtEndTime);
         if (FAILED(hr)) {
             return hr;

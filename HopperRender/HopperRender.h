@@ -44,7 +44,6 @@ private:
     // Constructor
     CHopperRender(TCHAR *tszName, LPUNKNOWN punk, HRESULT *phr);
 
-    BOOL IsInterpolationNeeded(REFERENCE_TIME rtAvgFrameTimeTarget);
     HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget);
     HRESULT Transform(IMediaSample *pMediaSample);
 
@@ -62,5 +61,7 @@ private:
     int m_iFrameCounter = 0;               // Frame counter (relative! i.e. number of frames presented)
     REFERENCE_TIME m_rtCurrStartTime = LONGLONG_MAX;  // The start time of the current interpolated frame
 	REFERENCE_TIME m_rtLastStartTime = LONGLONG_MAX;  // The start time of the last input frame
-    BOOL m_bIntNeeded = false;               // Whether interpolation currently is needed or not
+    BOOL m_bIntNeeded = false;             // Whether interpolation currently is needed or not
+    REFERENCE_TIME m_rtPastFrameDurations[10]; // The past 10 frame durations
+    REFERENCE_TIME m_rtAvgSourceFrameTime = 0; // The average frame time of the source
 };
