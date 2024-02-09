@@ -19,6 +19,8 @@
 #define IDC_MAXOFFSETDIV                1014
 #define IDS_STATIC                      -1
 #define IDS_TITLE                       1015
+#define IDC_INTACTIVE				    1016
+#define IDC_SOURCEFPS				    1017
 
 // Next default values for new objects
 //

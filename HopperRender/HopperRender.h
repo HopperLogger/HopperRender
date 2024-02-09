@@ -45,6 +45,7 @@ private:
     CHopperRender(TCHAR *tszName, LPUNKNOWN punk, HRESULT *phr);
 
     HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget);
+    HRESULT InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, int iIntFrameNum, int iNumSamples);
     HRESULT Transform(IMediaSample *pMediaSample);
 
     CCritSec    m_HopperRenderLock;        // Private play critical section
@@ -56,7 +57,7 @@ private:
     GPUArray<unsigned char> m_frameB;      // GPU frame B
     GPUArray<int> m_offsetArray;           // GPU offset array
     GPUArray<unsigned char> m_warpedFrame; // GPU warped frame
-    bool m_bAbeforeB;                      // Which frame order are we using
+    bool m_bBisNewest;                     // Which frame order are we using
     OpticalFlowCalc m_opticalFlowCalc;     // Optical flow calculator
     int m_iFrameCounter = 0;               // Frame counter (relative! i.e. number of frames presented)
     REFERENCE_TIME m_rtCurrStartTime = LONGLONG_MAX;  // The start time of the current interpolated frame

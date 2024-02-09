@@ -65,11 +65,16 @@ BEGIN
     CONTROL         "Red",IDC_RED,"Button",BS_AUTORADIOBUTTON,11,22,41,14
     CONTROL         "No Effects",IDC_NONE,"Button",BS_AUTORADIOBUTTON,57,88,
                     47,10
-    GROUPBOX        "Parameters", IDS_STATIC, 125, 23, 130, 51
-    EDITTEXT        IDC_NUMSTEPS, 200, 34, 40, 13, ES_AUTOHSCROLL
-    EDITTEXT        IDC_MAXOFFSETDIV, 200, 53, 40, 13, ES_AUTOHSCROLL
-    LTEXT           "NumSteps", IDS_STATIC, 132, 37, 60, 9
-    LTEXT           "MaxOffsetDivider", IDS_STATIC, 132, 55, 60, 9
+    GROUPBOX        "Parameters", IDS_STATIC, 125, 10, 130, 51
+    EDITTEXT        IDC_NUMSTEPS, 200, 21, 40, 13, ES_AUTOHSCROLL
+    EDITTEXT        IDC_MAXOFFSETDIV, 200, 40, 40, 13, ES_AUTOHSCROLL
+    LTEXT           "NumSteps", IDS_STATIC, 132, 24, 60, 9
+    LTEXT           "MaxOffsetDivider", IDS_STATIC, 132, 42, 60, 9
+    GROUPBOX        "Status", IDS_STATIC, 125, 70, 130, 51
+    LTEXT           "Int Active", IDS_STATIC, 132, 85, 60, 9
+    LTEXT           "Source FPS", IDS_STATIC, 132, 102, 60, 9
+    LTEXT           "n/a", IDS_STATIC, 200, 85, 30, 9
+    LTEXT           "n/a", IDS_STATIC, 200, 102, 30, 9
 END
 
 STRINGTABLE DISCARDABLE

@@ -15,14 +15,14 @@
 
 
 // Used by the DirectShow base classes to create instances
-CUnknown *CHopperRenderSettings::CreateInstance(LPUNKNOWN lpunk, HRESULT *phr) {
+CUnknown* CHopperRenderSettings::CreateInstance(LPUNKNOWN lpunk, HRESULT* phr) {
     ASSERT(phr);
 
-    CUnknown *punk = new CHopperRenderSettings(lpunk, phr);
+    CUnknown* punk = new CHopperRenderSettings(lpunk, phr);
 
     if (punk == nullptr) {
         if (phr)
-        	*phr = E_OUTOFMEMORY;
+            *phr = E_OUTOFMEMORY;
     }
 
     return punk;
@@ -30,9 +30,9 @@ CUnknown *CHopperRenderSettings::CreateInstance(LPUNKNOWN lpunk, HRESULT *phr) {
 
 
 // Constructor
-CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT *phr) :
+CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
     CBasePropertyPage(NAME("HopperRender Settings"), pUnk,
-                      IDD_HopperRenderSettings, IDS_TITLE),
+        IDD_HopperRenderSettings, IDS_TITLE),
     m_pIPEffect(NULL),
     m_bIsInitialized(FALSE) {
 
@@ -42,40 +42,40 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT *phr) :
 
 // Handles the messages for our property window
 INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd,
-                                          UINT uMsg,
-                                          WPARAM wParam,
-                                          LPARAM lParam) {
+    UINT uMsg,
+    WPARAM wParam,
+    LPARAM lParam) {
     switch (uMsg) {
-        case WM_COMMAND: {
-            if (m_bIsInitialized) {
-                m_bDirty = TRUE;
-                if (m_pPageSite) {
-                    m_pPageSite->OnStatusChange(PROPPAGESTATUS_DIRTY);
-                }
+    case WM_COMMAND: {
+        if (m_bIsInitialized) {
+            m_bDirty = TRUE;
+            if (m_pPageSite) {
+                m_pPageSite->OnStatusChange(PROPPAGESTATUS_DIRTY);
             }
-            return (LRESULT) 1;
         }
+        return (LRESULT)1;
+    }
     }
 
-    return CBasePropertyPage::OnReceiveMessage(hwnd,uMsg,wParam,lParam);
+    return CBasePropertyPage::OnReceiveMessage(hwnd, uMsg, wParam, lParam);
 }
 
 
 // Called when we connect to a transform filter
-HRESULT CHopperRenderSettings::OnConnect(IUnknown *pUnknown) {
-    CheckPointer(pUnknown,E_POINTER);
+HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
+    CheckPointer(pUnknown, E_POINTER);
     ASSERT(m_pIPEffect == NULL);
 
-    HRESULT hr = pUnknown->QueryInterface(IID_IIPEffect, (void **) &m_pIPEffect);
+    HRESULT hr = pUnknown->QueryInterface(IID_IIPEffect, (void**)&m_pIPEffect);
     if (FAILED(hr)) {
         return E_NOINTERFACE;
     }
 
     // Get the initial image FX property
-    CheckPointer(m_pIPEffect,E_FAIL);
+    CheckPointer(m_pIPEffect, E_FAIL);
     m_pIPEffect->get_IPEffect(&m_effect, &m_numSteps, &m_maxOffsetDivider);
 
-    m_bIsInitialized = FALSE ;
+    m_bIsInitialized = FALSE;
     return NOERROR;
 }
 
@@ -83,7 +83,7 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown *pUnknown) {
 // Likewise called when we disconnect from a filter
 HRESULT CHopperRenderSettings::OnDisconnect() {
     // Release of Interface after setting the appropriate old effect value
-    if(m_pIPEffect) {
+    if (m_pIPEffect) {
         m_pIPEffect->Release();
         m_pIPEffect = nullptr;
     }
@@ -123,8 +123,8 @@ HRESULT CHopperRenderSettings::OnDeactivate() {
 HRESULT CHopperRenderSettings::OnApplyChanges() {
     GetControlValues();
 
-    CheckPointer(m_pIPEffect,E_POINTER)
-    m_pIPEffect->put_IPEffect(m_effect, m_numSteps, m_maxOffsetDivider);
+    CheckPointer(m_pIPEffect, E_POINTER)
+        m_pIPEffect->put_IPEffect(m_effect, m_numSteps, m_maxOffsetDivider);
 
     return NOERROR;
 }
@@ -132,7 +132,7 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 
 void CHopperRenderSettings::GetControlValues() {
     TCHAR sz[STR_MAX_LENGTH];
-    int tmp1, tmp2 ;
+    int tmp1, tmp2;
 
     // Get the start and effect times
     Edit_GetText(GetDlgItem(m_Dlg, IDC_MAXOFFSETDIV), sz, STR_MAX_LENGTH);
@@ -159,7 +159,7 @@ void CHopperRenderSettings::GetControlValues() {
 
     // Quick validation of the fields
     if (tmp1 >= 0 && tmp2 >= 0) {
-        m_numSteps  = tmp1;
+        m_numSteps = tmp1;
         m_maxOffsetDivider = tmp2;
     }
 
