@@ -12,15 +12,17 @@ extern "C" {
     DECLARE_INTERFACE_(IIPEffect, IUnknown)
     {
         STDMETHOD(get_IPEffect) (THIS_
-            int* effectNum,         // The current effect
-            int* numSteps,          // Number of steps executed to find the ideal offset (limits the maximum offset)
-            int* maxOffsetDivider   // The divider used to calculate the initial global offset
+            bool* pbActivated,       // Is the filter activated
+            int* piNumSteps,         // Number of steps executed to find the ideal offset (limits the maximum offset)
+            int* piMaxOffsetDivider, // The divider used to calculate the initial global offset
+            int* piIntActiveState,       // Is the effect active
+            double* pdSourceFPS      // The source frames per second
             ) PURE;
 
         STDMETHOD(put_IPEffect) (THIS_
-            int effectNum,          // Change to this effect
-            int numSteps,           // Number of steps executed to find the ideal offset (limits the maximum offset)
-            int maxOffsetDivider    // The divider used to calculate the initial global offset
+            bool bActivated,        // Is the filter activated
+            int iNumSteps,          // Number of steps executed to find the ideal offset (limits the maximum offset)
+            int iMaxOffsetDivider   // The divider used to calculate the initial global offset
             ) PURE;
     };
 

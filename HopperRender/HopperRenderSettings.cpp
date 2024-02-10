@@ -4,6 +4,7 @@
 #include <commctrl.h>
 #include <olectl.h>
 #include <memory.h>
+#include <string>
 #include <stdlib.h>
 #include <stdio.h>
 #include <tchar.h>
@@ -21,8 +22,9 @@ CUnknown* CHopperRenderSettings::CreateInstance(LPUNKNOWN lpunk, HRESULT* phr) {
     CUnknown* punk = new CHopperRenderSettings(lpunk, phr);
 
     if (punk == nullptr) {
-        if (phr)
+        if (phr) {
             *phr = E_OUTOFMEMORY;
+        }
     }
 
     return punk;
@@ -35,7 +37,6 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
         IDD_HopperRenderSettings, IDS_TITLE),
     m_pIPEffect(NULL),
     m_bIsInitialized(FALSE) {
-
     ASSERT(phr);
 }
 
@@ -58,6 +59,23 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd,
 	    }
     }
 
+    // Get the current effect settings
+    m_pIPEffect->get_IPEffect(&m_bActivated, &m_iNumSteps, &m_iMaxOffsetDivider, &m_iIntActiveState, &m_dSourceFPS);
+
+    // Update the effect active status
+    if (m_iIntActiveState == 2) {
+        SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Active"));
+    } else if (m_iIntActiveState == 1) {
+        SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Not Needed"));
+    } else {
+		SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Deactivated"));
+	}
+
+    // Update the source frames per second
+    TCHAR sz[60];
+    (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f fps\0"), m_dSourceFPS);
+    SetDlgItemText(m_Dlg, IDC_SOURCEFPS, sz);
+
     return CBasePropertyPage::OnReceiveMessage(hwnd, uMsg, wParam, lParam);
 }
 
@@ -74,7 +92,7 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 
     // Get the initial image FX property
     CheckPointer(m_pIPEffect, E_FAIL);
-    m_pIPEffect->get_IPEffect(&m_iEffect, &m_iNumSteps, &m_iMaxOffsetDivider);
+    m_pIPEffect->get_IPEffect(&m_bActivated, &m_iNumSteps, &m_iMaxOffsetDivider, &m_iIntActiveState, &m_dSourceFPS);
 
     m_bIsInitialized = FALSE;
     return NOERROR;
@@ -102,7 +120,11 @@ HRESULT CHopperRenderSettings::OnActivate() {
     (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNumSteps);
     Edit_SetText(GetDlgItem(m_Dlg, IDC_NUMSTEPS), sz);
 
-    CheckRadioButton(m_Dlg, IDC_EMBOSS, IDC_NONE, m_iEffect);
+    if (m_bActivated) {
+		CheckRadioButton(m_Dlg, IDC_ON, IDC_OFF, IDC_ON);
+    } else {
+		CheckRadioButton(m_Dlg, IDC_ON, IDC_OFF, IDC_OFF);
+	}
     m_bIsInitialized = TRUE;
 
     return NOERROR;
@@ -125,7 +147,7 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
     GetControlValues();
 
     CheckPointer(m_pIPEffect, E_POINTER)
-        m_pIPEffect->put_IPEffect(m_iEffect, m_iNumSteps, m_iMaxOffsetDivider);
+        m_pIPEffect->put_IPEffect(m_bActivated, m_iNumSteps, m_iMaxOffsetDivider);
 
     return NOERROR;
 }
@@ -165,10 +187,9 @@ void CHopperRenderSettings::GetControlValues() {
     }
 
     // Find which special effect we have selected
-    for (int i = IDC_EMBOSS; i <= IDC_NONE; i++) {
-        if (IsDlgButtonChecked(m_Dlg, i)) {
-            m_iEffect = i;
-            break;
-        }
-    }
+    if (IsDlgButtonChecked(m_Dlg, IDC_ON)) {
+        m_bActivated = true;
+    } else {
+		m_bActivated = false;
+	}
 }

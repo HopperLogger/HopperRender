@@ -118,7 +118,7 @@ CHopperRender::CHopperRender(TCHAR* tszName,
     LPUNKNOWN punk,
     HRESULT* phr) :
     CTransformFilter(tszName, punk, CLSID_HopperRender),
-    m_iEffect(IDC_NONE),
+    m_bActivated(IDC_ON),
     m_lBufferRequest(12),
     CPersistStream(punk, phr),
     m_bBisNewest(true) {
@@ -330,11 +330,16 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             const REFERENCE_TIME rtSum = std::accumulate(std::begin(m_rtPastFrameDurations), std::end(m_rtPastFrameDurations), static_cast<REFERENCE_TIME>(0));
             m_rtAvgSourceFrameTime = rtSum / 10;
 
-            if (m_rtAvgSourceFrameTime > (rtAvgFrameTimeTarget + 833)) {
-                m_bIntNeeded = true;
+            if (m_bActivated) {
+                if (m_rtAvgSourceFrameTime > (rtAvgFrameTimeTarget + 833)) {
+                    m_bIntNeeded = true;
+                } else {
+                    m_bIntNeeded = false;
+                }
             } else {
-                m_bIntNeeded = false;
-            }
+				m_bIntNeeded = false;
+			}
+            
         }
 
         // Update the stats
@@ -543,9 +548,11 @@ STDMETHODIMP CHopperRender::GetClassID(CLSID* pClsid) {
 HRESULT CHopperRender::ScribbleToStream(IStream* pStream) const {
     HRESULT hr;
 
-    WRITEOUT(m_iEffect)
+    WRITEOUT(m_bActivated)
     WRITEOUT(m_iNumSteps)
     WRITEOUT(m_iMaxOffsetDivider)
+    WRITEOUT(m_bIntNeeded)
+    WRITEOUT(m_rtAvgSourceFrameTime)
 
     return NOERROR;
 }
@@ -555,9 +562,11 @@ HRESULT CHopperRender::ScribbleToStream(IStream* pStream) const {
 HRESULT CHopperRender::ReadFromStream(IStream* pStream) {
     HRESULT hr;
 
-    READIN(m_iEffect)
+    READIN(m_bActivated)
     READIN(m_iNumSteps)
     READIN(m_iMaxOffsetDivider)
+    READIN(m_bIntNeeded)
+    READIN(m_rtAvgSourceFrameTime)
 
     return NOERROR;
 }
@@ -579,27 +588,37 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
 
 
 // Return the current effect selected
-STDMETHODIMP CHopperRender::get_IPEffect(int* IPEffect, int* pNumSteps, int* pMaxOffsetDivider) {
+STDMETHODIMP CHopperRender::get_IPEffect(bool* pbActivated, int* piNumSteps, int* piMaxOffsetDivider, int* iIntActiveState, double* dSourceFPS) {
     CAutoLock cAutolock(&m_csHopperRenderLock);
-    CheckPointer(IPEffect, E_POINTER)
-    CheckPointer(pNumSteps, E_POINTER)
-    CheckPointer(pMaxOffsetDivider, E_POINTER)
+    CheckPointer(pbActivated, E_POINTER)
+    CheckPointer(piNumSteps, E_POINTER)
+    CheckPointer(piMaxOffsetDivider, E_POINTER)
+    CheckPointer(iIntActiveState, E_POINTER)
+    CheckPointer(dSourceFPS, E_POINTER)
 
-    *IPEffect = m_iEffect;
-    *pNumSteps = m_iNumSteps;
-    *pMaxOffsetDivider = m_iMaxOffsetDivider;
+    *pbActivated = m_bActivated;
+    *piNumSteps = m_iNumSteps;
+    *piMaxOffsetDivider = m_iMaxOffsetDivider;
+    if (m_bActivated && m_bIntNeeded) {
+		*iIntActiveState = 2;
+    } else if (m_bActivated && !m_bIntNeeded) {
+		*iIntActiveState = 1;
+    } else {
+        *iIntActiveState = 0;
+    }
+    *dSourceFPS = 10000000.0 / static_cast<double>(m_rtAvgSourceFrameTime);
 
     return NOERROR;
 }
 
 
 // Set the required video effect
-STDMETHODIMP CHopperRender::put_IPEffect(int IPEffect, int numSteps, int maxOffsetDivider) {
+STDMETHODIMP CHopperRender::put_IPEffect(bool bActivated, int iNumSteps, int iMaxOffsetDivider) {
     CAutoLock cAutolock(&m_csHopperRenderLock);
 
-    m_iEffect = IPEffect;
-    m_iNumSteps = numSteps;
-    m_iMaxOffsetDivider = maxOffsetDivider;
+    m_bActivated = bActivated;
+    m_iNumSteps = iNumSteps;
+    m_iMaxOffsetDivider = iMaxOffsetDivider;
 
     SetDirty(TRUE);
     return NOERROR;

@@ -30,8 +30,8 @@ public:
 	HRESULT Transform(IMediaSample *pIn, IMediaSample *pOut) override;
 
     // These implement the custom IIPEffect interface
-    STDMETHODIMP get_IPEffect(int* IPEffect, int* pNumSteps, int* pMaxOffsetDivider) override;
-    STDMETHODIMP put_IPEffect(int IPEffect, int numSteps, int maxOffsetDivider) override;
+    STDMETHODIMP get_IPEffect(bool* pbActivated, int* piNumSteps, int* piMaxOffsetDivider, int* piIntActiveState, double* pdSourceFPS) override;
+    STDMETHODIMP put_IPEffect(bool bActivated, int iNumSteps, int iMaxOffsetDivider) override;
 
     // ISpecifyPropertyPages interface
     STDMETHODIMP GetPages(CAUUID *pPages) override;
@@ -47,15 +47,15 @@ private:
     HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget);
     HRESULT InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, int iIntFrameNum, int iNumSamples);
 
-    CCritSec    m_csHopperRenderLock;                  // Private play critical section
-    int         m_iEffect;                           // Which effect are we processing
+    CCritSec    m_csHopperRenderLock;                // Private play critical section
+    bool        m_bActivated;                        // Whether the filter is activated
     int m_iNumSteps;                                 // Number of steps executed to find the ideal offset (limits the maximum offset)
     int m_iMaxOffsetDivider;                         // The divider used to calculate the initial global offset
     const long m_lBufferRequest;                     // The number of buffers to use
     GPUArray<unsigned char> m_gpuFrameA;             // GPU frame A
     GPUArray<unsigned char> m_gpuFrameB;             // GPU frame B
     bool m_bBisNewest;                               // Which frame order are we using
-    OpticalFlowCalc m_ofcOpticalFlowCalc;          // Optical flow calculator
+    OpticalFlowCalc m_ofcOpticalFlowCalc;            // Optical flow calculator
     int m_iFrameCounter = 0;                         // Frame counter (relative! i.e. number of frames presented)
     REFERENCE_TIME m_rtCurrStartTime = LONGLONG_MAX; // The start time of the current interpolated frame
 	REFERENCE_TIME m_rtLastStartTime = LONGLONG_MAX; // The start time of the last input frame

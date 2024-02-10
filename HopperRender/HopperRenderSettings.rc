@@ -49,22 +49,9 @@ IDD_HopperRenderSettings DIALOG DISCARDABLE  0, 0, 215, 120
 STYLE WS_CHILD
 FONT 8, "MS Shell Dlg"
 BEGIN
-    GROUPBOX        "Interpolation Settings",IDS_STATIC,4,10,115,95
-    CONTROL         "Emboss",IDC_EMBOSS,"Button",BS_AUTORADIOBUTTON,57,70,44,
-                    14
-    CONTROL         "Grey",IDC_GREY,"Button",BS_AUTORADIOBUTTON,57,54,44,14
-    CONTROL         "Blur",IDC_BLUR,"Button",BS_AUTORADIOBUTTON,57,38,44,14
-    CONTROL         "Posterize",IDC_POSTERIZE,"Button",BS_AUTORADIOBUTTON,57,
-                    22,44,14
-    CONTROL         "XOR",IDC_XOR,"Button",BS_AUTORADIOBUTTON,11,86,41,14
-    CONTROL         "Darken",IDC_DARKEN,"Button",BS_AUTORADIOBUTTON,11,70,41,
-                    14
-    CONTROL         "Blue",IDC_BLUE,"Button",BS_AUTORADIOBUTTON,11,54,41,14
-    CONTROL         "Green",IDC_GREEN,"Button",BS_AUTORADIOBUTTON,11,38,41,
-                    14
-    CONTROL         "Red",IDC_RED,"Button",BS_AUTORADIOBUTTON,11,22,41,14
-    CONTROL         "No Effects",IDC_NONE,"Button",BS_AUTORADIOBUTTON,57,88,
-                    47,10
+    GROUPBOX        "Interpolation Settings", IDS_STATIC, 4, 10, 115, 95
+    CONTROL         "On", IDC_ON,"Button", BS_AUTORADIOBUTTON, 11, 25, 41, 14
+    CONTROL         "Off", IDC_OFF,"Button", BS_AUTORADIOBUTTON, 11, 40, 47, 10
     GROUPBOX        "Parameters", IDS_STATIC, 125, 10, 130, 51
     EDITTEXT        IDC_NUMSTEPS, 200, 21, 40, 13, ES_AUTOHSCROLL
     EDITTEXT        IDC_MAXOFFSETDIV, 200, 40, 40, 13, ES_AUTOHSCROLL
@@ -72,9 +59,9 @@ BEGIN
     LTEXT           "MaxOffsetDivider", IDS_STATIC, 132, 42, 60, 9
     GROUPBOX        "Status", IDS_STATIC, 125, 70, 130, 51
     LTEXT           "Int Active", IDS_STATIC, 132, 85, 60, 9
-    LTEXT           "Source FPS", IDS_STATIC, 132, 102, 60, 9
-    LTEXT           "n/a", IDS_STATIC, 200, 85, 30, 9
-    LTEXT           "n/a", IDS_STATIC, 200, 102, 30, 9
+    LTEXT           "Source FPS", IDS_STATIC, 132, 100, 60, 9
+    LTEXT           "n/a", IDC_INTACTIVE, 200, 85, 50, 9
+    LTEXT           "n/a", IDC_SOURCEFPS, 200, 100, 50, 9
 END
 
 STRINGTABLE DISCARDABLE
