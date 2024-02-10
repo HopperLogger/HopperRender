@@ -23,17 +23,15 @@ public:
 	* @param dimY: The height of the frame
 	* @param dimX: The width of the frame
 	*/
-	void init(int dimY, int dimX);
+	void init(const unsigned int dimY, const unsigned int dimX);
 
 	/*
 	* Calculates the optical flow between frame1 and frame2
 	*
 	* @param frame1: The frame to calculate the flow from
 	* @param frame2: The frame to calculate the flow to
-	*
-	* @return: The flow array containing the relative vectors
 	*/
-	GPUArray<int> calculateOpticalFlow(const GPUArray<unsigned char>& frame1, const GPUArray<unsigned char>& frame2);
+	void calculateOpticalFlow(const GPUArray<unsigned char>& frame1, const GPUArray<unsigned char>& frame2);
 
 	/*
 	* Warps frame1 according to the offset array
@@ -41,7 +39,7 @@ public:
 	* @param frame1: The frame to warp
 	* @param offsetArray: The array containing the offsets
 	*/
-	void warpFrame(const GPUArray<unsigned char>& frame1, const GPUArray<int>& offsetArray);
+	void warpFrame(const GPUArray<unsigned char>& frame1);
 
 	/*
 	* Blends frame1 to frame2
@@ -54,8 +52,8 @@ public:
 	void blendFrames(const GPUArray<unsigned char>& frame1, const GPUArray<unsigned char>& frame2, int iIntFrameNum, int iNumSamples);
 
 	// The number of cuda blocks needed
-	int NUM_BLOCKS_X;
-	int NUM_BLOCKS_Y;
+	unsigned int NUM_BLOCKS_X;
+	unsigned int NUM_BLOCKS_Y;
 
 	// The number of cuda threads needed
 	dim3 grid;
@@ -78,8 +76,8 @@ public:
 	GPUArray<unsigned char> RGBFrame;
 	
 	// Helper variables
-	int windowDimX; // Initial window size
-	int windowDimY; // Initial window size
-	int currentGlobalOffset; // Initial global offset
-	int numIterations; // Number of iterations needed to get to the smallest window size
+	unsigned int windowDimX; // Initial window size
+	unsigned int windowDimY; // Initial window size
+	unsigned int currentGlobalOffset; // Initial global offset
+	unsigned int numIterations; // Number of iterations needed to get to the smallest window size
 };

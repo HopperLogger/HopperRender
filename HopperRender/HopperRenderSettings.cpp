@@ -45,16 +45,17 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd,
     UINT uMsg,
     WPARAM wParam,
     LPARAM lParam) {
+
     switch (uMsg) {
-    case WM_COMMAND: {
-        if (m_bIsInitialized) {
-            m_bDirty = TRUE;
-            if (m_pPageSite) {
-                m_pPageSite->OnStatusChange(PROPPAGESTATUS_DIRTY);
-            }
-        }
-        return (LRESULT)1;
-    }
+	    case WM_COMMAND: {
+	        if (m_bIsInitialized) {
+	            m_bDirty = TRUE;
+	            if (m_pPageSite) {
+	                m_pPageSite->OnStatusChange(PROPPAGESTATUS_DIRTY);
+	            }
+	        }
+	        return (LRESULT)1;
+	    }
     }
 
     return CBasePropertyPage::OnReceiveMessage(hwnd, uMsg, wParam, lParam);
@@ -73,7 +74,7 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 
     // Get the initial image FX property
     CheckPointer(m_pIPEffect, E_FAIL);
-    m_pIPEffect->get_IPEffect(&m_effect, &m_numSteps, &m_maxOffsetDivider);
+    m_pIPEffect->get_IPEffect(&m_iEffect, &m_iNumSteps, &m_iMaxOffsetDivider);
 
     m_bIsInitialized = FALSE;
     return NOERROR;
@@ -95,13 +96,13 @@ HRESULT CHopperRenderSettings::OnDisconnect() {
 HRESULT CHopperRenderSettings::OnActivate() {
     TCHAR sz[60];
 
-    (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_maxOffsetDivider);
+    (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iMaxOffsetDivider);
     Edit_SetText(GetDlgItem(m_Dlg, IDC_MAXOFFSETDIV), sz);
 
-    (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_numSteps);
+    (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNumSteps);
     Edit_SetText(GetDlgItem(m_Dlg, IDC_NUMSTEPS), sz);
 
-    CheckRadioButton(m_Dlg, IDC_EMBOSS, IDC_NONE, m_effect);
+    CheckRadioButton(m_Dlg, IDC_EMBOSS, IDC_NONE, m_iEffect);
     m_bIsInitialized = TRUE;
 
     return NOERROR;
@@ -124,7 +125,7 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
     GetControlValues();
 
     CheckPointer(m_pIPEffect, E_POINTER)
-        m_pIPEffect->put_IPEffect(m_effect, m_numSteps, m_maxOffsetDivider);
+        m_pIPEffect->put_IPEffect(m_iEffect, m_iNumSteps, m_iMaxOffsetDivider);
 
     return NOERROR;
 }
@@ -159,14 +160,14 @@ void CHopperRenderSettings::GetControlValues() {
 
     // Quick validation of the fields
     if (tmp1 >= 0 && tmp2 >= 0) {
-        m_numSteps = tmp1;
-        m_maxOffsetDivider = tmp2;
+        m_iNumSteps = tmp1;
+        m_iMaxOffsetDivider = tmp2;
     }
 
     // Find which special effect we have selected
     for (int i = IDC_EMBOSS; i <= IDC_NONE; i++) {
         if (IsDlgButtonChecked(m_Dlg, i)) {
-            m_effect = i;
+            m_iEffect = i;
             break;
         }
     }
