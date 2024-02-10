@@ -31,11 +31,11 @@ class GPUArray {
 public:
 	T* arrayPtrCPU;
 	T* arrayPtrGPU;
-	int dims;
-	std::vector<int> shape;
-	int dimX;
-	int dimY;
-	int dimZ;
+	unsigned int dims;
+	std::vector<unsigned int> shape;
+	unsigned int dimX;
+	unsigned int dimY;
+	unsigned int dimZ;
 	size_t bytes;
 	bool isOnGPU;
 
@@ -54,7 +54,7 @@ public:
 	*
 	* @return: GPUArray object
 	*/
-	GPUArray(std::vector<int> arrayShape, T initializer);
+	GPUArray(std::vector<unsigned int> arrayShape, T initializer);
 
 	/*
 	* Constructor for an image array on the GPU
@@ -66,19 +66,19 @@ public:
 	*
 	* @return: GPUArray object
 	*/
-	GPUArray(const char* filePath, int height, int width);
+	GPUArray(const char* filePath, unsigned int height, unsigned int width);
 
 	/*
 	* Constructor for an image batch array on the GPU
 	*
 	* @param filename: Path to the folder containing the image files
 	* @param batchSize: Number of images in the batch
-	* @param width: Width of the image
 	* @param height: Height of the image
+	* @param width: Width of the image	
 	*
 	* @return: GPUArray object
 	*/
-	GPUArray(const char* filePath, int batchSize, int width, int height);
+	GPUArray(const char* filePath, unsigned int batchSize, unsigned int height, unsigned int width);
 
 	/*
 	* Transfers the array to the GPU
@@ -103,14 +103,14 @@ public:
 	* @param arrayShape: Dimensions of the array (e.g. {2, 3, 4} for a 3D array with 2 layers, 3 rows and 4 columns)
 	* @param initializer: Value to initialize all array entries with
 	*/
-	void changeDims(std::vector<int> arrayShape, T initializer = 0);
+	void changeDims(std::vector<unsigned int> arrayShape, T initializer = 0);
 
 	/*
 	* Initializes the array with the provided dimensions
 	*
 	* @param arrayShape: Dimensions of the array (e.g. {2, 3, 4} for a 3D array with 2 layers, 3 rows and 4 columns)
 	*/
-	void init(std::vector<int> arrayShape, T initializer = 0) {
+	void init(std::vector<unsigned int> arrayShape, T initializer = 0) {
 		changeDims(arrayShape, initializer);
 	}
 
@@ -119,7 +119,7 @@ public:
 	*
 	* @return: True if the array is initialized, false otherwise
 	*/
-	bool isInitialized();
+	bool isInitialized() const;
 
 	/*
 	* Copies the array and returns the copy
@@ -198,7 +198,7 @@ public:
 	*
 	* @param memPointer: Pointer to the data in system memory
 	*/
-	void fillData(T* memPointer);
+	void fillData(const T* memPointer);
 
 	/*
 	* Prints a 2D array/matrix
@@ -207,12 +207,12 @@ public:
 	* @param numElements: How many array entries to print (-1 : all will be printed)
 	*/
 	template <typename S>
-	void print(int startIdx, int numElements);
+	void print(const unsigned int startIdx, const int numElements);
 
 	/*
 	* Returns the absolute index of an array entry given the indices for each dimension
 	*/
-	int getAbsIndex(std::initializer_list<int> indicesForEachDim);
+	int getAbsIndex(const std::initializer_list<int> indicesForEachDim) const;
 
 	/*
 	* Exports the array as a PNG image
@@ -232,7 +232,7 @@ public:
 	/*
 	* Destructor
 	*/
-	void del();
+	void del() const;
 };
 
 /*

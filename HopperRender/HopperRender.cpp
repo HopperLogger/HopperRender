@@ -118,21 +118,18 @@ CHopperRender::CHopperRender(TCHAR* tszName,
     LPUNKNOWN punk,
     HRESULT* phr) :
     CTransformFilter(tszName, punk, CLSID_HopperRender),
-    m_effect(IDC_NONE),
-    m_lBufferRequest(1),
+    m_iEffect(IDC_NONE),
+    m_lBufferRequest(12),
     CPersistStream(punk, phr),
     m_bBisNewest(true) {
 
     char sz[60];
 
     GetProfileStringA("Quartz", "EffectStart", "40", sz, 60);
-    m_numSteps = atoi(sz);
+    m_iNumSteps = atoi(sz);
 
     GetProfileStringA("Quartz", "EffectLength", "192", sz, 60);
-    m_maxOffsetDivider = atoi(sz);
-
-    //WriteProfileStringA("Quartz", "Int Active", "False");
-    //WriteProfileStringA("Quartz", "Source FPS", "60");
+    m_iMaxOffsetDivider = atoi(sz);
 
     // Initialize the past frame durations
     std::fill(std::begin(m_rtPastFrameDurations), std::end(m_rtPastFrameDurations), 0);
@@ -216,7 +213,7 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
     HRESULT hr = NOERROR;
 
     ppropInputRequest->cBuffers = 1;
-    ppropInputRequest->cbBuffer = m_pInput->CurrentMediaType().GetSampleSize() * 12;
+    ppropInputRequest->cbBuffer = m_pInput->CurrentMediaType().GetSampleSize() * m_lBufferRequest;
     ASSERT(ppropInputRequest->cbBuffer);
 
     // Ask the allocator to reserve us some sample memory, NOTE the function
@@ -358,7 +355,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
                     m_rtCurrStartTime = rtStartTime;
                     iNumSamples = static_cast<int>(ceil((static_cast<double>(rtEndTime) - static_cast<double>(rtStartTime)) / static_cast<double>(rtAvgFrameTimeTarget)));
                 } else {
-                    iNumSamples = static_cast<int>(ceil(static_cast<double>((rtStartTime - m_rtLastStartTime + rtStartTime - m_rtCurrStartTime)) / static_cast<double>(rtAvgFrameTimeTarget)));
+                    iNumSamples = static_cast<int>(ceil(static_cast<double>((m_rtAvgSourceFrameTime + rtStartTime - m_rtCurrStartTime)) / static_cast<double>(rtAvgFrameTimeTarget)));
                 }
                 m_rtLastStartTime = rtStartTime;
             }
@@ -490,35 +487,35 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, int i
     AM_MEDIA_TYPE* pType = &m_pInput->CurrentMediaType();
     VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)pType->pbFormat;
     ASSERT(pvi);
-    int dimX = pvi->bmiHeader.biWidth;
-    int dimY = pvi->bmiHeader.biHeight;
+    unsigned int dimX = pvi->bmiHeader.biWidth;
+    unsigned int dimY = pvi->bmiHeader.biHeight;
 
     // Initialize the GPU Arrays if they haven't been initialized yet
-    if (!m_frameA.isInitialized()) {
-        m_frameA.init({ 3, dimY, dimX });
-        m_frameB.init({ 3, dimY, dimX });
-        m_frameB.fillData(pInBuffer);
+    if (!m_gpuFrameA.isInitialized()) {
+        m_gpuFrameA.init({ 3, dimY, dimX });
+        m_gpuFrameB.init({ 3, dimY, dimX });
+        m_gpuFrameB.fillData(pInBuffer);
         //memcpy(pOutBuffer, pInBuffer, 3 * dimY * dimX);
-        m_opticalFlowCalc.init(dimY, dimX);
+        m_ofcOpticalFlowCalc.init(dimY, dimX);
     }
 
     // Either fill the A or B frame with the new data, so that
     // we always have the current frame and the previous frame
     if (iIntFrameNum == 0) {
         if (m_bBisNewest) {
-            m_frameA.fillData(pInBuffer);
+            m_gpuFrameA.fillData(pInBuffer);
         } else {
-            m_frameB.fillData(pInBuffer);
+            m_gpuFrameB.fillData(pInBuffer);
         }
     }
 
     // Blend the frames together
     if (m_bBisNewest) {
-        m_opticalFlowCalc.blendFrames(m_frameA, m_frameB, iIntFrameNum, iNumSamples);
+        m_ofcOpticalFlowCalc.blendFrames(m_gpuFrameA, m_gpuFrameB, iIntFrameNum, iNumSamples);
     } else {
-        m_opticalFlowCalc.blendFrames(m_frameB, m_frameA, iIntFrameNum, iNumSamples);
+        m_ofcOpticalFlowCalc.blendFrames(m_gpuFrameB, m_gpuFrameA, iIntFrameNum, iNumSamples);
     }
-    m_opticalFlowCalc.warpedFrame.download(pOutBuffer);
+    m_ofcOpticalFlowCalc.warpedFrame.download(pOutBuffer);
 
     // Update the frame order
     if (iIntFrameNum == 0) {
@@ -526,183 +523,6 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, int i
 	}
 
     return NOERROR;
-}
-// 'In place' apply the image effect to this sample
-HRESULT CHopperRender::Transform(IMediaSample* pMediaSample) {
-    BYTE* pData;                // Pointer to the actual image buffer
-    unsigned int grey, grey2;   // Used when applying greying effects
-    int iPixel;                 // Used to loop through the image pixels
-    int temp, x, y;             // General loop counters for transforms
-    RGBTRIPLE* prgb;            // Holds a pointer to the current pixel
-
-    AM_MEDIA_TYPE* pType = &m_pInput->CurrentMediaType();
-    VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)pType->pbFormat;
-    ASSERT(pvi);
-
-    CheckPointer(pMediaSample, E_POINTER)
-    pMediaSample->GetPointer(&pData);
-
-    // Get the image properties from the BITMAPINFOHEADER
-    int cxImage = pvi->bmiHeader.biWidth;
-    int cyImage = pvi->bmiHeader.biHeight;
-    const int numPixels = cxImage * cyImage;
-
-    // Initialize the GPU Arrays if they haven't been initialized yet
-    if (!m_frameA.isInitialized()) {
-        m_frameA.init({ 3, cyImage, cxImage });
-        m_frameB.init({ 3, cyImage, cxImage });
-        m_frameB.fillData(pData);
-        m_opticalFlowCalc.init(cyImage, cxImage);
-	}
-
-    // int iPixelSize = pvi->bmiHeader.biBitCount / 8;
-    // int cbImage    = cyImage * cxImage * iPixelSize;
-
-    switch (m_effect) {
-
-	    case IDC_NONE:
-	        // Either fill the A or B frame with the new data, so that
-	        // we always have the current frame and the previous frame
-	        if (false) {
-	            if (m_bBisNewest)
-	            {
-	                m_frameA.fillData(pData);
-	                m_offsetArray = m_opticalFlowCalc.calculateOpticalFlow(m_frameB, m_frameA);
-	                m_opticalFlowCalc.warpFrame(m_frameB, m_offsetArray);
-	                m_warpedFrame.download(pData);
-	            }
-	            else
-	            {
-	                m_frameB.fillData(pData);
-	                m_offsetArray = m_opticalFlowCalc.calculateOpticalFlow(m_frameA, m_frameB);
-	                m_opticalFlowCalc.warpFrame(m_frameA, m_offsetArray);
-	                m_warpedFrame.download(pData);
-	            }
-                m_bBisNewest = !m_bBisNewest;
-	        }
-	        break;
-
-	        // Zero out the green and blue components to leave only the red
-	        // so acting as a filter - for better visual results, compute a
-	        // greyscale value for the pixel and make that the red component
-
-	    case IDC_RED:
-
-	        prgb = (RGBTRIPLE*)pData;
-	        for (iPixel = 0; iPixel < numPixels; iPixel++, prgb++) {
-	            prgb->rgbtGreen = 0;
-	            prgb->rgbtBlue = 0;
-	        }
-	        break;
-
-	    case IDC_GREEN:
-
-	        prgb = (RGBTRIPLE*)pData;
-	        for (iPixel = 0; iPixel < numPixels; iPixel++, prgb++) {
-	            prgb->rgbtRed = 0;
-	            prgb->rgbtBlue = 0;
-	        }
-	        break;
-
-	    case IDC_BLUE:
-	        prgb = (RGBTRIPLE*)pData;
-	        for (iPixel = 0; iPixel < numPixels; iPixel++, prgb++) {
-	            prgb->rgbtRed = 0;
-	            prgb->rgbtGreen = 0;
-	        }
-	        break;
-
-	        // Bitwise shift each component to the right by 1
-	        // this results in the image getting much darker
-
-	    case IDC_DARKEN:
-
-	        prgb = (RGBTRIPLE*)pData;
-	        for (iPixel = 0; iPixel < numPixels; iPixel++, prgb++) {
-	            prgb->rgbtRed = (BYTE)(prgb->rgbtRed >> 1);
-	            prgb->rgbtGreen = (BYTE)(prgb->rgbtGreen >> 1);
-	            prgb->rgbtBlue = (BYTE)(prgb->rgbtBlue >> 1);
-	        }
-	        break;
-
-	        // Toggle each bit - this gives a sort of X-ray effect
-
-	    case IDC_XOR:
-	        prgb = (RGBTRIPLE*)pData;
-	        for (iPixel = 0; iPixel < numPixels; iPixel++, prgb++) {
-	            prgb->rgbtRed = (BYTE)(prgb->rgbtRed ^ 0xff);
-	            prgb->rgbtGreen = (BYTE)(prgb->rgbtGreen ^ 0xff);
-	            prgb->rgbtBlue = (BYTE)(prgb->rgbtBlue ^ 0xff);
-	        }
-	        break;
-
-	        // Zero out the five LSB per each component
-
-	    case IDC_POSTERIZE:
-	        prgb = (RGBTRIPLE*)pData;
-	        for (iPixel = 0; iPixel < numPixels; iPixel++, prgb++) {
-	            prgb->rgbtRed = (BYTE)(prgb->rgbtRed & 0xe0);
-	            prgb->rgbtGreen = (BYTE)(prgb->rgbtGreen & 0xe0);
-	            prgb->rgbtBlue = (BYTE)(prgb->rgbtBlue & 0xe0);
-	        }
-	        break;
-
-	        // Take pixel and its neighbor two pixels to the right and average
-	        // then out - this blurs them and produces a subtle motion effect
-
-	    case IDC_BLUR:
-	        prgb = (RGBTRIPLE*)pData;
-	        for (y = 0; y < pvi->bmiHeader.biHeight; y++) {
-	            for (x = 2; x < pvi->bmiHeader.biWidth; x++, prgb++) {
-	                prgb->rgbtRed = (BYTE)((prgb->rgbtRed + prgb[2].rgbtRed) >> 1);
-	                prgb->rgbtGreen = (BYTE)((prgb->rgbtGreen + prgb[2].rgbtGreen) >> 1);
-	                prgb->rgbtBlue = (BYTE)((prgb->rgbtBlue + prgb[2].rgbtBlue) >> 1);
-	            }
-	            prgb += 2;
-	        }
-	        break;
-
-	        // An excellent greyscale calculation is:
-	        //      grey = (30 * red + 59 * green + 11 * blue) / 100
-	        // This is a bit too slow so a faster calculation is:
-	        //      grey = (red + green) / 2
-
-	    case IDC_GREY:
-	        prgb = (RGBTRIPLE*)pData;
-	        for (iPixel = 0; iPixel < numPixels; iPixel++, prgb++) {
-	            grey = (prgb->rgbtRed + prgb->rgbtGreen) >> 1;
-	            prgb->rgbtRed = prgb->rgbtGreen = prgb->rgbtBlue = (BYTE)grey;
-	        }
-	        break;
-
-	        // Really sleazy emboss - rather than using a nice 3x3 convulution
-	        // matrix, we compare the greyscale values of two neighbours. If
-	        // they are not different, then a mid grey (128, 128, 128) is
-	        // supplied.  Large differences get father away from the mid grey
-
-	    case IDC_EMBOSS:
-	        prgb = (RGBTRIPLE*)pData;
-	        for (y = 0; y < pvi->bmiHeader.biHeight; y++)
-	        {
-	            grey2 = (prgb->rgbtRed + prgb->rgbtGreen) >> 1;
-	            prgb->rgbtRed = prgb->rgbtGreen = prgb->rgbtBlue = (BYTE)128;
-	            prgb++;
-
-	            for (x = 1; x < pvi->bmiHeader.biWidth; x++) {
-	                grey = (prgb->rgbtRed + prgb->rgbtGreen) >> 1;
-	                temp = grey - grey2;
-	                if (temp > 127) temp = 127;
-	                if (temp < -127) temp = -127;
-	                temp += 128;
-	                prgb->rgbtRed = prgb->rgbtGreen = prgb->rgbtBlue = (BYTE)temp;
-	                grey2 = grey;
-	                prgb++;
-	            }
-	        }
-	        break;
-	    }
-
-	return NOERROR;
 }
 
 
@@ -723,9 +543,9 @@ STDMETHODIMP CHopperRender::GetClassID(CLSID* pClsid) {
 HRESULT CHopperRender::ScribbleToStream(IStream* pStream) const {
     HRESULT hr;
 
-    WRITEOUT(m_effect)
-    WRITEOUT(m_numSteps)
-    WRITEOUT(m_maxOffsetDivider)
+    WRITEOUT(m_iEffect)
+    WRITEOUT(m_iNumSteps)
+    WRITEOUT(m_iMaxOffsetDivider)
 
     return NOERROR;
 }
@@ -735,9 +555,9 @@ HRESULT CHopperRender::ScribbleToStream(IStream* pStream) const {
 HRESULT CHopperRender::ReadFromStream(IStream* pStream) {
     HRESULT hr;
 
-    READIN(m_effect)
-    READIN(m_numSteps)
-    READIN(m_maxOffsetDivider)
+    READIN(m_iEffect)
+    READIN(m_iNumSteps)
+    READIN(m_iMaxOffsetDivider)
 
     return NOERROR;
 }
@@ -760,14 +580,14 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
 
 // Return the current effect selected
 STDMETHODIMP CHopperRender::get_IPEffect(int* IPEffect, int* pNumSteps, int* pMaxOffsetDivider) {
-    CAutoLock cAutolock(&m_HopperRenderLock);
+    CAutoLock cAutolock(&m_csHopperRenderLock);
     CheckPointer(IPEffect, E_POINTER)
     CheckPointer(pNumSteps, E_POINTER)
     CheckPointer(pMaxOffsetDivider, E_POINTER)
 
-    *IPEffect = m_effect;
-    *pNumSteps = m_numSteps;
-    *pMaxOffsetDivider = m_maxOffsetDivider;
+    *IPEffect = m_iEffect;
+    *pNumSteps = m_iNumSteps;
+    *pMaxOffsetDivider = m_iMaxOffsetDivider;
 
     return NOERROR;
 }
@@ -775,11 +595,11 @@ STDMETHODIMP CHopperRender::get_IPEffect(int* IPEffect, int* pNumSteps, int* pMa
 
 // Set the required video effect
 STDMETHODIMP CHopperRender::put_IPEffect(int IPEffect, int numSteps, int maxOffsetDivider) {
-    CAutoLock cAutolock(&m_HopperRenderLock);
+    CAutoLock cAutolock(&m_csHopperRenderLock);
 
-    m_effect = IPEffect;
-    m_numSteps = numSteps;
-    m_maxOffsetDivider = maxOffsetDivider;
+    m_iEffect = IPEffect;
+    m_iNumSteps = numSteps;
+    m_iMaxOffsetDivider = maxOffsetDivider;
 
     SetDirty(TRUE);
     return NOERROR;

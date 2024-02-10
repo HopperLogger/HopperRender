@@ -1,6 +1,4 @@
-﻿// GPUArrayLib.cu
-
-// Project Includes
+﻿// Project Includes
 #include "GPUArrayLib.cuh"
 
 // CUDA libraries
@@ -25,12 +23,12 @@
 
 // Matrix - Scalar addition kernel
 template <typename T>
-__global__ void matrixScalarAdd(T* a, T b, T* c, int dimZ, int dimY, int dimX) {
+__global__ void matrixScalarAdd(T* a, T b, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	int absIdx = cz * dimY * dimX + cy * dimX + cx;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int absIdx = cz * dimY * dimX + cy * dimX + cx;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
@@ -40,12 +38,12 @@ __global__ void matrixScalarAdd(T* a, T b, T* c, int dimZ, int dimY, int dimX) {
 
 // Matrix - Scalar subtraction kernel
 template <typename T>
-__global__ void matrixScalarSub(T* a, T b, T* c, int dimZ, int dimY, int dimX) {
+__global__ void matrixScalarSub(T* a, T b, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	int absIdx = cz * dimY * dimX + cy * dimX + cx;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int absIdx = cz * dimY * dimX + cy * dimX + cx;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
@@ -55,12 +53,12 @@ __global__ void matrixScalarSub(T* a, T b, T* c, int dimZ, int dimY, int dimX) {
 
 // Matrix - Scalar multiplication kernel
 template <typename T>
-__global__ void matrixScalarMul(T* a, T b, T* c, int dimZ, int dimY, int dimX) {
+__global__ void matrixScalarMul(T* a, T b, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	int absIdx = cz * dimY * dimX + cy * dimX + cx;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int absIdx = cz * dimY * dimX + cy * dimX + cx;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
@@ -70,12 +68,12 @@ __global__ void matrixScalarMul(T* a, T b, T* c, int dimZ, int dimY, int dimX) {
 
 // Matrix - Scalar division kernel
 template <typename T>
-__global__ void matrixScalarDiv(T* a, T b, T* c, int dimZ, int dimY, int dimX) {
+__global__ void matrixScalarDiv(T* a, T b, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	int absIdx = cz * dimY * dimX + cy * dimX + cx;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int absIdx = cz * dimY * dimX + cy * dimX + cx;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
@@ -85,12 +83,12 @@ __global__ void matrixScalarDiv(T* a, T b, T* c, int dimZ, int dimY, int dimX) {
 
 // Matrix - Matrix addition kernel
 template <typename T>
-__global__ void matrixMatrixAdd(T* a, T* b, T* c, int dimZ, int dimY, int dimX) {
+__global__ void matrixMatrixAdd(T* a, T* b, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	int absIdx = cz * dimY * dimX + cy * dimX + cx;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int absIdx = cz * dimY * dimX + cy * dimX + cx;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
@@ -100,12 +98,12 @@ __global__ void matrixMatrixAdd(T* a, T* b, T* c, int dimZ, int dimY, int dimX) 
 
 // Matrix - Matrix subtraction kernel
 template <typename T>
-__global__ void matrixMatrixSub(T* a, T* b, T* c, int dimZ, int dimY, int dimX) {
+__global__ void matrixMatrixSub(T* a, T* b, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	int absIdx = cz * dimY * dimX + cy * dimX + cx;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int absIdx = cz * dimY * dimX + cy * dimX + cx;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
@@ -115,14 +113,14 @@ __global__ void matrixMatrixSub(T* a, T* b, T* c, int dimZ, int dimY, int dimX) 
 
 // Matrix - Matrix multiplication kernel
 template <typename T>
-__global__ void matrixMatrixMul(T* a, T* b, T* c, int NUM_BLOCKS, int dimZ, int a_dimY, int a_dimX, int b_dimY, int b_dimX, int c_dimY, int c_dimX) {
+__global__ void matrixMatrixMul(T* a, T* b, T* c, const unsigned int NUM_BLOCKS, const unsigned int dimZ, const unsigned int a_dimY, const unsigned int a_dimX, const unsigned int b_dimY, const unsigned int b_dimX, const unsigned int c_dimY, const unsigned int c_dimX) {
 	// Allocate shared memory for the tiles of A and B
 	__shared__ T A[SHMEM_SIZE];
 	__shared__ T B[SHMEM_SIZE];
 
-	int cx = blockIdx.x * blockDim.x + threadIdx.x; // Abs. X location (column) of the thread
-	int cy = blockIdx.y * blockDim.y + threadIdx.y; // Abs. Y location (row) of the thread
-	int cz = blockIdx.z * blockDim.z + threadIdx.z; // Abs. Z location (layer) of the thread
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x; // Abs. X location (column) of the thread
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y; // Abs. Y location (row) of the thread
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z; // Abs. Z location (layer) of the thread
 
 	// Check if result is within result matrix boundaries
 	if (cz < dimZ && cy < c_dimY && cx < c_dimX) {
@@ -159,12 +157,12 @@ __global__ void matrixMatrixMul(T* a, T* b, T* c, int NUM_BLOCKS, int dimZ, int 
 
 // Matrix - Matrix element-wise multiplication kernel
 template <typename T1, typename T2>
-__global__ void matrixElementMul(T1* a, T2* b, T1* c, int dimZ, int dimY, int dimX) {
+__global__ void matrixElementMul(T1* a, T2* b, T1* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	int absIdx = cz * dimY * dimX + cy * dimX + cx;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int absIdx = cz * dimY * dimX + cy * dimX + cx;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
@@ -174,12 +172,12 @@ __global__ void matrixElementMul(T1* a, T2* b, T1* c, int dimZ, int dimY, int di
 
 // Matrix - Matrix addition kernel with indexing
 template <typename T>
-__global__ void matrixAddIndexed(T* a, T* b, int* i, T* c, int dimZ, int dimY, int dimX) {
+__global__ void matrixAddIndexed(T* a, T* b, int* i, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	int absIdx = cz * dimY * dimX + cy * dimX + cx;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int absIdx = cz * dimY * dimX + cy * dimX + cx;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
@@ -188,11 +186,11 @@ __global__ void matrixAddIndexed(T* a, T* b, int* i, T* c, int dimZ, int dimY, i
 }
 
 // Kernel that rearranges the image data from RGBRGBRGB... to each channel in a separate layer
-__global__ void rearangeImageDataRGBtoLayer(unsigned char* RGBArray, unsigned char* layerArray, int dimZ, int dimY, int dimX) {
+__global__ void rearrangeImageDataRGBtoLayer(const unsigned char* RGBArray, unsigned char* layerArray, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
@@ -201,11 +199,11 @@ __global__ void rearangeImageDataRGBtoLayer(unsigned char* RGBArray, unsigned ch
 }
 
 // Kernel that rearranges the image data from each channel in a separate layer to RGBRGBRGB...
-__global__ void rearangeImageDataLayertoRGB(unsigned char* layerArray, unsigned char* RGBArray, int dimZ, int dimY, int dimX) {
+__global__ void rearrangeImageDataLayertoRGB(const unsigned char* layerArray, unsigned char* RGBArray, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
@@ -214,26 +212,26 @@ __global__ void rearangeImageDataLayertoRGB(unsigned char* layerArray, unsigned 
 }
 
 // Kernel that rearranges the flow data from each direction layer to RGBRGBRGB...
-__global__ void rearangeFlowDataLayertoRGB(int* layerArray, unsigned char* RGBArray, int dimZ, int dimY, int dimX, int direction) {
+__global__ void rearrangeFlowDataLayertoRGB(const int* layerArray, unsigned char* RGBArray, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX, const int direction) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
-		RGBArray[cz + (3 * cy * dimX) + (3 * cx)] = (unsigned char)fminf(fmaxf(layerArray[direction * dimY * dimX + cy * dimX + cx] + 127, 0), 255);
+		RGBArray[cz + (3 * cy * dimX) + (3 * cx)] = static_cast<unsigned char>(fminf(fmaxf(layerArray[direction * dimY * dimX + cy * dimX + cx] + 127, 0), 255));
 	}
 }
 
 // Kernel that sets all array entries in the provided range to the provided value
 template <typename T>
-__global__ void setArrayEntriesAll(T* arrayPtrGPU, T value, int dimZ, int dimY, int dimX) {
+__global__ void setArrayEntriesAll(T* arrayPtrGPU, T value, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	int absIdx = cz * dimY * dimX + cy * dimX + cx;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int absIdx = cz * dimY * dimX + cy * dimX + cx;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
@@ -244,12 +242,12 @@ __global__ void setArrayEntriesAll(T* arrayPtrGPU, T value, int dimZ, int dimY, 
 
 // Kernel that sets all array entries in the provided range to the provided value
 template <typename T>
-__global__ void setArrayEntriesInRange(T* arrayPtrGPU, T value, int startIdx, int endIndex, int dimZ, int dimY, int dimX) {
+__global__ void setArrayEntriesInRange(T* arrayPtrGPU, T value, const unsigned int startIdx, const unsigned int endIndex, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	int absIdx = cz * dimY * dimX + cy * dimX + cx;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int absIdx = cz * dimY * dimX + cy * dimX + cx;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
@@ -260,9 +258,9 @@ __global__ void setArrayEntriesInRange(T* arrayPtrGPU, T value, int startIdx, in
 }
 
 // Kernel that tests the VRAM of the GPU
-__global__ void memTestKernal(long* arrayPtrGPU, long steps) {
+__global__ void memTestKernel(long* arrayPtrGPU, const long steps) {
 	// Current entry to be computed by the thread
-	long x = threadIdx.x;
+	const unsigned long x = threadIdx.x;
 	long idx = 0;
 
 	for (idx = 0; idx < steps; idx++) {
@@ -280,12 +278,12 @@ __global__ void memTestKernal(long* arrayPtrGPU, long steps) {
 
 // Kernel that copies the entries of one array to another
 template <typename T>
-__global__ void copyEntries(T* DstArrayPtrGPU, T* SrcArrayPtrGPU, int dimZ, int dimY, int dimX) {
+__global__ void copyEntries(T* DstArrayPtrGPU, T* SrcArrayPtrGPU, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be copied by the thread
-	int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	int absIdx = cz * dimY * dimX + cy * dimX + cx;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int absIdx = cz * dimY * dimX + cy * dimX + cx;
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
@@ -307,7 +305,7 @@ GPUArray<T>::GPUArray() {
 	arrayPtrCPU = nullptr;
 	arrayPtrGPU = nullptr;
 	dims = 0;
-	std::vector<int> shape{ 0 };
+	std::vector<unsigned int> shape{ 0 };
 	dimX = 0;
 	dimY = 0;
 	dimZ = 0;
@@ -324,10 +322,10 @@ GPUArray<T>::GPUArray() {
 * @return: GPUArray object
 */
 template <typename T>
-GPUArray<T>::GPUArray(std::vector<int> arrayShape, T initializer) {
+GPUArray<T>::GPUArray(std::vector<unsigned int> arrayShape, T initializer) {
 	// Set dimensions
 	shape = arrayShape;
-	dims = (int)arrayShape.size();
+	dims = static_cast<int>(arrayShape.size());
 	if (dims == 0) {
 		fprintf(stderr, "ERROR: No array dimensions given!\n");
 		exit(-1);
@@ -364,7 +362,7 @@ GPUArray<T>::GPUArray(std::vector<int> arrayShape, T initializer) {
 	}
 
 	// Allocate host memory
-	arrayPtrCPU = (T*)malloc(bytes);
+	arrayPtrCPU = static_cast<T*>(malloc(bytes));
 
 	// Set all array entries to the initializer value
 	for (int z = 0; z < dimZ; z++) {
@@ -396,10 +394,13 @@ GPUArray<T>::GPUArray(std::vector<int> arrayShape, T initializer) {
 *
 * @return: GPUArray object
 */
-GPUArray<unsigned char>::GPUArray(const char* filePath, int height, int width) {
+GPUArray<unsigned char>::GPUArray(const char* filePath, unsigned int height, unsigned int width) {
+	// Initialize the array pointers
+	arrayPtrCPU = nullptr;
+
 	// Check if the image file exists
-	FILE* file = fopen(filePath, "r");
-	if (file == NULL) {
+	const FILE* file = fopen(filePath, "r");
+	if (file == nullptr) {
 		std::cerr << "Error opening image file: " << filePath << std::endl;
 		exit(-1);
 	}
@@ -411,7 +412,7 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, int height, int width) {
 	}
 
 	// Set dimensions
-	shape = std::vector<int>{ 3, height, width };
+	shape = std::vector<unsigned int>{ 3, height, width };
 	dims = 3;
 	dimX = width;
 	dimY = height;
@@ -419,11 +420,13 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, int height, int width) {
 	bytes = 3 * height * width;
 
 	// Allocate host memory
-	unsigned char* rawArrayPtrCPU = (unsigned char*)malloc(bytes);
+	unsigned char* rawArrayPtrCPU = static_cast<unsigned char*>(malloc(bytes));
 
 	// Load image
 	int channels = 3;
-	rawArrayPtrCPU = stbi_load(filePath, &width, &height, &channels, STBI_rgb);
+	int iheight = static_cast<int>(height);
+	int iwidth = static_cast<int>(width);
+	rawArrayPtrCPU = stbi_load(filePath, &iwidth, &iheight, &channels, STBI_rgb);
 
 	// Check if the image was loaded successfully
 	if (!rawArrayPtrCPU) {
@@ -453,7 +456,7 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, int height, int width) {
 	cudaMalloc(&arrayPtrGPU, bytes);
 
 	// Launch kernel
-	rearangeImageDataRGBtoLayer << <grid, threads >> > (rawArrayPtrGPU, arrayPtrGPU, 3, dimY, dimX);
+	rearrangeImageDataRGBtoLayer << <grid, threads >> > (rawArrayPtrGPU, arrayPtrGPU, 3, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -472,12 +475,15 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, int height, int width) {
 *
 * @param filename: Path to the folder containing the image files
 * @param batchSize: Number of images in the batch
-* @param width: Width of the image
 * @param height: Height of the image
+* @param width: Width of the image
 *
 * @return: GPUArray object
 */
-GPUArray<unsigned char>::GPUArray(const char* filePath, int batchSize, int width, int height) {
+GPUArray<unsigned char>::GPUArray(const char* filePath, unsigned int batchSize, unsigned int height, unsigned int width) {
+	// Initialize the array pointers
+	arrayPtrCPU = nullptr;
+
 	// Check that width and height are positive
 	if (width < 1 || height < 1) {
 		std::cerr << "Error: Image dimensions must be positive!" << std::endl;
@@ -485,7 +491,7 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, int batchSize, int width
 	}
 
 	// Set dimensions
-	shape = std::vector<int>{ batchSize, 3, height, width };
+	shape = std::vector<unsigned int>{ batchSize, 3, height, width };
 	dims = 4;
 	dimX = width;
 	dimY = height;
@@ -493,11 +499,13 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, int batchSize, int width
 	bytes = batchSize * 3 * height * width;
 
 	// Allocate host memory
-	unsigned char* rawArrayPtrCPU = (unsigned char*)malloc(bytes);
-	unsigned char* imageData = (unsigned char*)malloc(bytes / batchSize);
+	unsigned char* rawArrayPtrCPU = static_cast<unsigned char*>(malloc(bytes));
+	unsigned char* imageData = static_cast<unsigned char*>(malloc(bytes / batchSize));
 
 	// Load images
 	int channels = 3;
+	int iheight = static_cast<int>(height);
+	int iwidth = static_cast<int>(width);
 	for (int i = 0; i < batchSize; i++) {
 		// Format the file name
 		std::ostringstream oss;
@@ -505,7 +513,7 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, int batchSize, int width
 		std::string fileName = filePath + oss.str() + ".png";
 
 		// Load the image
-		imageData = stbi_load(fileName.c_str(), &width, &height, &channels, STBI_rgb);
+		imageData = stbi_load(fileName.c_str(), &iwidth, &iheight, &channels, STBI_rgb);
 
 		// Check if the image was loaded successfully
 		if (!rawArrayPtrCPU) {
@@ -541,7 +549,7 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, int batchSize, int width
 	cudaMalloc(&arrayPtrGPU, bytes);
 
 	// Launch kernel
-	rearangeImageDataRGBtoLayer << <grid, threads >> > (rawArrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
+	rearrangeImageDataRGBtoLayer << <grid, threads >> > (rawArrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -580,7 +588,7 @@ template <typename T>
 void GPUArray<T>::toCPU() {
 	if (isOnGPU) {
 		// Allocate host memory
-		arrayPtrCPU = (T*)malloc(bytes);
+		arrayPtrCPU = static_cast<T*>(malloc(bytes));
 
 		// Copy host array to GPU
 		cudaMemcpy(arrayPtrCPU, arrayPtrGPU, bytes, cudaMemcpyDeviceToHost);
@@ -609,10 +617,10 @@ void GPUArray<T>::download(T* memPointer) {
 * @param initializer: Value to initialize all array entries with
 */
 template <typename T>
-void GPUArray<T>::changeDims(std::vector<int> arrayShape, T initializer = 0) {
+void GPUArray<T>::changeDims(std::vector<unsigned int> arrayShape, T initializer) {
 	// Set dimensions
 	shape = arrayShape;
-	dims = (int)arrayShape.size();
+	dims = static_cast<int>(arrayShape.size());
 	if (dims == 0) {
 		fprintf(stderr, "ERROR: No array dimensions given!\n");
 		exit(-1);
@@ -649,7 +657,7 @@ void GPUArray<T>::changeDims(std::vector<int> arrayShape, T initializer = 0) {
 	}
 
 	// Allocate host memory
-	arrayPtrCPU = (T*)malloc(bytes);
+	arrayPtrCPU = static_cast<T*>(malloc(bytes));
 
 	// Set all array entries to 0
 	for (int z = 0; z < dimZ; z++) {
@@ -677,7 +685,7 @@ void GPUArray<T>::changeDims(std::vector<int> arrayShape, T initializer = 0) {
 * @return: True if the array is initialized, false otherwise
 */
 template <typename T>
-bool GPUArray<T>::isInitialized() {
+bool GPUArray<T>::isInitialized() const {
 	return bytes;
 }
 
@@ -705,9 +713,9 @@ GPUArray<T> GPUArray<T>::copy() {
 
 	// Copy entries from the original array to the copy
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -739,9 +747,9 @@ void GPUArray<T>::add(T value) {
 	}
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -771,9 +779,9 @@ void GPUArray<T>::sub(T value) {
 	}
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -803,9 +811,9 @@ void GPUArray<T>::mul(T scalar) {
 	}
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -835,9 +843,9 @@ void GPUArray<T>::div(T value) {
 	}
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -876,9 +884,9 @@ void GPUArray<T>::add(GPUArray<T>& array) {
 	}
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -917,9 +925,9 @@ void GPUArray<T>::sub(GPUArray<T>& array) {
 	}
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -958,9 +966,9 @@ void GPUArray<T>::elementMul(GPUArray<T>& array) {
 	}
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -990,9 +998,9 @@ void GPUArray<T>::fill(T value) {
 	}
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -1030,9 +1038,9 @@ void GPUArray<T>::fill(T value, int startIdx, int endIndex) {
 	}
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -1056,7 +1064,7 @@ void GPUArray<T>::fill(T value, int startIdx, int endIndex) {
 * @param bytes: Size of the data in bytes
 */
 template <typename T>
-void GPUArray<T>::fillData(T* memPointer) {
+void GPUArray<T>::fillData(const T* memPointer) {
 	// Copy the data to the GPU
 	cudaMemcpy(arrayPtrGPU, memPointer, bytes, cudaMemcpyHostToDevice);
 }
@@ -1069,7 +1077,7 @@ void GPUArray<T>::fillData(T* memPointer) {
 */
 template <typename T>
 template <typename S>
-void GPUArray<T>::print<S>(int startIdx, int numElements) {
+void GPUArray<T>::print<S>(const unsigned int startIdx, const int numElements) {
 	// Check if the array is on the GPU
 	if (isOnGPU) {
 		toCPU();
@@ -1082,7 +1090,7 @@ void GPUArray<T>::print<S>(int startIdx, int numElements) {
 		for (int y = 0; y < dimY; y++) {
 			for (int x = 0; x < dimX; x++) {
 				if (numElements == -1 || counter < numElements) {
-					std::cout << (S) * (arrayPtrCPU + (startIdx + z * dimY * dimX + y * dimX + x)) << " ";
+					std::cout << static_cast<S>(*(arrayPtrCPU + (startIdx + z * dimY * dimX + y * dimX + x))) << " ";
 					counter++;
 				}
 				else {
@@ -1101,9 +1109,9 @@ void GPUArray<T>::print<S>(int startIdx, int numElements) {
 * Returns the absolute index of an array entry given the indices for each dimension
 */
 template <typename T>
-int GPUArray<T>::getAbsIndex(std::initializer_list<int> indicesForEachDim) {
+int GPUArray<T>::getAbsIndex(const std::initializer_list<int> indicesForEachDim) const {
 	// Check if index for every dim is provided
-	int numIndices = (int)indicesForEachDim.size();
+	const unsigned int numIndices = static_cast<unsigned int>(indicesForEachDim.size());
 	if (numIndices != dims) {
 		fprintf(stderr, "ERROR: Number of indexed dimensions does not match array dimensions!\n");
 		exit(-1);
@@ -1157,12 +1165,12 @@ void GPUArray<T>::exportPNG(const char* filePath) {
 	}
 
 	// Allocate host memory
-	unsigned char* rawArrayPtrCPU = (unsigned char*)malloc(bytes);
+	unsigned char* rawArrayPtrCPU = static_cast<unsigned char*>(malloc(bytes));
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
+	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
 	if (dims == 3) {
 		NUM_BLOCKS_Z = 1;
 	}
@@ -1179,7 +1187,7 @@ void GPUArray<T>::exportPNG(const char* filePath) {
 	cudaMalloc(&rawArrayPtrGPU, bytes);
 
 	// Launch kernel
-	rearangeImageDataLayertoRGB << <grid, threads >> > ((unsigned char*)arrayPtrGPU, rawArrayPtrGPU, dimZ, dimY, dimX);
+	rearrangeImageDataLayertoRGB << <grid, threads >> > ((unsigned char*)arrayPtrGPU, rawArrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1197,9 +1205,8 @@ void GPUArray<T>::exportPNG(const char* filePath) {
 	// Export single image
 	if ((dimZ / 3) == 1) {
 		stbi_write_png(filePath, dimX, dimY, 3, rawArrayPtrCPU, dimX * 3);
-	}
 	// Export image batch
-	else {
+	} else {
 		for (int i = 0; i < dimZ / 3; i++) {
 			// Format the file name
 			std::ostringstream oss;
@@ -1239,12 +1246,12 @@ void GPUArray<int>::exportFlowImage(const char* filePath, int direction) {
 
 	// Allocate host memory
 	const size_t rgb_bytes = 3 * dimY * dimX;
-	unsigned char* rawArrayPtrCPU = (unsigned char*)malloc(rgb_bytes);
+	unsigned char* rawArrayPtrCPU = static_cast<unsigned char*>(malloc(rgb_bytes));
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / NUM_THREADS), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / NUM_THREADS), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / NUM_THREADS), 1);
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
+	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
 	if (dims == 3) {
 		NUM_BLOCKS_Z = 1;
 	}
@@ -1261,7 +1268,7 @@ void GPUArray<int>::exportFlowImage(const char* filePath, int direction) {
 	cudaMalloc(&rawArrayPtrGPU, rgb_bytes);
 
 	// Launch kernel
-	rearangeFlowDataLayertoRGB << <grid, threads >> > (arrayPtrGPU, rawArrayPtrGPU, fmax(dimZ, 3), dimY, dimX, direction);
+	rearrangeFlowDataLayertoRGB << <grid, threads >> > (arrayPtrGPU, rawArrayPtrGPU, fmax(dimZ, 3), dimY, dimX, direction);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1279,9 +1286,8 @@ void GPUArray<int>::exportFlowImage(const char* filePath, int direction) {
 	// Export single image
 	if ((dimZ / 3) == 1) {
 		stbi_write_png(filePath, dimX, dimY, 3, rawArrayPtrCPU, dimX * 3);
-	}
 	// Export image batch
-	else {
+	} else {
 		for (int i = 0; i < dimZ / 2; i++) {
 			// Format the file name
 			std::ostringstream oss;
@@ -1301,11 +1307,10 @@ void GPUArray<int>::exportFlowImage(const char* filePath, int direction) {
 * Destructor
 */
 template <typename T>
-void GPUArray<T>::del() {
+void GPUArray<T>::del() const {
 	if (isOnGPU) {
 		cudaFree(arrayPtrGPU);
-	}
-	else {
+	} else {
 		free(arrayPtrCPU);
 	}
 }
@@ -1508,7 +1513,7 @@ GPUArray<T> add(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 
 	// Check if the matrices are on the GPU
 	if (!arrayA.isOnGPU) {
-		arrayAtoGPU();
+		arrayA.toGPU();
 	}
 	if (!arrayB.isOnGPU) {
 		arrayB.toGPU();
@@ -1750,7 +1755,7 @@ GPUArray<T> addIndexed(GPUArray<T>& arrayA, GPUArray<T>& arrayB, GPUArray<int>& 
 */
 void memTest(size_t bytes) {
 	// Allocate host memory
-	long* arrayPtrCPU = (long*)malloc(bytes);
+	long* arrayPtrCPU = static_cast<long*>(malloc(bytes));
 
 	// Allocate VRAM
 	long* arrayPtrGPU;
@@ -1767,7 +1772,7 @@ void memTest(size_t bytes) {
 	dim3 threads(16, 1, 1);
 
 	// Launch kernel
-	memTestKernal << <grid, threads >> > (arrayPtrGPU, (bytes / 8) / 16);
+	memTestKernel << <grid, threads >> > (arrayPtrGPU, (bytes / 8) / 16);
 	cudaDeviceSynchronize();
 
 	// Check for CUDA errors
@@ -1793,10 +1798,10 @@ template class GPUArray<long>;
 template class GPUArray<unsigned char>;
 template class GPUArray<bool>;
 
-template void GPUArray<int>::print<int>(int startIdx, int numElements);
-template void GPUArray<unsigned char>::print<int>(int startIdx, int numElements);
-template void GPUArray<float>::print<float>(int startIdx, int numElements);
-template void GPUArray<double>::print<double>(int startIdx, int numElements);
-template void GPUArray<long>::print<long>(int startIdx, int numElements);
-template void GPUArray<unsigned int>::print<unsigned int>(int startIdx, int numElements);
-template void GPUArray<bool>::print<bool>(int startIdx, int numElements);
+template void GPUArray<int>::print<int>(const unsigned int startIdx, const int numElements);
+template void GPUArray<unsigned char>::print<int>(const unsigned int startIdx, const int numElements);
+template void GPUArray<float>::print<float>(const unsigned int startIdx, const int numElements);
+template void GPUArray<double>::print<double>(const unsigned int startIdx, const int numElements);
+template void GPUArray<long>::print<long>(const unsigned int startIdx, const int numElements);
+template void GPUArray<unsigned int>::print<unsigned int>(const unsigned int startIdx, const int numElements);
+template void GPUArray<bool>::print<bool>(const unsigned int startIdx, const int numElements);
