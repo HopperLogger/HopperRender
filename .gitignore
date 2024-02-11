@@ -5,6 +5,8 @@
 *.aps
 *.db
 *.opendb
+*.log
+*.tlog
 
 /ipch
 /bin_*
@@ -12,3 +14,4 @@
 /common/cuda/.vs
 /.old
 /.backup
+/x64/*
