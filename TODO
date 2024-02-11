@@ -1,0 +1,5 @@
+- Implement more acurate scalar calculations
+- Clean up of property page code
+- Adapt warp frame function to work with scalars
+- Fix frame flushing at playback start
+- Add file properties to dll
