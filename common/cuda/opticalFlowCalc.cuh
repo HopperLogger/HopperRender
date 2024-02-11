@@ -6,6 +6,8 @@
 #include "device_launch_parameters.h"
 
 // Project Includes
+#include <intsafe.h>
+
 #include "GPUArrayLib.cuh"
 
 #define DEBUG_MODE 0
@@ -26,30 +28,42 @@ public:
 	void init(const unsigned int dimY, const unsigned int dimX);
 
 	/*
-	* Calculates the optical flow between frame1 and frame2
+	* Returns whether the optical flow calculation is initialized
 	*
-	* @param frame1: The frame to calculate the flow from
-	* @param frame2: The frame to calculate the flow to
+	* @return: True if the optical flow calculation is initialized, false otherwise
 	*/
-	void calculateOpticalFlow(const GPUArray<unsigned char>& frame1, const GPUArray<unsigned char>& frame2);
+	bool isInitialized() const;
+
+	/*
+	* Updates the frame1 array
+	*/
+	void updateFrame1(const BYTE* pInBuffer);
+
+	/*
+	* Updates the frame2 array
+	*/
+	void updateFrame2(const BYTE* pInBuffer);
+
+	/*
+	* Calculates the optical flow between frame1 and frame2
+	*/
+	void calculateOpticalFlow();
 
 	/*
 	* Warps frame1 according to the offset array
 	*
-	* @param frame1: The frame to warp
-	* @param offsetArray: The array containing the offsets
+	* @param dScalar: The scalar to blend the frames with
+	* @param bBisNewest: Whether frame1 or frame2 is the newest frame
 	*/
-	void warpFrame(const GPUArray<unsigned char>& frame1);
+	void warpFrame(double dScalar, bool bBisNewest);
 
 	/*
 	* Blends frame1 to frame2
 	*
-	* @param frame1: The frame to blend from
-	* @param frame2: The frame to blend to
-	* @param iIntFrameNum: The current interpolated frame number
-	* @param iNumSamples: The number of frames between frame1 and frame2
+	* @param dScalar: The scalar to blend the frames with
+	* @param bBisNewest: Whether frame1 or frame2 is the newest frame
 	*/
-	void blendFrames(const GPUArray<unsigned char>& frame1, const GPUArray<unsigned char>& frame2, int iIntFrameNum, int iNumSamples);
+	void blendFrames(double dScalar, bool bBisNewest);
 
 	// The number of cuda blocks needed
 	unsigned int NUM_BLOCKS_X;
@@ -62,6 +76,9 @@ public:
 	dim3 threads1;
 
 	// Result arrays
+	bool bIsInitialized = false; // Whether the optical flow calculation is initialized
+	GPUArray<unsigned char> frame1; // Array containing the first frame
+	GPUArray<unsigned char> frame2; // Array containing the second frame
 	GPUArray<unsigned char> imageDeltaArray; // Array containing the absolute difference between the two frames
 	GPUArray<int> offsetArray; // Array containing x,y offsets for each pixel of frame1
 	GPUArray<int> statusArray; // Array containing the calculation status of each pixel of frame1
@@ -73,7 +90,7 @@ public:
 	GPUArray<int> hitCount; // Array containing the number of times a pixel was hit
 	GPUArray<int> ones; // Array containing only ones for atomic add
 	GPUArray<unsigned char> layerFrame;
-	GPUArray<unsigned char> RGBFrame;
+	GPUArray<unsigned char> layerFrame2;
 	
 	// Helper variables
 	unsigned int windowDimX; // Initial window size
