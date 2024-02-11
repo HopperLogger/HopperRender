@@ -118,18 +118,17 @@ CHopperRender::CHopperRender(TCHAR* tszName,
     LPUNKNOWN punk,
     HRESULT* phr) :
     CTransformFilter(tszName, punk, CLSID_HopperRender),
-    m_bActivated(IDC_ON),
+	CPersistStream(punk, phr),
+	m_bActivated(IDC_ON),
+    m_iNumSteps(40),
+    m_iMaxOffsetDivider(192),
     m_lBufferRequest(12),
-    CPersistStream(punk, phr),
-    m_bBisNewest(true) {
-
-    char sz[60];
-
-    GetProfileStringA("Quartz", "EffectStart", "40", sz, 60);
-    m_iNumSteps = atoi(sz);
-
-    GetProfileStringA("Quartz", "EffectLength", "192", sz, 60);
-    m_iMaxOffsetDivider = atoi(sz);
+    m_bBisNewest(true),
+    m_iFrameCounter(0),
+    m_rtCurrStartTime(LONGLONG_MAX),
+    m_rtLastStartTime(LONGLONG_MAX),
+    m_bIntNeeded(false),
+    m_rtAvgSourceFrameTime(0) {
 
     // Initialize the past frame durations
     std::fill(std::begin(m_rtPastFrameDurations), std::end(m_rtPastFrameDurations), 0);
@@ -154,8 +153,8 @@ CUnknown* CHopperRender::CreateInstance(LPUNKNOWN punk, HRESULT* phr) {
 STDMETHODIMP CHopperRender::NonDelegatingQueryInterface(REFIID riid, void** ppv) {
     CheckPointer(ppv, E_POINTER)
 
-    if (riid == IID_IIPEffect) {
-        return GetInterface((IIPEffect*)this, ppv);
+    if (riid == IID_SettingsInterface) {
+        return GetInterface((SettingsInterface*)this, ppv);
     } else if (riid == IID_ISpecifyPropertyPages) {
         return GetInterface((ISpecifyPropertyPages*)this, ppv);
     } else {
@@ -586,8 +585,8 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
 }
 
 
-// Return the current effect selected
-STDMETHODIMP CHopperRender::get_IPEffect(bool* pbActivated, int* piNumSteps, int* piMaxOffsetDivider, int* iIntActiveState, double* dSourceFPS) {
+// Return the current settings selected
+STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piNumSteps, int* piMaxOffsetDivider, int* iIntActiveState, double* dSourceFPS) {
     CAutoLock cAutolock(&m_csHopperRenderLock);
     CheckPointer(pbActivated, E_POINTER)
     CheckPointer(piNumSteps, E_POINTER)
@@ -611,8 +610,8 @@ STDMETHODIMP CHopperRender::get_IPEffect(bool* pbActivated, int* piNumSteps, int
 }
 
 
-// Set the required video effect
-STDMETHODIMP CHopperRender::put_IPEffect(bool bActivated, int iNumSteps, int iMaxOffsetDivider) {
+// Set the settings
+STDMETHODIMP CHopperRender::put_Settings(bool bActivated, int iNumSteps, int iMaxOffsetDivider) {
     CAutoLock cAutolock(&m_csHopperRenderLock);
 
     m_bActivated = bActivated;
