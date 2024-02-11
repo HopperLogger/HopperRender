@@ -241,15 +241,15 @@ __global__ void compositeOffsetArray(int* offsetArray, const bool* isValueDecrea
 }
 
 // Kernel that warps frame1 according to the offset array
-__global__ void warpFrameKernel(const unsigned char* frame1, const int* offsetArray, int* hitCount, int* ones, unsigned char* warpedFrame, const unsigned int dimY, const unsigned int dimX) {
+__global__ void warpFrameKernel(const unsigned char* frame1, const int* offsetArray, int* hitCount, int* ones, unsigned char* warpedFrame, const double frameScalar, const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = threadIdx.z;
 
 	// Get the current offsets to use
-	const int offsetX = offsetArray[cy * dimX + cx];
-	const int offsetY = offsetArray[dimY * dimX + cy * dimX + cx];
+	const int offsetX = static_cast<int>(static_cast<double>(offsetArray[cy * dimX + cx]) * frameScalar);
+	const int offsetY = static_cast<int>(static_cast<double>(offsetArray[dimY * dimX + cy * dimX + cx]) * frameScalar);
 
 	// Check if the thread is inside the frame (without offsets)
 	if (cz < 3 && cy < dimY && cx < dimX) {
@@ -358,6 +358,8 @@ void OpticalFlowCalc::init(const unsigned int dimY, const unsigned int dimX) {
 	threads1.x = NUM_THREADS;
 	threads1.y = NUM_THREADS;
 	threads1.z = 1;
+	frame1.init({ 3, dimY, dimX });
+	frame2.init({ 3, dimY, dimX });
 	imageDeltaArray.init({ 3, dimY, dimX });
 	offsetArray.init({ 2, dimY, dimX });
 	statusArray.init({ dimY, dimX });
@@ -369,20 +371,42 @@ void OpticalFlowCalc::init(const unsigned int dimY, const unsigned int dimX) {
 	hitCount.init({ 3, dimY, dimX });
 	ones.init({ 3, dimY, dimX }, 1);
 	layerFrame.init({ 3, dimY, dimX });
-	RGBFrame.init({ 3, dimY, dimX });
+	layerFrame2.init({ 3, dimY, dimX });
 	windowDimX = dimX;
 	windowDimY = dimY;
 	currentGlobalOffset = fmax(dimX / MAX_OFFSET_DIVIDER, 1);
 	numIterations = ceil(log2f(dimX));
+	bIsInitialized = true;
+}
+
+/*
+* Returns whether the optical flow calculation is initialized
+*
+* @return: True if the optical flow calculation is initialized, false otherwise
+*/
+bool OpticalFlowCalc::isInitialized() const {
+	return bIsInitialized;
+	
+}
+
+/*
+* Updates the frame1 array
+*/
+void OpticalFlowCalc::updateFrame1(const BYTE* pInBuffer) {
+	frame1.fillData(pInBuffer);
+}
+
+/*
+* Updates the frame2 array
+*/
+void OpticalFlowCalc::updateFrame2(const BYTE* pInBuffer) {
+	frame2.fillData(pInBuffer);
 }
 
 /*
 * Calculates the optical flow between frame1 and frame2
-*
-* @param frame1: The frame to calculate the flow from
-* @param frame2: The frame to calculate the flow to
 */
-void OpticalFlowCalc::calculateOpticalFlow(const GPUArray<unsigned char>& frame1, const GPUArray<unsigned char>& frame2) {
+void OpticalFlowCalc::calculateOpticalFlow() {
 	// Reset the arrays
 	offsetArray.fill(0);
 	summedUpDeltaArray.fill(0);
@@ -443,17 +467,26 @@ void OpticalFlowCalc::calculateOpticalFlow(const GPUArray<unsigned char>& frame1
 /*
 * Warps frame1 according to the offset array
 *
-* @param frame1: The frame to warp
 * @param offsetArray: The array containing the offsets
+* @param bBisNewest: Whether frame1 or frame2 is the newest frame
 */
-void OpticalFlowCalc::warpFrame(const GPUArray<unsigned char>& frame1) {
+void OpticalFlowCalc::warpFrame(double dScalar, bool bBisNewest) {
+	// Calculate the blend scalar
+	const double frameScalar = dScalar;
+
 	// Reset the hit count array
 	hitCount.fill(0);
+	offsetArray.fill(7, frame1.dimY * frame1.dimX, 2 * frame1.dimY * frame1.dimX - 1);
+	layerFrame2.fill(0);
 
 	// Warp the frame
-	rearrangeImageDataRGBtoLayerOFC << <grid, threads3 >> > (frame1.arrayPtrGPU, layerFrame.arrayPtrGPU, 3, frame1.dimY, frame1.dimX);
-	warpFrameKernel << <grid, threads3 >> > (layerFrame.arrayPtrGPU, offsetArray.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
-	rearrangeImageDataLayertoRGBOFC << <grid, threads3 >> > (warpedFrame.arrayPtrGPU, RGBFrame.arrayPtrGPU, 3, frame1.dimY, frame1.dimX);
+	if (bBisNewest) {
+		rearrangeImageDataRGBtoLayerOFC << <grid, threads3 >> > (frame1.arrayPtrGPU, layerFrame.arrayPtrGPU, 3, frame1.dimY, frame1.dimX);
+	} else {
+		rearrangeImageDataRGBtoLayerOFC << <grid, threads3 >> > (frame2.arrayPtrGPU, layerFrame.arrayPtrGPU, 3, frame1.dimY, frame1.dimX);
+	}
+	warpFrameKernel << <grid, threads3 >> > (layerFrame.arrayPtrGPU, offsetArray.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, layerFrame2.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
+	rearrangeImageDataLayertoRGBOFC << <grid, threads3 >> > (layerFrame2.arrayPtrGPU, warpedFrame.arrayPtrGPU, 3, frame1.dimY, frame1.dimX);
 
 	// Wait for all threads to finish
 	cudaDeviceSynchronize();
@@ -472,18 +505,20 @@ void OpticalFlowCalc::warpFrame(const GPUArray<unsigned char>& frame1) {
 /*
 * Blends frame1 to frame2
 *
-* @param frame1: The frame to blend from
-* @param frame2: The frame to blend to
-* @param iIntFrameNum: The current interpolated frame number
-* @param iNumSamples: The number of frames between frame1 and frame2
+* @param dScalar: The scalar to blend the frames with
+* @param bBisNewest: Whether frame1 or frame2 is the newest frame
 */
-void OpticalFlowCalc::blendFrames(const GPUArray<unsigned char>& frame1, const GPUArray<unsigned char>& frame2, int iIntFrameNum, int iNumSamples) {
+void OpticalFlowCalc::blendFrames(double dScalar, bool bBisNewest) {
 	// Calculate the blend scalar
-	const double frame2Scalar = static_cast<double>(iIntFrameNum) / static_cast<double>(iNumSamples);
-	const double frame1Scalar = 1.0 - frame2Scalar;
+	const double frame1Scalar = 1.0 - dScalar;
+	const double frame2Scalar = dScalar;
 
 	// Blend the frame
-	blendFrameKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, frame2.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1Scalar, frame2Scalar, frame1.dimY, frame1.dimX);
+	if (bBisNewest) {
+		blendFrameKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, frame2.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1Scalar, frame2Scalar, frame1.dimY, frame1.dimX);
+	} else {
+		blendFrameKernel << <grid, threads3 >> > (frame2.arrayPtrGPU, frame1.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1Scalar, frame2Scalar, frame1.dimY, frame1.dimX);
+	}
 
 	// Wait for all threads to finish
 	cudaDeviceSynchronize();

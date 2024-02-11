@@ -45,15 +45,13 @@ private:
     CHopperRender(TCHAR *tszName, LPUNKNOWN punk, HRESULT *phr);
 
     HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget);
-    HRESULT InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, int iIntFrameNum, int iNumSamples);
+    HRESULT InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, double dScalar, int iIntFrameNum);
 
     CCritSec    m_csHopperRenderLock;                // Private play critical section
     bool        m_bActivated;                        // Whether the filter is activated
     int m_iNumSteps;                                 // Number of steps executed to find the ideal offset (limits the maximum offset)
     int m_iMaxOffsetDivider;                         // The divider used to calculate the initial global offset
     const long m_lBufferRequest;                     // The number of buffers to use
-    GPUArray<unsigned char> m_gpuFrameA;             // GPU frame A
-    GPUArray<unsigned char> m_gpuFrameB;             // GPU frame B
     bool m_bBisNewest;                               // Which frame order are we using
     OpticalFlowCalc m_ofcOpticalFlowCalc;            // Optical flow calculator
     int m_iFrameCounter = 0;                         // Frame counter (relative! i.e. number of frames presented)
