@@ -95,7 +95,7 @@ public:
 	* 
 	* @param memPointer: Pointer to the memory to transfer the array to
 	*/
-	void download(T* memPointer);
+	void download(unsigned char* memPointer) const;
 
 	/*
 	* Changes the dimensions of the array

@@ -190,13 +190,10 @@ void CHopperRenderSettings::GetControlValues() {
     tmp1 = atoi(sz);
 #endif
 
-    // Quick validation of the fields
-    if (tmp1 >= 0 && tmp2 >= 0) {
-        m_iNumSteps = tmp1;
-        m_iMaxOffsetDivider = tmp2;
-    }
+    m_iNumSteps = tmp1;
+    m_iMaxOffsetDivider = tmp2;
 
-    // Find which special effect we have selected
+    // Find whether the filter is activated or not
     if (IsDlgButtonChecked(m_Dlg, IDC_ON)) {
         m_bActivated = true;
     } else {

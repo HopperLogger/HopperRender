@@ -120,8 +120,8 @@ CHopperRender::CHopperRender(TCHAR* tszName,
     CTransformFilter(tszName, punk, CLSID_HopperRender),
 	CPersistStream(punk, phr),
 	m_bActivated(IDC_ON),
-    m_iNumSteps(40),
-    m_iMaxOffsetDivider(192),
+    m_iNumSteps(0),
+    m_iMaxOffsetDivider(0),
     m_lBufferRequest(12),
     m_bBisNewest(true),
     m_iFrameCounter(0),
@@ -132,6 +132,7 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 
     // Initialize the past frame durations
     std::fill(std::begin(m_rtPastFrameDurations), std::end(m_rtPastFrameDurations), 0);
+
 }
 
 
@@ -211,8 +212,10 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
     CheckPointer(ppropInputRequest, E_POINTER)
     HRESULT hr = NOERROR;
 
-    ppropInputRequest->cBuffers = 1;
-    ppropInputRequest->cbBuffer = m_pInput->CurrentMediaType().GetSampleSize() * m_lBufferRequest;
+    ppropInputRequest->cBuffers = 4;
+    ppropInputRequest->cbBuffer = m_pOutput->CurrentMediaType().GetSampleSize() * m_lBufferRequest;
+    ppropInputRequest->cbAlign = 1;
+    ppropInputRequest->cbPrefix = 0;
     ASSERT(ppropInputRequest->cbBuffer);
 
     // Ask the allocator to reserve us some sample memory, NOTE the function
@@ -224,7 +227,7 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
         return hr;
     }
 
-    ASSERT(Actual.cBuffers == 1);
+    ASSERT(Actual.cBuffers == 4);
 
     if (ppropInputRequest->cBuffers > Actual.cBuffers ||
         ppropInputRequest->cbBuffer > Actual.cbBuffer) {
@@ -261,6 +264,9 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 	// Increment the frame counter
 	m_iFrameCounter++;
 
+    // Get the current playback rate
+    m_dRate = m_pInput->CurrentRate();
+
     // Copy the properties across
     HRESULT hr = DeliverToRenderer(pIn, pOut, 166667);
     if (FAILED(hr)) {
@@ -268,6 +274,15 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
     }
 
     return NOERROR;
+}
+
+
+// Called when a new segment is started
+HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) {
+    // Ensure frame delivery starts when a new file is started (i.e. the Transform method is continuously called)
+    
+
+    return __super::NewSegment(tStart, tStop, dRate);
 }
 
 
@@ -281,6 +296,10 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
     HRESULT hr = pIn->GetPointer(&pInBuffer);
     if (FAILED(hr)) {
         return hr;
+    }
+
+    if (pInBuffer[100] == 0) {
+	    DebugMessage("Empty Frame");
     }
 
     // Get the size of the samples
@@ -345,7 +364,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 
             if (iIntFrameNum == 0) {
                 // Print the original start and end times
-                //DebugMessage("ACINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtAvgSourceFrameTime));
+                DebugMessage("ACINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtAvgSourceFrameTime));
 
                 // Reset our frame time if necessary and calculate the current number of intermediate frames needed
                 if (rtStartTime < m_rtLastStartTime) {
@@ -367,7 +386,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             rtEndTime = rtStartTime + rtAvgFrameTimeTarget;
 
         } else { // No interpolation needed
-            //DebugMessage("NOINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtAvgSourceFrameTime));
+            DebugMessage("NOINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtAvgSourceFrameTime));
             iNumSamples = 1;
             m_rtCurrStartTime = rtStartTime;
             m_rtLastStartTime = rtStartTime;
@@ -461,10 +480,14 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             return hr;
         }
 
-        // Interpolate the frame
-        hr = InterpolateFrame(pInBuffer, pOutNewBuffer, dScalar, iIntFrameNum);
-        if (FAILED(hr)) {
-            return hr;
+        // Interpolate the frame if necessary
+        if (m_bIntNeeded) {
+            hr = InterpolateFrame(pInBuffer, pOutNewBuffer, dScalar, iIntFrameNum);
+            if (FAILED(hr)) {
+                return hr;
+            }
+        } else {
+            memcpy(pOutNewBuffer, pInBuffer, lInSize);
         }
 
         // Deliver the new output sample downstream
@@ -507,18 +530,19 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
     }
 
     // Calculate the optical flow
-    //if (iIntFrameNum == 0) {
-    //	m_ofcOpticalFlowCalc.calculateOpticalFlow();
-	//}
+    if (iIntFrameNum == 0) {
+        m_ofcOpticalFlowCalc.calculateOpticalFlow(m_bBisNewest);
+	}
 
     // Warp the frame
-    m_ofcOpticalFlowCalc.warpFrame(dScalar, m_bBisNewest);
+	//m_ofcOpticalFlowCalc.warpFrame(dScalar, m_bBisNewest, m_iNumSteps, m_iMaxOffsetDivider);
 
     // Blend the frames together
 	//m_ofcOpticalFlowCalc.blendFrames(dScalar, m_bBisNewest);
 
     // Download the result to the Output Sample
-    m_ofcOpticalFlowCalc.warpedFrame.download(pOutBuffer);
+    m_ofcOpticalFlowCalc.downloadFlowAsHSV(pOutBuffer, 1.0, 1.0, 0.4);
+    //m_ofcOpticalFlowCalc.warpedFrame.download(pOutBuffer);
 
     // Update the frame order
     if (iIntFrameNum == 0) {

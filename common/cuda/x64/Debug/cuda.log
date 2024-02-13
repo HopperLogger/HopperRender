@@ -1,1 +1,227 @@
-﻿  cuda.vcxproj -> C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\x64\Debug\lib\cuda.lib
+﻿  Compiling CUDA source file opticalFlowCalc.cu...
+  
+  C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda>"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.3\bin\nvcc.exe" -gencode=arch=compute_89,code=\"sm_89,compute_89\" -gencode=arch=compute_61,code=\"sm_61,compute_61\" --use-local-env -ccbin "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\bin\HostX64\x64" -x cu   -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.3\include" -I"C:\Program Files\vcpkg\vcpkg\installed\x64-windows\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.3\include"  -G   --keep-dir x64\Debug -use_fast_math -maxrregcount=0 --ptxas-options=-v --split-compile=0 --machine 64 --compile -cudart static  -g  -DWIN32 -DWIN64 -D_DEBUG -D_CONSOLE -D_MBCS -Xcompiler "/EHsc /W3 /nologo /Od /FS /ZI /RTC1 /MDd " -Xcompiler "/Fd\"C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\x64\Debug\lib\cuda.pdb\"" -o "C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\x64\Debug\opticalFlowCalc.cu.obj" "C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu" 
+cl : Command line warning D9025: overriding '/ZI' with '/Zi'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(24): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + offsetY < 0) || (cx + offsetX < 0) || (cy + offsetY > dimY) || (cx + offsetX > dimX)) {
+    		                  ^
+  
+  Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(24): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + offsetY < 0) || (cx + offsetX < 0) || (cy + offsetY > dimY) || (cx + offsetX > dimX)) {
+    		                                        ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(69): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cx + windowDimX + fabsf(offsetX) > dimX) || (cx - offsetX < 0)) {
+    		                                                               ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(75): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + windowDimY + fabsf(offsetY) > dimY) || (cy - offsetY < 0)) {
+    		                                                               ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(257): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + offsetY >= 0) && (cy + offsetY < dimY) && (cx + offsetX >= 0) && (cx + offsetX < dimX)) {
+    		                  ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(257): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + offsetY >= 0) && (cy + offsetY < dimY) && (cx + offsetX >= 0) && (cx + offsetX < dimX)) {
+    		                                                                  ^
+  
+cl : Command line warning D9025: overriding '/ZI' with '/Zi'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(24): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + offsetY < 0) || (cx + offsetX < 0) || (cy + offsetY > dimY) || (cx + offsetX > dimX)) {
+    		                  ^
+  
+  Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(24): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + offsetY < 0) || (cx + offsetX < 0) || (cy + offsetY > dimY) || (cx + offsetX > dimX)) {
+    		                                        ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(69): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cx + windowDimX + fabsf(offsetX) > dimX) || (cx - offsetX < 0)) {
+    		                                                               ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(75): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + windowDimY + fabsf(offsetY) > dimY) || (cy - offsetY < 0)) {
+    		                                                               ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(257): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + offsetY >= 0) && (cy + offsetY < dimY) && (cx + offsetX >= 0) && (cx + offsetX < dimX)) {
+    		                  ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(257): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + offsetY >= 0) && (cy + offsetY < dimY) && (cx + offsetX >= 0) && (cx + offsetX < dimX)) {
+    		                                                                  ^
+  
+  ptxas info    : 0 bytes gmem
+  ptxas info    : Compiling entry function '_Z14calcImageDeltaPKhS0_PhPKijj' for 'sm_89'
+  ptxas info    : Function properties for _Z14calcImageDeltaPKhS0_PhPKijj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 30 registers, 392 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z13calcDeltaSumsPhPjjjjj' for 'sm_89'
+  ptxas info    : Function properties for _Z13calcDeltaSumsPhPjjjjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 24 registers, 24 bytes cumulative stack size, 384 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18normalizeDeltaSumsPKjPfPKijjjj' for 'sm_89'
+  ptxas info    : Function properties for _Z18normalizeDeltaSumsPKjPfPKijjjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 42 registers, 392 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z13compareArraysPKfS0_Pbjjjj' for 'sm_89'
+  ptxas info    : Function properties for _Z13compareArraysPKfS0_Pbjjjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 20 registers, 392 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z20compositeOffsetArrayPiPKbS_ijjjj' for 'sm_89'
+  ptxas info    : Function properties for _Z20compositeOffsetArrayPiPKbS_ijjjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 23 registers, 396 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15warpFrameKernelPKhPKiPiS3_Phdjj' for 'sm_89'
+  ptxas info    : Function properties for _Z15warpFrameKernelPKhPKiPiS3_Phdjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 48 registers, 24 bytes cumulative stack size, 408 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z21artifactRemovalKernelPKhPKiPhjj' for 'sm_89'
+  ptxas info    : Function properties for _Z21artifactRemovalKernelPKhPKiPhjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 384 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z31rearrangeImageDataRGBtoLayerOFCPKhPhjjj' for 'sm_89'
+  ptxas info    : Function properties for _Z31rearrangeImageDataRGBtoLayerOFCPKhPhjjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 380 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z31rearrangeImageDataLayertoRGBOFCPKhPhjjj' for 'sm_89'
+  ptxas info    : Function properties for _Z31rearrangeImageDataLayertoRGBOFCPKhPhjjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 380 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16blendFrameKernelPKhS0_Phddjj' for 'sm_89'
+  ptxas info    : Function properties for _Z16blendFrameKernelPKhS0_Phddjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 22 registers, 400 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22convertFlowToHSVKernelPKiPhjjjddf' for 'sm_89'
+  ptxas info    : Function properties for _Z22convertFlowToHSVKernelPKiPhjjjddf
+      88 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 82 registers, 136 bytes cumulative stack size, 404 bytes cmem[0], 8 bytes cmem[2]
+  ptxas info    : Function properties for fabsf
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for fminf
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for fmaxf
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for __iAtomicAdd
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for __uAtomicAdd
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for atan2
+      48 bytes stack frame, 44 bytes spill stores, 44 bytes spill loads
+  ptxas info    : Function properties for fmod
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for _ZN49_INTERNAL_7e949b02_18_opticalFlowCalc_cu_5226302e9atomicAddEPii
+      24 bytes stack frame, 20 bytes spill stores, 20 bytes spill loads
+  ptxas info    : Function properties for _ZN49_INTERNAL_7e949b02_18_opticalFlowCalc_cu_5226302e9atomicAddEPjj
+      24 bytes stack frame, 20 bytes spill stores, 20 bytes spill loads
+cl : Command line warning D9025: overriding '/ZI' with '/Zi'
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(24): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + offsetY < 0) || (cx + offsetX < 0) || (cy + offsetY > dimY) || (cx + offsetX > dimX)) {
+    		                  ^
+  
+  Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(24): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + offsetY < 0) || (cx + offsetX < 0) || (cy + offsetY > dimY) || (cx + offsetX > dimX)) {
+    		                                        ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(69): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cx + windowDimX + fabsf(offsetX) > dimX) || (cx - offsetX < 0)) {
+    		                                                               ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(75): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + windowDimY + fabsf(offsetY) > dimY) || (cy - offsetY < 0)) {
+    		                                                               ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(257): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + offsetY >= 0) && (cy + offsetY < dimY) && (cx + offsetX >= 0) && (cx + offsetX < dimX)) {
+    		                  ^
+  
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(257): warning #186-D: pointless comparison of unsigned integer with zero
+    		if ((cy + offsetY >= 0) && (cy + offsetY < dimY) && (cx + offsetX >= 0) && (cx + offsetX < dimX)) {
+    		                                                                  ^
+  
+  ptxas info    : 0 bytes gmem
+  ptxas info    : Compiling entry function '_Z14calcImageDeltaPKhS0_PhPKijj' for 'sm_61'
+  ptxas info    : Function properties for _Z14calcImageDeltaPKhS0_PhPKijj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 24 registers, 360 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z13calcDeltaSumsPhPjjjjj' for 'sm_61'
+  ptxas info    : Function properties for _Z13calcDeltaSumsPhPjjjjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 20 registers, 16 bytes cumulative stack size, 352 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z18normalizeDeltaSumsPKjPfPKijjjj' for 'sm_61'
+  ptxas info    : Function properties for _Z18normalizeDeltaSumsPKjPfPKijjjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 31 registers, 360 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z13compareArraysPKfS0_Pbjjjj' for 'sm_61'
+  ptxas info    : Function properties for _Z13compareArraysPKfS0_Pbjjjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 16 registers, 360 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z20compositeOffsetArrayPiPKbS_ijjjj' for 'sm_61'
+  ptxas info    : Function properties for _Z20compositeOffsetArrayPiPKbS_ijjjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 19 registers, 364 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z15warpFrameKernelPKhPKiPiS3_Phdjj' for 'sm_61'
+  ptxas info    : Function properties for _Z15warpFrameKernelPKhPKiPiS3_Phdjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 38 registers, 16 bytes cumulative stack size, 376 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z21artifactRemovalKernelPKhPKiPhjj' for 'sm_61'
+  ptxas info    : Function properties for _Z21artifactRemovalKernelPKhPKiPhjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 352 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z31rearrangeImageDataRGBtoLayerOFCPKhPhjjj' for 'sm_61'
+  ptxas info    : Function properties for _Z31rearrangeImageDataRGBtoLayerOFCPKhPhjjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 348 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z31rearrangeImageDataLayertoRGBOFCPKhPhjjj' for 'sm_61'
+  ptxas info    : Function properties for _Z31rearrangeImageDataLayertoRGBOFCPKhPhjjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 14 registers, 348 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z16blendFrameKernelPKhS0_Phddjj' for 'sm_61'
+  ptxas info    : Function properties for _Z16blendFrameKernelPKhS0_Phddjj
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 18 registers, 368 bytes cmem[0]
+  ptxas info    : Compiling entry function '_Z22convertFlowToHSVKernelPKiPhjjjddf' for 'sm_61'
+  ptxas info    : Function properties for _Z22convertFlowToHSVKernelPKiPhjjjddf
+      88 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Used 72 registers, 112 bytes cumulative stack size, 372 bytes cmem[0], 56 bytes cmem[2]
+  ptxas info    : Function properties for fabsf
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for fminf
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for fmaxf
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for __iAtomicAdd
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for __uAtomicAdd
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for atan2
+      24 bytes stack frame, 24 bytes spill stores, 24 bytes spill loads
+  ptxas info    : Function properties for fmod
+      0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+  ptxas info    : Function properties for _ZN49_INTERNAL_7e949b02_18_opticalFlowCalc_cu_5226302e9atomicAddEPii
+      16 bytes stack frame, 12 bytes spill stores, 12 bytes spill loads
+  ptxas info    : Function properties for _ZN49_INTERNAL_7e949b02_18_opticalFlowCalc_cu_5226302e9atomicAddEPjj
+      16 bytes stack frame, 12 bytes spill stores, 12 bytes spill loads
+CUDACOMPILE : nvcc warning : '--device-debug (-G)' overrides '-split-compile'
+  opticalFlowCalc.cu
+cl : Command line warning D9025: overriding '/ZI' with '/Zi'
+  tmpxft_0000d2e4_00000000-7_opticalFlowCalc.compute_61.cudafe1.cpp
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(424): warning C4244: '=': conversion from 'float' to 'unsigned int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(425): warning C4244: '=': conversion from 'float' to 'unsigned int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(455): warning C4244: '=': conversion from 'double' to 'unsigned int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(456): warning C4244: 'argument': conversion from 'const unsigned int' to 'float', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(456): warning C4244: '=': conversion from 'float' to 'unsigned int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(537): warning C4244: '=': conversion from 'double' to 'unsigned int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(538): warning C4244: '=': conversion from 'double' to 'unsigned int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(541): warning C4244: '=': conversion from 'double' to 'unsigned int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(631): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(631): warning C4244: 'initializing': conversion from 'float' to 'const int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(632): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\cuda\opticalFlowCalc.cu(632): warning C4244: 'initializing': conversion from 'float' to 'const int', possible loss of data
+  cuda.vcxproj -> C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\x64\Debug\lib\cuda.lib
