@@ -10,7 +10,6 @@
 
 #include "GPUArrayLib.cuh"
 
-#define DEBUG_MODE 0
 #define NUM_STEPS 40 // Number of steps executed to find the ideal offset (limits the maximum offset)
 #define MAX_OFFSET_DIVIDER 192 // The divider used to calculate the initial global offset
 
@@ -46,8 +45,10 @@ public:
 
 	/*
 	* Calculates the optical flow between frame1 and frame2
+	*
+	* @param bBisNewest: Whether frame1 or frame2 is the newest frame
 	*/
-	void calculateOpticalFlow();
+	void calculateOpticalFlow(bool bBisNewest);
 
 	/*
 	* Warps frame1 according to the offset array
@@ -55,7 +56,7 @@ public:
 	* @param dScalar: The scalar to blend the frames with
 	* @param bBisNewest: Whether frame1 or frame2 is the newest frame
 	*/
-	void warpFrame(double dScalar, bool bBisNewest);
+	void warpFrame(double dScalar, bool bBisNewest, int offsetX, int offsetY);
 
 	/*
 	* Blends frame1 to frame2
@@ -64,6 +65,16 @@ public:
 	* @param bBisNewest: Whether frame1 or frame2 is the newest frame
 	*/
 	void blendFrames(double dScalar, bool bBisNewest);
+
+	/*
+	* Downloads the array as a flow image into the output memory pointer
+	*
+	* @param memPointer: Pointer to the memory to transfer the array to
+	* @param saturation: The saturation of the flow image
+	* @param value: The value of the flow image
+	* @param threshold: The threshold to use for the flow image
+	*/
+	void downloadFlowAsHSV(unsigned char* memPointer, const double saturation, const double value, const float threshold) const;
 
 	// The number of cuda blocks needed
 	unsigned int NUM_BLOCKS_X;
@@ -81,6 +92,7 @@ public:
 	GPUArray<unsigned char> frame2; // Array containing the second frame
 	GPUArray<unsigned char> imageDeltaArray; // Array containing the absolute difference between the two frames
 	GPUArray<int> offsetArray; // Array containing x,y offsets for each pixel of frame1
+	GPUArray<unsigned char> rgboffsetArray; // Array containing the x,y offsets for each pixel of frame1 in rgb format
 	GPUArray<int> statusArray; // Array containing the calculation status of each pixel of frame1
 	GPUArray<unsigned int> summedUpDeltaArray; // Array containing the summed up delta values of each window
 	GPUArray<float> normalizedDeltaArrayA; // Array containing the normalized delta values of each window

@@ -1,4 +1,3 @@
 - Fix frame flushing at playback start
-- Add file properties to dll
 
 - Implement more acurate scalar calculations (put on hold)

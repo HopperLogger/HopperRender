@@ -28,6 +28,7 @@ public:
                              ALLOCATOR_PROPERTIES *ppropInputRequest) override;
     HRESULT GetMediaType(int iPosition, CMediaType *pMediaType) override;
 	HRESULT Transform(IMediaSample *pIn, IMediaSample *pOut) override;
+    HRESULT NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) override;
 
     // These implement the custom SettingsInterface interface
     STDMETHODIMP get_Settings(bool* pbActivated, int* piNumSteps, int* piMaxOffsetDivider, int* piIntActiveState, double* pdSourceFPS) override;
@@ -55,9 +56,11 @@ private:
     bool m_bBisNewest;                               // Which frame order are we using
     OpticalFlowCalc m_ofcOpticalFlowCalc;            // Optical flow calculator
     int m_iFrameCounter;                             // Frame counter (relative! i.e. number of frames presented)
+    double m_dRate; 								 // The current playback rate
     REFERENCE_TIME m_rtCurrStartTime;                // The start time of the current interpolated frame
 	REFERENCE_TIME m_rtLastStartTime;                // The start time of the last input frame
     BOOL m_bIntNeeded;                               // Whether interpolation currently is needed or not
     REFERENCE_TIME m_rtPastFrameDurations[10];       // The past 10 frame durations
     REFERENCE_TIME m_rtAvgSourceFrameTime;           // The average frame time of the source
+    bool m_bFirstTime = true;					     // Whether this is the first time we're running
 };

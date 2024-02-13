@@ -248,8 +248,8 @@ __global__ void warpFrameKernel(const unsigned char* frame1, const int* offsetAr
 	const unsigned int cz = threadIdx.z;
 
 	// Get the current offsets to use
-	const int offsetX = static_cast<int>(static_cast<double>(offsetArray[cy * dimX + cx]) * frameScalar);
-	const int offsetY = static_cast<int>(static_cast<double>(offsetArray[dimY * dimX + cy * dimX + cx]) * frameScalar);
+	const int offsetX = -static_cast<int>(static_cast<double>(offsetArray[cy * dimX + cx]) * frameScalar);
+	const int offsetY = -static_cast<int>(static_cast<double>(offsetArray[dimY * dimX + cy * dimX + cx]) * frameScalar);
 
 	// Check if the thread is inside the frame (without offsets)
 	if (cz < 3 && cy < dimY && cx < dimX) {
@@ -334,6 +334,83 @@ __global__ void blendFrameKernel(const unsigned char* frame1, const unsigned cha
 	}
 }
 
+// Kernel that creates an HSV flow image from the offset array
+__global__ void convertFlowToHSVKernel(const int* flowArray, unsigned char* RGBArray, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX, const double saturation, const double value, const float threshold) {
+	// Current entry to be computed by the thread
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+
+	// Get the current flow values
+	double x = flowArray[cy * dimX + cx];
+	double y = -flowArray[dimY * dimX + cy * dimX + cx];
+
+	// Check if the flow is below the threshold
+	if (fabsf(x) < threshold && fabsf(y) < threshold) {
+		RGBArray[cz + (3 * cy * dimX) + (3 * cx)] = 0;
+		return;
+	}
+
+	x += 1;
+	y += 1;
+
+	// RGB struct
+	struct RGB {
+		int r, g, b;
+	};
+
+	// Calculate the angle in radians
+	const double angle_rad = std::atan2(y, x);
+
+	// Convert radians to degrees
+	double angle_deg = angle_rad * (180.0 / 3.14159265359);
+
+	// Ensure the angle is positive
+	if (angle_deg < 0) {
+		angle_deg += 360.0;
+	}
+
+	// Normalize the angle to the range [0, 360]
+	angle_deg = fmod(angle_deg, 360.0);
+	if (angle_deg < 0) {
+		angle_deg += 360.0;
+	}
+
+	// Map the angle to the hue value in the HSV model
+	const double hue = angle_deg / 360.0;
+
+	// Convert HSV to RGB
+	const int h_i = static_cast<int>(hue * 6);
+	const double f = hue * 6 - h_i;
+	const double p = value * (1 - saturation);
+	const double q = value * (1 - f * saturation);
+	const double t = value * (1 - (1 - f) * saturation);
+
+	RGB rgb;
+	switch (h_i % 6) {
+		case 0: rgb = { static_cast<int>(value * 255), static_cast<int>(t * 255), static_cast<int>(p * 255) }; break;
+		case 1: rgb = { static_cast<int>(q * 255), static_cast<int>(value * 255), static_cast<int>(p * 255) }; break;
+		case 2: rgb = { static_cast<int>(p * 255), static_cast<int>(value * 255), static_cast<int>(t * 255) }; break;
+		case 3: rgb = { static_cast<int>(p * 255), static_cast<int>(q * 255), static_cast<int>(value * 255) }; break;
+		case 4: rgb = { static_cast<int>(t * 255), static_cast<int>(p * 255), static_cast<int>(value * 255) }; break;
+		case 5: rgb = { static_cast<int>(value * 255), static_cast<int>(p * 255), static_cast<int>(q * 255) }; break;
+	}
+
+	// Write the RGB values to the array
+	if (cz < dimZ && cy < dimY && cx < dimX) {
+		// Blue
+		if (cz == 0) {
+			RGBArray[cz + (3 * cy * dimX) + (3 * cx)] = fminf(rgb.b, 255);
+		// Green
+		} else if (cz == 1) {
+			RGBArray[cz + (3 * cy * dimX) + (3 * cx)] = fminf(rgb.g, 255);
+		// Red
+		} else {
+			RGBArray[cz + (3 * cy * dimX) + (3 * cx)] = fminf(rgb.r, 255);
+		}
+	}
+}
+
 // Constructor
 OpticalFlowCalc::OpticalFlowCalc() = default;
 
@@ -362,6 +439,7 @@ void OpticalFlowCalc::init(const unsigned int dimY, const unsigned int dimX) {
 	frame2.init({ 3, dimY, dimX });
 	imageDeltaArray.init({ 3, dimY, dimX });
 	offsetArray.init({ 2, dimY, dimX });
+	rgboffsetArray.init({ 3, dimY, dimX });
 	statusArray.init({ dimY, dimX });
 	summedUpDeltaArray.init({ dimY, dimX });
 	normalizedDeltaArrayA.init({ dimY, dimX });
@@ -405,19 +483,28 @@ void OpticalFlowCalc::updateFrame2(const BYTE* pInBuffer) {
 
 /*
 * Calculates the optical flow between frame1 and frame2
+*
+* @param bBisNewest: Whether frame1 or frame2 is the newest frame
 */
-void OpticalFlowCalc::calculateOpticalFlow() {
+void OpticalFlowCalc::calculateOpticalFlow(bool bBisNewest) {
 	// Reset the arrays
 	offsetArray.fill(0);
 	summedUpDeltaArray.fill(0);
 
+	if (bBisNewest) {
+		rearrangeImageDataRGBtoLayerOFC << <grid, threads3 >> > (frame1.arrayPtrGPU, layerFrame.arrayPtrGPU, 3, frame1.dimY, frame1.dimX);
+		rearrangeImageDataRGBtoLayerOFC << <grid, threads3 >> > (frame2.arrayPtrGPU, layerFrame2.arrayPtrGPU, 3, frame1.dimY, frame1.dimX);
+	} else {
+		rearrangeImageDataRGBtoLayerOFC << <grid, threads3 >> > (frame1.arrayPtrGPU, layerFrame2.arrayPtrGPU, 3, frame1.dimY, frame1.dimX);
+		rearrangeImageDataRGBtoLayerOFC << <grid, threads3 >> > (frame2.arrayPtrGPU, layerFrame.arrayPtrGPU, 3, frame1.dimY, frame1.dimX);
+	}
+
 	// We calculate the ideal offset array for each window size (entire frame, ..., individual pixels)
-	for (int iter = 0; iter < numIterations; iter++) {
+	for (unsigned int iter = 0; iter < 5; iter++) {
 		// Each step we adjust the offset array to find the ideal offset
 		for (int step = 0; step < NUM_STEPS; step++) {
 			// Calculate the image deltas with the current offset array
-			calcImageDelta << <grid, threads3 >> > (frame1.arrayPtrGPU, frame2.arrayPtrGPU, imageDeltaArray.arrayPtrGPU, offsetArray.arrayPtrGPU, frame1.dimY, frame1.dimX);
-
+			calcImageDelta << <grid, threads3 >> > (layerFrame.arrayPtrGPU, layerFrame2.arrayPtrGPU, imageDeltaArray.arrayPtrGPU, offsetArray.arrayPtrGPU, frame1.dimY, frame1.dimX);
 			// Sum up the deltas of each window
 			calcDeltaSums << <grid, threads3 >> > (imageDeltaArray.arrayPtrGPU, summedUpDeltaArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
 
@@ -428,7 +515,8 @@ void OpticalFlowCalc::calculateOpticalFlow() {
 
 				// Check if the new normalized delta array is better than the old one
 				compareArrays << <grid, threads1 >> > (normalizedDeltaArrayA.arrayPtrGPU, normalizedDeltaArrayB.arrayPtrGPU, isValueDecreasedArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
-			} else {
+			}
+			else {
 				// Normalize the summed up delta array
 				normalizeDeltaSums << <grid, threads1 >> > (summedUpDeltaArray.arrayPtrGPU, normalizedDeltaArrayA.arrayPtrGPU, offsetArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
 
@@ -470,13 +558,14 @@ void OpticalFlowCalc::calculateOpticalFlow() {
 * @param offsetArray: The array containing the offsets
 * @param bBisNewest: Whether frame1 or frame2 is the newest frame
 */
-void OpticalFlowCalc::warpFrame(double dScalar, bool bBisNewest) {
+void OpticalFlowCalc::warpFrame(double dScalar, bool bBisNewest, int offsetX, int offsetY) {
 	// Calculate the blend scalar
 	const double frameScalar = dScalar;
 
 	// Reset the hit count array
 	hitCount.fill(0);
-	offsetArray.fill(7, frame1.dimY * frame1.dimX, 2 * frame1.dimY * frame1.dimX - 1);
+	//offsetArray.fill(-offsetX, 0, frame1.dimY * frame1.dimX - 1);
+	//offsetArray.fill(offsetY, frame1.dimY * frame1.dimX, 2 * frame1.dimY * frame1.dimX - 1);
 	layerFrame2.fill(0);
 
 	// Warp the frame
@@ -486,13 +575,11 @@ void OpticalFlowCalc::warpFrame(double dScalar, bool bBisNewest) {
 		rearrangeImageDataRGBtoLayerOFC << <grid, threads3 >> > (frame2.arrayPtrGPU, layerFrame.arrayPtrGPU, 3, frame1.dimY, frame1.dimX);
 	}
 	warpFrameKernel << <grid, threads3 >> > (layerFrame.arrayPtrGPU, offsetArray.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, layerFrame2.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
+	artifactRemovalKernel << <grid, threads3 >> > (layerFrame.arrayPtrGPU, hitCount.arrayPtrGPU, layerFrame2.arrayPtrGPU, frame1.dimY, frame1.dimX);
 	rearrangeImageDataLayertoRGBOFC << <grid, threads3 >> > (layerFrame2.arrayPtrGPU, warpedFrame.arrayPtrGPU, 3, frame1.dimY, frame1.dimX);
 
 	// Wait for all threads to finish
 	cudaDeviceSynchronize();
-
-	// Remove artifacts
-	//artifactRemovalKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -529,4 +616,36 @@ void OpticalFlowCalc::blendFrames(double dScalar, bool bBisNewest) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
 	}
+}
+
+/*
+* Downloads the array as a flow image into the output memory pointer
+*
+* @param memPointer: Pointer to the memory to transfer the array to
+* @param saturation: The saturation of the flow image
+* @param value: The value of the flow image
+* @param threshold: The threshold to use for the flow image
+*/
+void OpticalFlowCalc::downloadFlowAsHSV(unsigned char* memPointer, const double saturation, const double value, const float threshold) const {
+	// Calculate the number of blocks needed
+	const int NUM_BLOCKS_X = fmaxf(ceilf(offsetArray.dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(offsetArray.dimY / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Z = 1;
+
+	// Use dim3 structs for block and grid size
+	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
+	dim3 threads(NUM_THREADS, NUM_THREADS, 3);
+
+	// Launch kernel
+	convertFlowToHSVKernel << <grid, threads >> > (offsetArray.arrayPtrGPU, rgboffsetArray.arrayPtrGPU, 3, offsetArray.dimY, offsetArray.dimX, saturation, value, threshold);
+
+	// Check for CUDA errors
+	const cudaError_t cudaError = cudaGetLastError();
+	if (cudaError != cudaSuccess) {
+		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
+		exit(-1);
+	}
+
+	// Copy host array to GPU
+	cudaMemcpy(memPointer, rgboffsetArray.arrayPtrGPU, 3 * offsetArray.dimY * offsetArray.dimX, cudaMemcpyDeviceToHost);
 }

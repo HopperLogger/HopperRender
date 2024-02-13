@@ -605,7 +605,7 @@ void GPUArray<T>::toCPU() {
 * @param memPointer: Pointer to the memory to transfer the array to
 */
 template <typename T>
-void GPUArray<T>::download(T* memPointer) {
+void GPUArray<T>::download(unsigned char* memPointer) const {
 	// Copy host array to memory pointer
 	cudaMemcpy(memPointer, arrayPtrGPU, bytes, cudaMemcpyDeviceToHost);
 }

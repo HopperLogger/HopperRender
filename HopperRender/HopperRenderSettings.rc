@@ -55,8 +55,8 @@ BEGIN
     GROUPBOX        "Parameters", IDS_STATIC, 125, 10, 130, 51
     EDITTEXT        IDC_NUMSTEPS, 200, 21, 40, 13, ES_AUTOHSCROLL
     EDITTEXT        IDC_MAXOFFSETDIV, 200, 40, 40, 13, ES_AUTOHSCROLL
-    LTEXT           "NumSteps", IDS_STATIC, 132, 24, 60, 9
-    LTEXT           "MaxOffsetDivider", IDS_STATIC, 132, 42, 60, 9
+    LTEXT           "Offset X", IDS_STATIC, 132, 24, 60, 9
+    LTEXT           "Offset Y", IDS_STATIC, 132, 42, 60, 9
     GROUPBOX        "Status", IDS_STATIC, 125, 70, 130, 51
     LTEXT           "Int Active", IDS_STATIC, 132, 85, 60, 9
     LTEXT           "Source FPS", IDS_STATIC, 132, 100, 60, 9
