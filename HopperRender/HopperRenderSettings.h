@@ -24,9 +24,10 @@ private:
 
     BOOL m_bIsInitialized;                   // Used to ignore startup messages
     bool m_bActivated;                       // Whether the filter is activated
-    int m_iNumSteps;                         // Number of steps executed to find the ideal offset (limits the maximum offset)
+    int m_iNumIterations;                    // Number of iterations to use in the optical flow calculation
     int m_iMaxOffsetDivider;                 // The divider used to calculate the initial global offset
     int m_iIntActiveState;                   // The state of the filter
     double m_dSourceFPS;                     // The source frames per second
+    int m_iNumSteps;						 // The number of steps to use in the optical flow calculation
     SettingsInterface* m_pSettingsInterface; // The custom interface on the filter
 };

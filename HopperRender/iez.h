@@ -13,10 +13,11 @@ extern "C" {
     {
         STDMETHOD(get_Settings) (THIS_
             bool* pbActivated,       // Is the filter activated
-            int* piNumSteps,         // Number of steps executed to find the ideal offset (limits the maximum offset)
+            int* piNumIterations,    // Number of iterations to find the ideal offset
             int* piMaxOffsetDivider, // The divider used to calculate the initial global offset
             int* piIntActiveState,   // Is the effect active
-            double* pdSourceFPS      // The source frames per second
+            double* pdSourceFPS,     // The source frames per second
+            int* piNumSteps          // Number of steps executed to find the ideal offset (limits the maximum offset)
             ) PURE;
 
         STDMETHOD(put_Settings) (THIS_
