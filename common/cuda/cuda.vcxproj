@@ -44,9 +44,11 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\lib\</OutDir>
+    <IntDir>$(SolutionDir)$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\lib\</OutDir>
+    <IntDir>$(SolutionDir)$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -67,6 +69,7 @@
       <FastMath>true</FastMath>
       <PtxAsOptionV>true</PtxAsOptionV>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <CompileOut>$(SolutionDir)$(Platform)\$(Configuration)\$(ProjectName)\%(Filename)%(Extension).obj</CompileOut>
     </CudaCompile>
     <CudaLink>
       <LinkOut>$(SolutionDir)$(Platform)\$(Configuration)\.device-link.obj</LinkOut>
@@ -98,6 +101,7 @@
       <GPUDebugInfo>true</GPUDebugInfo>
       <HostDebugInfo>true</HostDebugInfo>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <CompileOut>$(SolutionDir)$(Platform)\$(Configuration)\$(ProjectName)\%(Filename)%(Extension).obj</CompileOut>
     </CudaCompile>
     <CudaLink>
       <LinkOut>$(SolutionDir)$(Platform)\$(Configuration)\.device-link.obj</LinkOut>
