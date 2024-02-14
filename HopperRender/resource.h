@@ -7,12 +7,13 @@
 #define IDB_DEFAULT                     1001
 #define IDC_ON                          1010
 #define IDC_OFF                         1011
-#define IDC_NUMSTEPS                    1012
+#define IDC_NUMITS                      1012
 #define IDC_MAXOFFSETDIV                1014
 #define IDS_STATIC                      -1
 #define IDS_TITLE                       1015
 #define IDC_INTACTIVE				    1016
 #define IDC_SOURCEFPS				    1017
+#define IDC_NUMSTEPS				    1018
 
 // Next default values for new objects
 //

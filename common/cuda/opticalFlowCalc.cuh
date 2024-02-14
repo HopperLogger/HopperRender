@@ -10,9 +10,6 @@
 
 #include "GPUArrayLib.cuh"
 
-#define NUM_STEPS 40 // Number of steps executed to find the ideal offset (limits the maximum offset)
-#define MAX_OFFSET_DIVIDER 192 // The divider used to calculate the initial global offset
-
 class OpticalFlowCalc {
 public:
 	// Constructor
@@ -47,8 +44,13 @@ public:
 	* Calculates the optical flow between frame1 and frame2
 	*
 	* @param bBisNewest: Whether frame1 or frame2 is the newest frame
+	* @param iNumIterations: Number of iterations to calculate the optical flow
+	* @param iNumSteps: Number of steps executed to find the ideal offset (limits the maximum offset)
+    * @param iMaxOffsetDivider: The divider used to calculate the initial global offset
+    *
+    * @return: The time it took to calculate the optical flow
 	*/
-	void calculateOpticalFlow(bool bBisNewest);
+	double calculateOpticalFlow(bool bBisNewest, int iNumIterations, int iNumSteps, int iMaxOffsetDivider);
 
 	/*
 	* Warps frame1 according to the offset array
@@ -101,12 +103,9 @@ public:
 	GPUArray<unsigned char> warpedFrame; // Array containing the warped frame
 	GPUArray<int> hitCount; // Array containing the number of times a pixel was hit
 	GPUArray<int> ones; // Array containing only ones for atomic add
-	GPUArray<unsigned char> layerFrame;
-	GPUArray<unsigned char> layerFrame2;
 	
 	// Helper variables
 	unsigned int windowDimX; // Initial window size
 	unsigned int windowDimY; // Initial window size
 	unsigned int currentGlobalOffset; // Initial global offset
-	unsigned int numIterations; // Number of iterations needed to get to the smallest window size
 };

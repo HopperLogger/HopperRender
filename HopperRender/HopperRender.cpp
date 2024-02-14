@@ -120,8 +120,9 @@ CHopperRender::CHopperRender(TCHAR* tszName,
     CTransformFilter(tszName, punk, CLSID_HopperRender),
 	CPersistStream(punk, phr),
 	m_bActivated(IDC_ON),
-    m_iNumSteps(0),
-    m_iMaxOffsetDivider(0),
+	m_iNumIterations(0),
+    m_iNumSteps(10),
+    m_iMaxOffsetDivider(192),
     m_lBufferRequest(12),
     m_bBisNewest(true),
     m_iFrameCounter(0),
@@ -531,18 +532,31 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
 
     // Calculate the optical flow
     if (iIntFrameNum == 0) {
-        m_ofcOpticalFlowCalc.calculateOpticalFlow(m_bBisNewest);
-	}
+        double duration = m_ofcOpticalFlowCalc.calculateOpticalFlow(m_bBisNewest, m_iNumIterations, m_iNumSteps, m_iMaxOffsetDivider);
+        if ((duration + 10.0) > static_cast<double>(m_rtAvgSourceFrameTime) / 10000.0) {
+            DebugMessage("Optical Flow Calculation took too long " + std::to_string(duration) + " ms" + " AVG SFT: " + std::to_string(static_cast<double>(m_rtAvgSourceFrameTime) / 10000.0) + " NumSteps: " + std::to_string(m_iNumSteps));
+            m_iNumSteps -= 1;
+            if (m_iNumSteps < 1) {
+				m_iNumSteps = 1;
+			}
+        } else if ((static_cast<double>(m_rtAvgSourceFrameTime) / 10000.0) > (duration + 15.0)) {
+			DebugMessage("Optical Flow Calculation has capacity " + std::to_string(duration) + " ms" + " AVG SFT: " + std::to_string(static_cast<double>(m_rtAvgSourceFrameTime) / 10000.0) + " NumSteps: " + std::to_string(m_iNumSteps));
+			m_iNumSteps += 1;
+        } else {
+			DebugMessage("Optical Flow Calculation took " + std::to_string(duration) + " ms" + " AVG SFT: " + std::to_string(static_cast<double>(m_rtAvgSourceFrameTime) / 10000.0) + " NumSteps: " + std::to_string(m_iNumSteps));
+		}
+    }
 
     // Warp the frame
-	//m_ofcOpticalFlowCalc.warpFrame(dScalar, m_bBisNewest, m_iNumSteps, m_iMaxOffsetDivider);
+	m_ofcOpticalFlowCalc.warpFrame(dScalar, m_bBisNewest, m_iNumSteps, m_iMaxOffsetDivider);
 
     // Blend the frames together
 	//m_ofcOpticalFlowCalc.blendFrames(dScalar, m_bBisNewest);
 
     // Download the result to the Output Sample
-    m_ofcOpticalFlowCalc.downloadFlowAsHSV(pOutBuffer, 1.0, 1.0, 0.4);
-    //m_ofcOpticalFlowCalc.warpedFrame.download(pOutBuffer);
+    //m_ofcOpticalFlowCalc.downloadFlowAsHSV(pOutBuffer, 1.0, 1.0, 0.4);
+    m_ofcOpticalFlowCalc.warpedFrame.download(pOutBuffer);
+    //m_ofcOpticalFlowCalc.imageDeltaArray.download(pOutBuffer);
 
     // Update the frame order
     if (iIntFrameNum == 0) {
@@ -571,10 +585,11 @@ HRESULT CHopperRender::ScribbleToStream(IStream* pStream) const {
     HRESULT hr;
 
     WRITEOUT(m_bActivated)
-    WRITEOUT(m_iNumSteps)
+    WRITEOUT(m_iNumIterations)
     WRITEOUT(m_iMaxOffsetDivider)
     WRITEOUT(m_bIntNeeded)
     WRITEOUT(m_rtAvgSourceFrameTime)
+    WRITEOUT(m_iNumSteps)
 
     return NOERROR;
 }
@@ -585,10 +600,11 @@ HRESULT CHopperRender::ReadFromStream(IStream* pStream) {
     HRESULT hr;
 
     READIN(m_bActivated)
-    READIN(m_iNumSteps)
+    READIN(m_iNumIterations)
     READIN(m_iMaxOffsetDivider)
     READIN(m_bIntNeeded)
     READIN(m_rtAvgSourceFrameTime)
+    READIN(m_iNumSteps)
 
     return NOERROR;
 }
@@ -610,36 +626,38 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
 
 
 // Return the current settings selected
-STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piNumSteps, int* piMaxOffsetDivider, int* iIntActiveState, double* dSourceFPS) {
+STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piNumIterations, int* piMaxOffsetDivider, int* piIntActiveState, double* pdSourceFPS, int* piNumSteps) {
     CAutoLock cAutolock(&m_csHopperRenderLock);
     CheckPointer(pbActivated, E_POINTER)
-    CheckPointer(piNumSteps, E_POINTER)
+    CheckPointer(piNumIterations, E_POINTER)
     CheckPointer(piMaxOffsetDivider, E_POINTER)
-    CheckPointer(iIntActiveState, E_POINTER)
-    CheckPointer(dSourceFPS, E_POINTER)
+    CheckPointer(piIntActiveState, E_POINTER)
+    CheckPointer(pdSourceFPS, E_POINTER)
+    CheckPointer(piNumSteps, E_POINTER)
 
     *pbActivated = m_bActivated;
-    *piNumSteps = m_iNumSteps;
+    *piNumIterations = m_iNumIterations;
     *piMaxOffsetDivider = m_iMaxOffsetDivider;
     if (m_bActivated && m_bIntNeeded) {
-		*iIntActiveState = 2;
+		*piIntActiveState = 2;
     } else if (m_bActivated && !m_bIntNeeded) {
-		*iIntActiveState = 1;
+		*piIntActiveState = 1;
     } else {
-        *iIntActiveState = 0;
+        *piIntActiveState = 0;
     }
-    *dSourceFPS = 10000000.0 / static_cast<double>(m_rtAvgSourceFrameTime);
+    *pdSourceFPS = 10000000.0 / static_cast<double>(m_rtAvgSourceFrameTime);
+    *piNumSteps = m_iNumSteps;
 
     return NOERROR;
 }
 
 
 // Set the settings
-STDMETHODIMP CHopperRender::put_Settings(bool bActivated, int iNumSteps, int iMaxOffsetDivider) {
+STDMETHODIMP CHopperRender::put_Settings(bool bActivated, int iNumIterations, int iMaxOffsetDivider) {
     CAutoLock cAutolock(&m_csHopperRenderLock);
 
     m_bActivated = bActivated;
-    m_iNumSteps = iNumSteps;
+    m_iNumIterations = iNumIterations;
     m_iMaxOffsetDivider = iMaxOffsetDivider;
 
     SetDirty(TRUE);

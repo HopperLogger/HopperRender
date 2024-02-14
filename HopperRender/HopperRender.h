@@ -31,8 +31,8 @@ public:
     HRESULT NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) override;
 
     // These implement the custom SettingsInterface interface
-    STDMETHODIMP get_Settings(bool* pbActivated, int* piNumSteps, int* piMaxOffsetDivider, int* piIntActiveState, double* pdSourceFPS) override;
-    STDMETHODIMP put_Settings(bool bActivated, int iNumSteps, int iMaxOffsetDivider) override;
+    STDMETHODIMP get_Settings(bool* pbActivated, int* piNumIterations, int* piMaxOffsetDivider, int* piIntActiveState, double* pdSourceFPS, int* piNumSteps) override;
+    STDMETHODIMP put_Settings(bool bActivated, int iNumIterations, int iMaxOffsetDivider) override;
 
     // ISpecifyPropertyPages interface
     STDMETHODIMP GetPages(CAUUID *pPages) override;
@@ -50,6 +50,7 @@ private:
 
     CCritSec m_csHopperRenderLock;                   // Private play critical section
     bool m_bActivated;                               // Whether the filter is activated
+    int m_iNumIterations;                            // Number of iterations to use in the optical flow calculation
     int m_iNumSteps;                                 // Number of steps executed to find the ideal offset (limits the maximum offset)
     int m_iMaxOffsetDivider;                         // The divider used to calculate the initial global offset
     const long m_lBufferRequest;                     // The number of buffers to use

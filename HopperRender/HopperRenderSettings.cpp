@@ -37,10 +37,11 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
         IDD_HopperRenderSettings, IDS_TITLE),
     m_bIsInitialized(FALSE),
     m_bActivated(FALSE),
-    m_iNumSteps(40),
+    m_iNumIterations(0),
     m_iMaxOffsetDivider(192),
     m_iIntActiveState(0),
     m_dSourceFPS(0.0),
+	m_iNumSteps(0),
     m_pSettingsInterface(nullptr) {
 
     ASSERT(phr);
@@ -66,7 +67,7 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd,
     }
 
     // Get the current settings
-    m_pSettingsInterface->get_Settings(&m_bActivated, &m_iNumSteps, &m_iMaxOffsetDivider, &m_iIntActiveState, &m_dSourceFPS);
+    m_pSettingsInterface->get_Settings(&m_bActivated, &m_iNumIterations, &m_iMaxOffsetDivider, &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps);
 
     // Update the effect active status
     if (m_iIntActiveState == 2) {
@@ -81,6 +82,10 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd,
     TCHAR sz[60];
     (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f fps\0"), m_dSourceFPS);
     SetDlgItemText(m_Dlg, IDC_SOURCEFPS, sz);
+
+    // Update the number of steps
+    (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNumSteps);
+    SetDlgItemText(m_Dlg, IDC_NUMSTEPS, sz);
 
     return CBasePropertyPage::OnReceiveMessage(hwnd, uMsg, wParam, lParam);
 }
@@ -98,7 +103,7 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 
     // Get the initial settings
     CheckPointer(m_pSettingsInterface, E_FAIL);
-    m_pSettingsInterface->get_Settings(&m_bActivated, &m_iNumSteps, &m_iMaxOffsetDivider, &m_iIntActiveState, &m_dSourceFPS);
+    m_pSettingsInterface->get_Settings(&m_bActivated, &m_iNumIterations, &m_iMaxOffsetDivider, &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps);
 
     m_bIsInitialized = FALSE;
     return NOERROR;
@@ -125,8 +130,8 @@ HRESULT CHopperRenderSettings::OnActivate() {
     Edit_SetText(GetDlgItem(m_Dlg, IDC_MAXOFFSETDIV), sz);
 
     // Set the initial NumSteps
-    (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNumSteps);
-    Edit_SetText(GetDlgItem(m_Dlg, IDC_NUMSTEPS), sz);
+    (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNumIterations);
+    Edit_SetText(GetDlgItem(m_Dlg, IDC_NUMITS), sz);
 
     // Check the appropriate radio button
     if (m_bActivated) {
@@ -156,7 +161,7 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
     GetControlValues();
 
     CheckPointer(m_pSettingsInterface, E_POINTER)
-        m_pSettingsInterface->put_Settings(m_bActivated, m_iNumSteps, m_iMaxOffsetDivider);
+        m_pSettingsInterface->put_Settings(m_bActivated, m_iNumIterations, m_iMaxOffsetDivider);
 
     return NOERROR;
 }
@@ -180,7 +185,7 @@ void CHopperRenderSettings::GetControlValues() {
 #endif
 
     // Get the number of steps
-    Edit_GetText(GetDlgItem(m_Dlg, IDC_NUMSTEPS), sz, STR_MAX_LENGTH);
+    Edit_GetText(GetDlgItem(m_Dlg, IDC_NUMITS), sz, STR_MAX_LENGTH);
 
 #ifdef UNICODE
     // Convert Multibyte string to ANSI
@@ -190,7 +195,7 @@ void CHopperRenderSettings::GetControlValues() {
     tmp1 = atoi(sz);
 #endif
 
-    m_iNumSteps = tmp1;
+    m_iNumIterations = tmp1;
     m_iMaxOffsetDivider = tmp2;
 
     // Find whether the filter is activated or not
