@@ -15,6 +15,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "utils/stb/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
+
 #include "utils/stb/stb_image_write.h"
 
 /*
@@ -605,7 +606,7 @@ void GPUArray<T>::toCPU() {
 * @param memPointer: Pointer to the memory to transfer the array to
 */
 template <typename T>
-void GPUArray<T>::download(unsigned char* memPointer) const {
+void GPUArray<T>::download(unsigned char* memPointer) {
 	// Copy host array to memory pointer
 	cudaMemcpy(memPointer, arrayPtrGPU, bytes, cudaMemcpyDeviceToHost);
 }
@@ -1067,6 +1068,7 @@ template <typename T>
 void GPUArray<T>::fillData(const T* memPointer) {
 	// Copy the data to the GPU
 	cudaMemcpy(arrayPtrGPU, memPointer, bytes, cudaMemcpyHostToDevice);
+	cudaDeviceSynchronize();
 }
 
 /*
@@ -1805,3 +1807,5 @@ template void GPUArray<double>::print<double>(const unsigned int startIdx, const
 template void GPUArray<long>::print<long>(const unsigned int startIdx, const int numElements);
 template void GPUArray<unsigned int>::print<unsigned int>(const unsigned int startIdx, const int numElements);
 template void GPUArray<bool>::print<bool>(const unsigned int startIdx, const int numElements);
+
+template void GPUArray<unsigned char>::download(unsigned char* memPointer);

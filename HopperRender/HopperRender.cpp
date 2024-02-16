@@ -120,6 +120,7 @@ CHopperRender::CHopperRender(TCHAR* tszName,
     CTransformFilter(tszName, punk, CLSID_HopperRender),
 	CPersistStream(punk, phr),
 	m_bActivated(IDC_ON),
+	m_iFrameOutput(2),
 	m_iNumIterations(0),
     m_iNumSteps(10),
     m_iMaxOffsetDivider(192),
@@ -129,11 +130,8 @@ CHopperRender::CHopperRender(TCHAR* tszName,
     m_rtCurrStartTime(LONGLONG_MAX),
     m_rtLastStartTime(LONGLONG_MAX),
     m_bIntNeeded(false),
-    m_rtAvgSourceFrameTime(0) {
-
-    // Initialize the past frame durations
-    std::fill(std::begin(m_rtPastFrameDurations), std::end(m_rtPastFrameDurations), 0);
-
+    m_rtAvgSourceFrameTime(0),
+	m_rtCurrPlaybackFrameTime(0) {
 }
 
 
@@ -194,6 +192,14 @@ HRESULT CHopperRender::CheckTransform(const CMediaType* mtIn, const CMediaType* 
         VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)mtIn->Format();
         if (pvi->bmiHeader.biBitCount == 24) {
 			if (*mtIn == *mtOut) {
+                m_rtAvgSourceFrameTime = pvi->AvgTimePerFrame;
+                const unsigned int dimX = pvi->bmiHeader.biWidth;
+                const unsigned int dimY = pvi->bmiHeader.biHeight;
+
+                // Initialize the Optical Flow Calculator
+                if (!m_ofcOpticalFlowCalc.isInitialized()) {
+                    m_ofcOpticalFlowCalc.init(dimY, dimX);
+                }
 	            return NOERROR;
 	        }
         }
@@ -265,9 +271,6 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 	// Increment the frame counter
 	m_iFrameCounter++;
 
-    // Get the current playback rate
-    m_dRate = m_pInput->CurrentRate();
-
     // Copy the properties across
     HRESULT hr = DeliverToRenderer(pIn, pOut, 166667);
     if (FAILED(hr)) {
@@ -280,9 +283,7 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 
 // Called when a new segment is started
 HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) {
-    // Ensure frame delivery starts when a new file is started (i.e. the Transform method is continuously called)
-    
-
+    m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(static_cast<double>(m_rtAvgSourceFrameTime) * (1.0 / dRate));
     return __super::NewSegment(tStart, tStop, dRate);
 }
 
@@ -299,30 +300,26 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
         return hr;
     }
 
-    if (pInBuffer[100] == 0) {
-	    DebugMessage("Empty Frame");
-    }
-
     // Get the size of the samples
     const long lInSize = pIn->GetActualDataLength();
 
     // Assemble the output samples
     IMediaSample* pOutNew;
     BYTE* pOutNewBuffer;
-    int iNumSamples = 1;
+    int iNumSamples = 5;
 
     for (int iIntFrameNum = 0; iIntFrameNum < iNumSamples; ++iIntFrameNum) {
-        // Use the input sample for the first output sample
-        if (iIntFrameNum == 0) {
-            pOutNew = pOut;
         // Create a new output sample
-        } else {
+        if (iIntFrameNum < (iNumSamples - 1)) {
             pOutNew = nullptr;
             hr = m_pOutput->GetDeliveryBuffer(&pOutNew, nullptr, nullptr, 0);
             if (FAILED(hr)) {
                 return hr;
             }
-        }
+        // Use the input sample for the last output sample
+        } else {
+            pOutNew = pOut;
+        } 
 
         // Get the buffer pointer for the new output sample
         hr = pOutNew->GetPointer(&pOutNewBuffer);
@@ -337,42 +334,29 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             return hr;
         }
 
-        // Update the past frame durations
-        if (iIntFrameNum == 0) {
-            if (rtStartTime - m_rtLastStartTime > 0) {
-                m_rtPastFrameDurations[m_iFrameCounter % 10] = rtStartTime - m_rtLastStartTime;
-            }
-		}
-
         // Check if interpolation is necessary
-        if (m_iFrameCounter % 10 == 0) {
-            const REFERENCE_TIME rtSum = std::accumulate(std::begin(m_rtPastFrameDurations), std::end(m_rtPastFrameDurations), static_cast<REFERENCE_TIME>(0));
-            m_rtAvgSourceFrameTime = rtSum / 10;
-
-            if (m_bActivated) {
-                if (m_rtAvgSourceFrameTime > (rtAvgFrameTimeTarget + 833)) {
-                    m_bIntNeeded = true;
-                } else {
-                    m_bIntNeeded = false;
-                }
+        if (m_bActivated) {
+            if (m_rtCurrPlaybackFrameTime > (rtAvgFrameTimeTarget + 833)) {
+                m_bIntNeeded = true;
             } else {
-				m_bIntNeeded = false;
-			}
-            
-        }
+                m_bIntNeeded = false;
+            }
+        } else {
+			m_bIntNeeded = false;
+		}
 
         if (m_bIntNeeded) { // Interpolation needed
 
             if (iIntFrameNum == 0) {
                 // Print the original start and end times
-                DebugMessage("ACINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtAvgSourceFrameTime));
+                //DebugMessage("ACINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtCurrPlaybackFrameTime));
 
                 // Reset our frame time if necessary and calculate the current number of intermediate frames needed
                 if (rtStartTime < m_rtLastStartTime) {
                     m_rtCurrStartTime = rtStartTime;
                     iNumSamples = static_cast<int>(ceil((static_cast<double>(rtEndTime) - static_cast<double>(rtStartTime)) / static_cast<double>(rtAvgFrameTimeTarget)));
                 } else {
-                    iNumSamples = static_cast<int>(ceil(static_cast<double>((m_rtAvgSourceFrameTime + rtStartTime - m_rtCurrStartTime)) / static_cast<double>(rtAvgFrameTimeTarget)));
+                    iNumSamples = static_cast<int>(ceil(static_cast<double>((m_rtCurrPlaybackFrameTime + rtStartTime - m_rtCurrStartTime)) / static_cast<double>(rtAvgFrameTimeTarget)));
                 }
                 m_rtLastStartTime = rtStartTime;
             }
@@ -387,7 +371,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             rtEndTime = rtStartTime + rtAvgFrameTimeTarget;
 
         } else { // No interpolation needed
-            DebugMessage("NOINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtAvgSourceFrameTime));
+            //DebugMessage("NOINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtCurrPlaybackFrameTime));
             iNumSamples = 1;
             m_rtCurrStartTime = rtStartTime;
             m_rtLastStartTime = rtStartTime;
@@ -400,7 +384,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
         }
 
         // Calculate the scalar for the interpolation
-        //const double dScalar = max(min((static_cast<double>(m_rtCurrStartTime) - static_cast<double>(m_rtLastStartTime)) / static_cast<double>(m_rtAvgSourceFrameTime), 1.0), 0.0);
+        //const double dScalar = max(min((static_cast<double>(m_rtCurrStartTime) - static_cast<double>(m_rtLastStartTime)) / static_cast<double>(m_rtCurrPlaybackFrameTime), 1.0), 0.0);
         const double dScalar = static_cast<double>(iIntFrameNum) / static_cast<double>(iNumSamples);
 
         // Increment the frame time for the next sample
@@ -492,7 +476,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
         }
 
         // Deliver the new output sample downstream
-        if (iIntFrameNum > 0) {
+        if (iIntFrameNum < (iNumSamples - 1)) {
             hr = m_pOutput->Deliver(pOutNew);
             if (FAILED(hr)) {
                 return hr;
@@ -508,18 +492,6 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 
 
 HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, double dScalar, int iIntFrameNum) {
-    // Get the image properties from the BITMAPINFOHEADER
-    AM_MEDIA_TYPE* pType = &m_pInput->CurrentMediaType();
-    VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)pType->pbFormat;
-    ASSERT(pvi);
-    const unsigned int dimX = pvi->bmiHeader.biWidth;
-    const unsigned int dimY = pvi->bmiHeader.biHeight;
-
-    // Initialize the GPU Arrays if they haven't been initialized yet
-    if (!m_ofcOpticalFlowCalc.isInitialized()) {
-        m_ofcOpticalFlowCalc.init(dimY, dimX);
-    }
-
     // Either fill the A or B frame with the new data, so that
     // we always have the current frame and the previous frame
     if (iIntFrameNum == 0) {
@@ -528,40 +500,57 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
         } else {
             m_ofcOpticalFlowCalc.updateFrame2(pInBuffer);
         }
+		m_bBisNewest = !m_bBisNewest;
     }
 
-    // Calculate the optical flow
+    // Calculate the optical flow (frame 1 to frame 2)
     if (iIntFrameNum == 0) {
-        double duration = m_ofcOpticalFlowCalc.calculateOpticalFlow(m_bBisNewest, m_iNumIterations, m_iNumSteps, m_iMaxOffsetDivider);
-        if ((duration + 10.0) > static_cast<double>(m_rtAvgSourceFrameTime) / 10000.0) {
-            DebugMessage("Optical Flow Calculation took too long " + std::to_string(duration) + " ms" + " AVG SFT: " + std::to_string(static_cast<double>(m_rtAvgSourceFrameTime) / 10000.0) + " NumSteps: " + std::to_string(m_iNumSteps));
+        const double duration = m_ofcOpticalFlowCalc.calculateOpticalFlow(m_iNumIterations, m_iNumSteps, m_iMaxOffsetDivider);
+        if ((duration + 10.0) > static_cast<double>(m_rtCurrPlaybackFrameTime) / 10000.0) {
+            DebugMessage("Optical Flow Calculation took too long " + std::to_string(duration) + " ms" + " AVG SFT: " + std::to_string(static_cast<double>(m_rtCurrPlaybackFrameTime) / 10000.0) + " NumSteps: " + std::to_string(m_iNumSteps));
             m_iNumSteps -= 1;
             if (m_iNumSteps < 1) {
 				m_iNumSteps = 1;
 			}
-        } else if ((static_cast<double>(m_rtAvgSourceFrameTime) / 10000.0) > (duration + 15.0)) {
-			DebugMessage("Optical Flow Calculation has capacity " + std::to_string(duration) + " ms" + " AVG SFT: " + std::to_string(static_cast<double>(m_rtAvgSourceFrameTime) / 10000.0) + " NumSteps: " + std::to_string(m_iNumSteps));
+        } else if ((static_cast<double>(m_rtCurrPlaybackFrameTime) / 10000.0) > (duration + 30.0)) {
+			DebugMessage("Optical Flow Calculation has capacity " + std::to_string(duration) + " ms" + " AVG SFT: " + std::to_string(static_cast<double>(m_rtCurrPlaybackFrameTime) / 10000.0) + " NumSteps: " + std::to_string(m_iNumSteps));
 			m_iNumSteps += 1;
         } else {
-			DebugMessage("Optical Flow Calculation took " + std::to_string(duration) + " ms" + " AVG SFT: " + std::to_string(static_cast<double>(m_rtAvgSourceFrameTime) / 10000.0) + " NumSteps: " + std::to_string(m_iNumSteps));
+			DebugMessage("Optical Flow Calculation took " + std::to_string(duration) + " ms" + " AVG SFT: " + std::to_string(static_cast<double>(m_rtCurrPlaybackFrameTime) / 10000.0) + " NumSteps: " + std::to_string(m_iNumSteps));
 		}
     }
 
-    // Warp the frame
-	m_ofcOpticalFlowCalc.warpFrame(dScalar, m_bBisNewest, m_iNumSteps, m_iMaxOffsetDivider);
+    // Flip the flow array to frame 2 to frame 1
+    if (m_iFrameOutput == 1 || m_iFrameOutput == 2) {
+    	m_ofcOpticalFlowCalc.flipFlow();
+	}
+
+    // Warp frame 1 to frame 2
+    if (m_iFrameOutput == 0 || m_iFrameOutput == 2) {
+        m_ofcOpticalFlowCalc.warpFrame12(dScalar);
+    }
+
+    // Warp frame 2 to frame 1
+    if (m_iFrameOutput == 1 || m_iFrameOutput == 2) {
+        m_ofcOpticalFlowCalc.warpFrame21(dScalar);
+    }
 
     // Blend the frames together
-	//m_ofcOpticalFlowCalc.blendFrames(dScalar, m_bBisNewest);
+    if (m_iFrameOutput == 2) {
+        m_ofcOpticalFlowCalc.blendFrames(dScalar);
+    }
 
     // Download the result to the Output Sample
-    //m_ofcOpticalFlowCalc.downloadFlowAsHSV(pOutBuffer, 1.0, 1.0, 0.4);
-    m_ofcOpticalFlowCalc.warpedFrame.download(pOutBuffer);
+    if (m_iFrameOutput == 0) {
+        m_ofcOpticalFlowCalc.warpedFrame12.download(pOutBuffer);
+    } else if (m_iFrameOutput == 1) {
+        m_ofcOpticalFlowCalc.warpedFrame21.download(pOutBuffer);
+    } else if (m_iFrameOutput == 2) {
+        m_ofcOpticalFlowCalc.blendedFrame.download(pOutBuffer);
+    } else {
+        m_ofcOpticalFlowCalc.downloadFlowAsHSV(pOutBuffer, 1.0, 1.0, 0.4);
+    }
     //m_ofcOpticalFlowCalc.imageDeltaArray.download(pOutBuffer);
-
-    // Update the frame order
-    if (iIntFrameNum == 0) {
-    	m_bBisNewest = !m_bBisNewest;
-	}
 
     return NOERROR;
 }
@@ -585,10 +574,11 @@ HRESULT CHopperRender::ScribbleToStream(IStream* pStream) const {
     HRESULT hr;
 
     WRITEOUT(m_bActivated)
+    WRITEOUT(m_iFrameOutput)
     WRITEOUT(m_iNumIterations)
     WRITEOUT(m_iMaxOffsetDivider)
     WRITEOUT(m_bIntNeeded)
-    WRITEOUT(m_rtAvgSourceFrameTime)
+    WRITEOUT(m_rtCurrPlaybackFrameTime)
     WRITEOUT(m_iNumSteps)
 
     return NOERROR;
@@ -600,10 +590,11 @@ HRESULT CHopperRender::ReadFromStream(IStream* pStream) {
     HRESULT hr;
 
     READIN(m_bActivated)
+    READIN(m_iFrameOutput)
     READIN(m_iNumIterations)
     READIN(m_iMaxOffsetDivider)
     READIN(m_bIntNeeded)
-    READIN(m_rtAvgSourceFrameTime)
+    READIN(m_rtCurrPlaybackFrameTime)
     READIN(m_iNumSteps)
 
     return NOERROR;
@@ -626,9 +617,10 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
 
 
 // Return the current settings selected
-STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piNumIterations, int* piMaxOffsetDivider, int* piIntActiveState, double* pdSourceFPS, int* piNumSteps) {
+STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piFrameOutput, int* piNumIterations, int* piMaxOffsetDivider, int* piIntActiveState, double* pdSourceFPS, int* piNumSteps) {
     CAutoLock cAutolock(&m_csHopperRenderLock);
     CheckPointer(pbActivated, E_POINTER)
+    CheckPointer(piFrameOutput, E_POINTER)
     CheckPointer(piNumIterations, E_POINTER)
     CheckPointer(piMaxOffsetDivider, E_POINTER)
     CheckPointer(piIntActiveState, E_POINTER)
@@ -636,6 +628,7 @@ STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piNumIterations
     CheckPointer(piNumSteps, E_POINTER)
 
     *pbActivated = m_bActivated;
+    *piFrameOutput = m_iFrameOutput;
     *piNumIterations = m_iNumIterations;
     *piMaxOffsetDivider = m_iMaxOffsetDivider;
     if (m_bActivated && m_bIntNeeded) {
@@ -645,7 +638,7 @@ STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piNumIterations
     } else {
         *piIntActiveState = 0;
     }
-    *pdSourceFPS = 10000000.0 / static_cast<double>(m_rtAvgSourceFrameTime);
+    *pdSourceFPS = 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime);
     *piNumSteps = m_iNumSteps;
 
     return NOERROR;
@@ -653,10 +646,11 @@ STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piNumIterations
 
 
 // Set the settings
-STDMETHODIMP CHopperRender::put_Settings(bool bActivated, int iNumIterations, int iMaxOffsetDivider) {
+STDMETHODIMP CHopperRender::put_Settings(bool bActivated, int iFrameOutput, int iNumIterations, int iMaxOffsetDivider) {
     CAutoLock cAutolock(&m_csHopperRenderLock);
 
     m_bActivated = bActivated;
+    m_iFrameOutput = iFrameOutput;
     m_iNumIterations = iNumIterations;
     m_iMaxOffsetDivider = iMaxOffsetDivider;
 
