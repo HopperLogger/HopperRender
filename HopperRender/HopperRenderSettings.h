@@ -24,6 +24,7 @@ private:
 
     BOOL m_bIsInitialized;                   // Used to ignore startup messages
     bool m_bActivated;                       // Whether the filter is activated
+    int m_iFrameOutput;                      // What frame output to use
     int m_iNumIterations;                    // Number of iterations to use in the optical flow calculation
     int m_iMaxOffsetDivider;                 // The divider used to calculate the initial global offset
     int m_iIntActiveState;                   // The state of the filter

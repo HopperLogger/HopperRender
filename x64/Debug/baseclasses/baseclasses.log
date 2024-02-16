@@ -1,1 +1,36 @@
-﻿  baseclasses.vcxproj -> C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\x64\Debug\lib\strmbasd.lib
+﻿  amextra.cpp
+  amfilter.cpp
+  amvideo.cpp
+  arithutil.cpp
+  combase.cpp
+  cprop.cpp
+  ctlutil.cpp
+  ddmm.cpp
+  dllentry.cpp
+C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\common\baseclasses\dllentry.cpp(305,17): warning C4996: 'GetVersionExW': was declared deprecated
+  dllsetup.cpp
+  mtype.cpp
+  outputq.cpp
+  perflog.cpp
+  pstream.cpp
+  pullpin.cpp
+  refclock.cpp
+  renbase.cpp
+  schedule.cpp
+  seekpt.cpp
+  source.cpp
+  Generating Code...
+  Compiling...
+  strmctl.cpp
+  sysclock.cpp
+  transfrm.cpp
+  transip.cpp
+  videoctl.cpp
+  vtrans.cpp
+  winctrl.cpp
+  winutil.cpp
+  wxdebug.cpp
+  wxlist.cpp
+  wxutil.cpp
+  Generating Code...
+  baseclasses.vcxproj -> C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\x64\Debug\lib\strmbasd.lib

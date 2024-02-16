@@ -37,6 +37,7 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
         IDD_HopperRenderSettings, IDS_TITLE),
     m_bIsInitialized(FALSE),
     m_bActivated(FALSE),
+	m_iFrameOutput(2),
     m_iNumIterations(0),
     m_iMaxOffsetDivider(192),
     m_iIntActiveState(0),
@@ -67,9 +68,9 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd,
     }
 
     // Get the current settings
-    m_pSettingsInterface->get_Settings(&m_bActivated, &m_iNumIterations, &m_iMaxOffsetDivider, &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps);
+    m_pSettingsInterface->get_Settings(&m_bActivated, &m_iFrameOutput, &m_iNumIterations, &m_iMaxOffsetDivider, &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps);
 
-    // Update the effect active status
+    // Update the filter active status
     if (m_iIntActiveState == 2) {
         SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Active"));
     } else if (m_iIntActiveState == 1) {
@@ -103,7 +104,7 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 
     // Get the initial settings
     CheckPointer(m_pSettingsInterface, E_FAIL);
-    m_pSettingsInterface->get_Settings(&m_bActivated, &m_iNumIterations, &m_iMaxOffsetDivider, &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps);
+    m_pSettingsInterface->get_Settings(&m_bActivated, &m_iFrameOutput, &m_iNumIterations, &m_iMaxOffsetDivider, &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps);
 
     m_bIsInitialized = FALSE;
     return NOERROR;
@@ -129,7 +130,7 @@ HRESULT CHopperRenderSettings::OnActivate() {
     (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iMaxOffsetDivider);
     Edit_SetText(GetDlgItem(m_Dlg, IDC_MAXOFFSETDIV), sz);
 
-    // Set the initial NumSteps
+    // Set the initial NumIterations
     (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNumIterations);
     Edit_SetText(GetDlgItem(m_Dlg, IDC_NUMITS), sz);
 
@@ -139,6 +140,21 @@ HRESULT CHopperRenderSettings::OnActivate() {
     } else {
 		CheckRadioButton(m_Dlg, IDC_ON, IDC_OFF, IDC_OFF);
 	}
+
+    // Update the selected frame output
+    if (m_iFrameOutput == 0) {
+        CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_HSVFLOW, IDC_WARPEDFRAME12);
+    }
+    else if (m_iFrameOutput == 1) {
+        CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_HSVFLOW, IDC_WARPEDFRAME21);
+    }
+    else if (m_iFrameOutput == 2) {
+        CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_HSVFLOW, IDC_BLENDEDFRAME);
+    }
+    else {
+        CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_HSVFLOW, IDC_HSVFLOW);
+    }
+
     m_bIsInitialized = TRUE;
 
     return NOERROR;
@@ -161,7 +177,7 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
     GetControlValues();
 
     CheckPointer(m_pSettingsInterface, E_POINTER)
-        m_pSettingsInterface->put_Settings(m_bActivated, m_iNumIterations, m_iMaxOffsetDivider);
+	m_pSettingsInterface->put_Settings(m_bActivated, m_iFrameOutput, m_iNumIterations, m_iMaxOffsetDivider);
 
     return NOERROR;
 }
@@ -203,5 +219,16 @@ void CHopperRenderSettings::GetControlValues() {
         m_bActivated = true;
     } else {
 		m_bActivated = false;
+	}
+
+	// Find the frame output
+	if (IsDlgButtonChecked(m_Dlg, IDC_WARPEDFRAME12)) {
+		m_iFrameOutput = 0;
+	} else if (IsDlgButtonChecked(m_Dlg, IDC_WARPEDFRAME21)) {
+		m_iFrameOutput = 1;
+	} else if (IsDlgButtonChecked(m_Dlg, IDC_BLENDEDFRAME)) {
+		m_iFrameOutput = 2;
+	} else {
+		m_iFrameOutput = 3;
 	}
 }
