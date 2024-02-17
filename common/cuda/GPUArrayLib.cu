@@ -292,6 +292,27 @@ __global__ void copyEntries(T* DstArrayPtrGPU, T* SrcArrayPtrGPU, const unsigned
 	}
 }
 
+// Kernel that blurs an array
+template <typename T>
+__global__ void blurKernel(const T* array, T* blurredArray, const int dimZ, const int dimY, const int dimX) {
+	// Current entry to be computed by the thread
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = blockIdx.z * blockDim.z + threadIdx.z;
+
+	// Collect the sum of the surrounding pixels
+	if (cz < dimZ && cy < dimY && cx < dimX) {
+		for (int y = -1; y <= 1; y++) {
+			for (int x = -1; x <= 1; x++) {
+				if ((cy + y) < dimY && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
+					blurredArray[cy * dimX + cx] += array[(cy + y) * dimX + cx + x];
+				}
+			}
+		}
+		blurredArray[cy * dimX + cx] /= 9;
+	}
+}
+
 /*
 * -------------------- GPUArray CLASS --------------------
 */
@@ -710,7 +731,7 @@ GPUArray<T> GPUArray<T>::copy() {
 
 	// Allocate VRAM
 	cudaMalloc(&copyArray.arrayPtrGPU, copyArray.bytes);
-	isOnGPU = true;
+	copyArray.isOnGPU = true;
 
 	// Copy entries from the original array to the copy
 	// Calculate the number of blocks needed
@@ -1303,6 +1324,37 @@ void GPUArray<int>::exportFlowImage(const char* filePath, int direction) {
 
 	// Free host memory
 	stbi_image_free(rawArrayPtrCPU);
+}
+
+/*
+* Blurs the array
+*/
+template <typename T>
+void GPUArray<T>::blurArray(GPUArray<T> blurredArray) {
+	// Calculate the number of blocks needed
+	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
+	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
+	if (dims == 3) {
+		NUM_BLOCKS_Z = 1;
+	}
+
+	// Use dim3 structs for block and grid size
+	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
+	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
+	if (dims == 3) {
+		dim3 threads(NUM_THREADS, NUM_THREADS, 3);
+	}
+
+	// Launch kernel
+	blurKernel << <grid, threads >> > (arrayPtrGPU, blurredArray.arrayPtrGPU, dimZ, dimY, dimX);
+
+	// Check for CUDA errors
+	const cudaError_t cudaError = cudaGetLastError();
+	if (cudaError != cudaSuccess) {
+		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
+		exit(-1);
+	}
 }
 
 /*

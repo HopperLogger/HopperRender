@@ -284,20 +284,6 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 // Called when a new segment is started
 HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) {
     m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(static_cast<double>(m_rtAvgSourceFrameTime) * (1.0 / dRate));
-
-    // Check if interpolation is necessary
-    if (m_bActivated) {
-        if (m_rtCurrPlaybackFrameTime > (166667 + 833)) {
-            m_bIntNeeded = true;
-        }
-        else {
-            m_bIntNeeded = false;
-        }
-    }
-    else {
-        m_bIntNeeded = false;
-    }
-
     return __super::NewSegment(tStart, tStop, dRate);
 }
 
@@ -317,39 +303,14 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
     // Get the size of the samples
     const long lInSize = pIn->GetActualDataLength();
 
-    // Get the presentation time for the new output sample
-    REFERENCE_TIME rtStartTime, rtEndTime;
-    hr = pIn->GetTime(&rtStartTime, &rtEndTime);
-    if (FAILED(hr)) {
-        return hr;
-    }
-
-    // Print the original start and end times
-    //DebugMessage("ACINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtCurrPlaybackFrameTime));
-
-    // Reset our frame time if necessary and calculate the current number of intermediate frames needed
-    int iNumSamples;
-    if (rtStartTime < m_rtLastStartTime) {
-        m_rtCurrStartTime = rtStartTime;
-        iNumSamples = static_cast<int>(ceil((static_cast<double>(rtEndTime) - static_cast<double>(rtStartTime)) / static_cast<double>(rtAvgFrameTimeTarget)));
-    }
-    else {
-        iNumSamples = static_cast<int>(ceil(static_cast<double>((m_rtCurrPlaybackFrameTime + rtStartTime - m_rtCurrStartTime)) / static_cast<double>(rtAvgFrameTimeTarget)));
-    }
-    m_rtLastStartTime = rtStartTime;
-
-    // Ensure there was no mistake
-    if (iNumSamples < 1) {
-        iNumSamples = 1;
-    }
-
     // Assemble the output samples
     IMediaSample* pOutNew;
     BYTE* pOutNewBuffer;
+    int iNumSamples = 5;
 
     for (int iIntFrameNum = 0; iIntFrameNum < iNumSamples; ++iIntFrameNum) {
         // Create a new output sample
-        if ((iIntFrameNum < (iNumSamples - 1)) && m_bIntNeeded) {
+        if (iIntFrameNum < (iNumSamples - 1)) {
             pOutNew = nullptr;
             hr = m_pOutput->GetDeliveryBuffer(&pOutNew, nullptr, nullptr, 0);
             if (FAILED(hr)) {
@@ -366,8 +327,45 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             return hr;
         }
 
-        // Calculate the new start and end times
+        // Set the presentation time for the new output sample
+        REFERENCE_TIME rtStartTime, rtEndTime;
+        hr = pIn->GetTime(&rtStartTime, &rtEndTime);
+        if (FAILED(hr)) {
+            return hr;
+        }
+
+        // Check if interpolation is necessary
+        if (m_bActivated) {
+            if (m_rtCurrPlaybackFrameTime > (rtAvgFrameTimeTarget + 833)) {
+                m_bIntNeeded = true;
+            } else {
+                m_bIntNeeded = false;
+            }
+        } else {
+			m_bIntNeeded = false;
+		}
+
         if (m_bIntNeeded) { // Interpolation needed
+
+            if (iIntFrameNum == 0) {
+                // Print the original start and end times
+                //DebugMessage("ACINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtCurrPlaybackFrameTime));
+
+                // Reset our frame time if necessary and calculate the current number of intermediate frames needed
+                if (rtStartTime < m_rtLastStartTime) {
+                    m_rtCurrStartTime = rtStartTime;
+                    iNumSamples = static_cast<int>(ceil((static_cast<double>(rtEndTime) - static_cast<double>(rtStartTime)) / static_cast<double>(rtAvgFrameTimeTarget)));
+                } else {
+                    iNumSamples = static_cast<int>(ceil(static_cast<double>((m_rtCurrPlaybackFrameTime + rtStartTime - m_rtCurrStartTime)) / static_cast<double>(rtAvgFrameTimeTarget)));
+                }
+                m_rtLastStartTime = rtStartTime;
+            }
+
+            // Ensure there was no mistake
+            if (iNumSamples < 1) {
+            	iNumSamples = 1;
+			}
+
             // Set the new start and end times
             rtStartTime = m_rtCurrStartTime;
             rtEndTime = rtStartTime + rtAvgFrameTimeTarget;
@@ -379,7 +377,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
             m_rtLastStartTime = rtStartTime;
         }
 
-        // Set the new times for the output sample
+        // Set the new time for the output sample
         hr = pOutNew->SetTime(&rtStartTime, &rtEndTime);
         if (FAILED(hr)) {
             return hr;
@@ -478,7 +476,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
         }
 
         // Deliver the new output sample downstream
-        if ((iIntFrameNum < (iNumSamples - 1)) && m_bIntNeeded) {
+        if (iIntFrameNum < (iNumSamples - 1)) {
             hr = m_pOutput->Deliver(pOutNew);
             if (FAILED(hr)) {
                 return hr;
@@ -526,6 +524,10 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
     if (m_iFrameOutput == 1 || m_iFrameOutput == 2) {
     	m_ofcOpticalFlowCalc.flipFlow();
 	}
+
+    // Blur the flow arrays
+    m_ofcOpticalFlowCalc.offsetArray12.blurArray(m_ofcOpticalFlowCalc.blurredOffsetArray12);
+    m_ofcOpticalFlowCalc.offsetArray21.blurArray(m_ofcOpticalFlowCalc.blurredOffsetArray21);
 
     // Warp frame 1 to frame 2
     if (m_iFrameOutput == 0 || m_iFrameOutput == 2) {
