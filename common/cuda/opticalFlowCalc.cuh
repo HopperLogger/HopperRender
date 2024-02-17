@@ -15,7 +15,7 @@ public:
 	* @param dimY: The height of the frame
 	* @param dimX: The width of the frame
 	*/
-	void init(const unsigned int dimY, const unsigned int dimX);
+	void init(unsigned int dimY, unsigned int dimX);
 
 	/*
 	* Returns whether the optical flow calculation is initialized
@@ -39,11 +39,8 @@ public:
 	*
 	* @param iNumIterations: Number of iterations to calculate the optical flow
 	* @param iNumSteps: Number of steps executed to find the ideal offset (limits the maximum offset)
-    * @param iMaxOffsetDivider: The divider used to calculate the initial global offset
-    *
-    * @return: The time it took to calculate the optical flow
 	*/
-	double calculateOpticalFlow(int iNumIterations, int iNumSteps, int iMaxOffsetDivider);
+	void calculateOpticalFlow(unsigned int iNumIterations, unsigned int iNumSteps);
 
 	/*
 	* Warps frame1 according to the offset array to frame2
@@ -74,12 +71,19 @@ public:
 	* @param value: The value of the flow image
 	* @param threshold: The threshold to use for the flow image
 	*/
-	void downloadFlowAsHSV(unsigned char* memPointer, const double saturation, const double value, const float threshold) const;
+	void downloadFlowAsHSV(unsigned char* memPointer, double saturation, double value, float threshold) const;
 
 	/*
 	* Translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
 	*/
 	void flipFlow();
+
+	/*
+	* Blurs the offset arrays
+	*
+	* @param kernelSize: Size of the kernel to use for the blur
+	*/
+	void blurFlowArrays(int kernelSize);
 
 	// The number of cuda threads needed
 	dim3 grid;
@@ -107,7 +111,8 @@ public:
 	GPUArray<unsigned int> m_summedUpDeltaArray; // Array containing the summed up delta values of each window
 	GPUArray<float> m_normalizedDeltaArrayA; // Array containing the normalized delta values of each window
 	GPUArray<float> m_normalizedDeltaArrayB; // Array containing the normalized delta values of each window
-	GPUArray<bool> m_isValueDecreasedArray; // Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
+	GPUArray<bool> m_isValueDecreasedArray;
+	// Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
 	GPUArray<unsigned char> m_warpedFrame12; // Array containing the warped frame (frame 1 to frame 2)
 	GPUArray<unsigned char> m_warpedFrame21; // Array containing the warped frame (frame 2 to frame 1)
 	GPUArray<unsigned char> m_blendedFrame; // Array containing the blended frame

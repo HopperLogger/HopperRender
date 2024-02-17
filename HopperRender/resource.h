@@ -12,7 +12,7 @@
 #define IDC_BLENDEDFRAME			    1014
 #define IDC_HSVFLOW					    1015
 #define IDC_NUMITS                      1016
-#define IDC_MAXOFFSETDIV                1017
+#define IDC_BLURKERNEL                  1017
 #define IDS_STATIC                      -1
 #define IDS_TITLE                       1018
 #define IDC_INTACTIVE				    1019

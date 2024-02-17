@@ -3,7 +3,7 @@
 #include <vector>
 
 constexpr int NUM_THREADS = 8;
-const size_t SHMEM_SIZE = 3 * NUM_THREADS * NUM_THREADS;
+constexpr size_t SHMEM_SIZE = 3 * NUM_THREADS * NUM_THREADS;
 
 /*
 * This class initializes a multidimensional array on the GPU
@@ -92,7 +92,7 @@ public:
 	* 
 	* @param memPointer: Pointer to the memory to transfer the array to
 	*/
-	void download(unsigned char* memPointer);
+	void download(unsigned char* memPointer) const;
 
 	/*
 	* Changes the dimensions of the array
@@ -204,12 +204,12 @@ public:
 	* @param numElements: How many array entries to print (-1 : all will be printed)
 	*/
 	template <typename S>
-	void print(const unsigned int startIdx, const int numElements);
+	void print(unsigned int startIdx, int numElements);
 
 	/*
 	* Returns the absolute index of an array entry given the indices for each dimension
 	*/
-	int getAbsIndex(const std::initializer_list<int> indicesForEachDim) const;
+	int getAbsIndex(std::initializer_list<int> indicesForEachDim) const;
 
 	/*
 	* Exports the array as a PNG image
@@ -227,11 +227,6 @@ public:
 	void exportFlowImage(const char* filePath, int direction);
 
 	/*
-	* Blurs the array
-	*/
-	void blurArray(GPUArray<T>* blurredArray);
-
-	/*
 	* Destructor
 	*/
 	void del() const;
@@ -240,7 +235,6 @@ public:
 /*
 * -------------------- MATRIX - VALUE OPERATIONS --------------------
 */
-
 
 
 /*
@@ -288,11 +282,9 @@ template <typename T>
 GPUArray<T> div(GPUArray<T>& array, T value);
 
 
-
 /*
 * -------------------- MATRIX - MATRIX OPERATIONS --------------------
 */
-
 
 
 /*
