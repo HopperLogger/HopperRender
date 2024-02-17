@@ -110,6 +110,8 @@ public:
 	GPUArray<unsigned char> imageDeltaArray; // Array containing the absolute difference between the two frames
 	GPUArray<int> offsetArray12; // Array containing x,y offsets for each pixel of frame1
 	GPUArray<int> offsetArray21; // Array containing x,y offsets for each pixel of frame2
+	GPUArray<int> blurredOffsetArray12; // Array containing x,y offsets for each pixel of frame1
+	GPUArray<int> blurredOffsetArray21; // Array containing x,y offsets for each pixel of frame2
 	GPUArray<unsigned char> rgboffsetArray; // Array containing the x,y offsets for each pixel of frame1 in rgb format
 	GPUArray<int> statusArray; // Array containing the calculation status of each pixel of frame1
 	GPUArray<unsigned int> summedUpDeltaArray; // Array containing the summed up delta values of each window

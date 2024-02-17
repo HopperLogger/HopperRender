@@ -441,6 +441,8 @@ void OpticalFlowCalc::init(const unsigned int dimY, const unsigned int dimX) {
 	imageDeltaArray.init({ 3, dimY, dimX });
 	offsetArray12.init({ 2, dimY, dimX });
 	offsetArray21.init({ 2, dimY, dimX });
+	blurredOffsetArray12.init({ 2, dimY, dimX });
+	blurredOffsetArray21.init({ 2, dimY, dimX });
 	rgboffsetArray.init({ 3, dimY, dimX });
 	statusArray.init({ dimY, dimX });
 	summedUpDeltaArray.init({ dimY, dimX });
@@ -587,10 +589,10 @@ void OpticalFlowCalc::warpFrame12(double dScalar) {
 
 	// Warp the frame
 	if (bBisNewest) {
-		warpFrameKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, offsetArray12.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame12.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
+		warpFrameKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, blurredOffsetArray12.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame12.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
 		//artifactRemovalKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
 	} else {
-		warpFrameKernel << <grid, threads3 >> > (frame2.arrayPtrGPU, offsetArray12.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame12.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
+		warpFrameKernel << <grid, threads3 >> > (frame2.arrayPtrGPU, blurredOffsetArray12.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame12.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
 		//artifactRemovalKernel << <grid, threads3 >> > (frame2.arrayPtrGPU, hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
 	}
 
@@ -627,10 +629,10 @@ void OpticalFlowCalc::warpFrame21(double dScalar) {
 
 	// Warp the frame
 	if (bBisNewest) {
-		warpFrameKernel << <grid, threads3 >> > (frame2.arrayPtrGPU, offsetArray21.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame21.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
+		warpFrameKernel << <grid, threads3 >> > (frame2.arrayPtrGPU, blurredOffsetArray21.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame21.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
 		//artifactRemovalKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
 	} else {
-		warpFrameKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, offsetArray21.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame21.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
+		warpFrameKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, blurredOffsetArray21.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame21.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
 		//artifactRemovalKernel << <grid, threads3 >> > (frame2.arrayPtrGPU, hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
 	}
 

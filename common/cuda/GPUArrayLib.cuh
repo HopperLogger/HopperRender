@@ -230,6 +230,11 @@ public:
 	void exportFlowImage(const char* filePath, int direction);
 
 	/*
+	* Blurs the array
+	*/
+	void blurArray(GPUArray<T> blurredArray);
+
+	/*
 	* Destructor
 	*/
 	void del() const;
