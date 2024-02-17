@@ -1,10 +1,7 @@
-// GPUArrayLib.cuh
 #pragma once
 
-// C++ libraries
 #include <vector>
 
-// Constants
 constexpr int NUM_THREADS = 8;
 const size_t SHMEM_SIZE = 3 * NUM_THREADS * NUM_THREADS;
 
@@ -232,7 +229,7 @@ public:
 	/*
 	* Blurs the array
 	*/
-	void blurArray(GPUArray<T> blurredArray);
+	void blurArray(GPUArray<T>* blurredArray);
 
 	/*
 	* Destructor

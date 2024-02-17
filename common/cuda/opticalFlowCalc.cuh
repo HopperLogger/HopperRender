@@ -1,12 +1,6 @@
-// opticalFlowCalc.cuh
 #pragma once
 
-// CUDA libraries
-#include "cuda_runtime.h"
 #include "device_launch_parameters.h"
-
-// Project Includes
-#include <intsafe.h>
 
 #include "GPUArrayLib.cuh"
 
@@ -84,17 +78,8 @@ public:
 
 	/*
 	* Translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
-	*
-	* @param memPointer: Pointer to the memory to transfer the array to
-	* @param saturation: The saturation of the flow image
-	* @param value: The value of the flow image
-	* @param threshold: The threshold to use for the flow image
 	*/
 	void flipFlow();
-
-	// The number of cuda blocks needed
-	unsigned int NUM_BLOCKS_X;
-	unsigned int NUM_BLOCKS_Y;
 
 	// The number of cuda threads needed
 	dim3 grid;
@@ -102,30 +87,30 @@ public:
 	dim3 threads2;
 	dim3 threads1;
 
-	// Result arrays
-	bool bIsInitialized = false; // Whether the optical flow calculation is initialized
-	bool bBisNewest = true; // Whether frame1 or frame2 is the newest frame
-	GPUArray<unsigned char> frame1; // Array containing the first frame
-	GPUArray<unsigned char> frame2; // Array containing the second frame
-	GPUArray<unsigned char> imageDeltaArray; // Array containing the absolute difference between the two frames
-	GPUArray<int> offsetArray12; // Array containing x,y offsets for each pixel of frame1
-	GPUArray<int> offsetArray21; // Array containing x,y offsets for each pixel of frame2
-	GPUArray<int> blurredOffsetArray12; // Array containing x,y offsets for each pixel of frame1
-	GPUArray<int> blurredOffsetArray21; // Array containing x,y offsets for each pixel of frame2
-	GPUArray<unsigned char> rgboffsetArray; // Array containing the x,y offsets for each pixel of frame1 in rgb format
-	GPUArray<int> statusArray; // Array containing the calculation status of each pixel of frame1
-	GPUArray<unsigned int> summedUpDeltaArray; // Array containing the summed up delta values of each window
-	GPUArray<float> normalizedDeltaArrayA; // Array containing the normalized delta values of each window
-	GPUArray<float> normalizedDeltaArrayB; // Array containing the normalized delta values of each window
-	GPUArray<bool> isValueDecreasedArray; // Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
-	GPUArray<unsigned char> warpedFrame12; // Array containing the warped frame (frame 1 to frame 2)
-	GPUArray<unsigned char> warpedFrame21; // Array containing the warped frame (frame 2 to frame 1)
-	GPUArray<unsigned char> blendedFrame; // Array containing the blended frame
-	GPUArray<int> hitCount; // Array containing the number of times a pixel was hit
-	GPUArray<int> ones; // Array containing only ones for atomic add
-	
-	// Helper variables
-	unsigned int windowDimX; // Initial window size
-	unsigned int windowDimY; // Initial window size
-	unsigned int currentGlobalOffset; // Initial global offset
+	// Variables
+	bool m_bIsInitialized = false; // Whether the optical flow calculation is initialized
+	bool m_bBisNewest = true; // Whether frame1 or frame2 is the newest frame
+	unsigned int m_iWindowDimX; // Current window size of the optical flow calculation
+	unsigned int m_iWindowDimY; // Current window size of the optical flow calculation
+	unsigned int m_iCurrentGlobalOffset; // Current global offset of the optical flow calculation
+
+	// GPU Arrays
+	GPUArray<unsigned char> m_frame1; // Array containing the first frame
+	GPUArray<unsigned char> m_frame2; // Array containing the second frame
+	GPUArray<unsigned char> m_imageDeltaArray; // Array containing the absolute difference between the two frames
+	GPUArray<int> m_offsetArray12; // Array containing x,y offsets for each pixel of frame1
+	GPUArray<int> m_offsetArray21; // Array containing x,y offsets for each pixel of frame2
+	GPUArray<int> m_blurredOffsetArray12; // Array containing x,y offsets for each pixel of frame1
+	GPUArray<int> m_blurredOffsetArray21; // Array containing x,y offsets for each pixel of frame2
+	GPUArray<unsigned char> m_rgboffsetArray; // Array containing the x,y offsets for each pixel of frame1 in rgb format
+	GPUArray<int> m_statusArray; // Array containing the calculation status of each pixel of frame1
+	GPUArray<unsigned int> m_summedUpDeltaArray; // Array containing the summed up delta values of each window
+	GPUArray<float> m_normalizedDeltaArrayA; // Array containing the normalized delta values of each window
+	GPUArray<float> m_normalizedDeltaArrayB; // Array containing the normalized delta values of each window
+	GPUArray<bool> m_isValueDecreasedArray; // Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
+	GPUArray<unsigned char> m_warpedFrame12; // Array containing the warped frame (frame 1 to frame 2)
+	GPUArray<unsigned char> m_warpedFrame21; // Array containing the warped frame (frame 2 to frame 1)
+	GPUArray<unsigned char> m_blendedFrame; // Array containing the blended frame
+	GPUArray<int> m_hitCount; // Array containing the number of times a pixel was hit
+	GPUArray<int> m_ones; // Array containing only ones for atomic add
 };
