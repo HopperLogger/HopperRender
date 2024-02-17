@@ -1,7 +1,3 @@
-// Project Includes
-#include "opticalFlowCalc.cuh"
-
-// C++ libraries
 #include <amvideo.h>
 #include <chrono>
 #include <iostream>
@@ -9,6 +5,10 @@
 #include <vector>
 #include <math.h>
 #include <string>
+
+#include <cuda_runtime_api.h>
+
+#include "opticalFlowCalc.cuh"
 
 // Debug message function
 void CudaDebugMessage(const std::string& message) {
@@ -91,7 +91,7 @@ __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, float
 		numPixels -= numNotOverlappingPixels;
 
 		// Normalize the summed up delta
-		normalizedDeltaArray[cy * dimX + cx] = (float)summedUpDeltaArray[cy * dimX + cx] / numPixels;
+		normalizedDeltaArray[cy * dimX + cx] = static_cast<float>(summedUpDeltaArray[cy * dimX + cx]) / static_cast<float>(numPixels);
 	}
 }
 
@@ -240,9 +240,7 @@ __global__ void compositeOffsetArray(int* offsetArray, const bool* isValueDecrea
 				offsetArray[dimY * dimX + cy * dimX + cx] += currentGlobalOffset;
 			}
 			break;
-		case 12:
-			// Search is complete
-			break;
+		// Search is complete
 		default:
 			break;
 		}
@@ -250,11 +248,11 @@ __global__ void compositeOffsetArray(int* offsetArray, const bool* isValueDecrea
 }
 
 // Kernel that warps frame1 according to the offset array
-__global__ void warpFrameKernel(const unsigned char* frame1, const int* offsetArray, int* hitCount, int* ones, unsigned char* warpedFrame, const double frameScalar, const unsigned int dimY, const unsigned int dimX) {
+__global__ void warpFrameKernel(const unsigned char* frame1, const int* offsetArray, int* hitCount, int* ones, unsigned char* warpedFrame, const double frameScalar, const int dimY, const int dimX) {
 	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = threadIdx.z;
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = threadIdx.z;
 
 	// Get the current offsets to use
 	const int offsetX = static_cast<int>(static_cast<double>(offsetArray[cy * dimX + cx]) * frameScalar);
@@ -301,19 +299,6 @@ __global__ void blendFrameKernel(const unsigned char* frame1, const unsigned cha
 	}
 }
 
-// Kernel that blends frame1 to frame2
-__global__ void testFrameKernel(const unsigned char* frame1, const unsigned char* frame2, unsigned char* blendedFrame, const double frame1Scalar, const double frame2Scalar, const unsigned int dimY, const unsigned int dimX) {
-	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
-
-	// Check if result is within matrix boundaries
-	if (cz < 3 && cy < dimY && cx < dimX) {
-		blendedFrame[cz + (3 * cy * dimX) + (3 * cx)] = static_cast<unsigned char>(static_cast<double>(frame1[cz + (3 * cy * dimX) + (3 * cx)]) * frame1Scalar);
-	}
-}
-
 // Kernel that creates an HSV flow image from the offset array
 __global__ void convertFlowToHSVKernel(const int* flowArray, unsigned char* RGBArray, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX, const double saturation, const double value, const float threshold) {
 	// Current entry to be computed by the thread
@@ -322,8 +307,8 @@ __global__ void convertFlowToHSVKernel(const int* flowArray, unsigned char* RGBA
 	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 
 	// Get the current flow values
-	double x = flowArray[cy * dimX + cx];
-	double y = -flowArray[dimY * dimX + cy * dimX + cx];
+	const double x = flowArray[cy * dimX + cx];
+	const double y = flowArray[dimY * dimX + cy * dimX + cx];
 
 	// Check if the flow is below the threshold
 	if (fabsf(x) < threshold && fabsf(y) < threshold) {
@@ -331,8 +316,8 @@ __global__ void convertFlowToHSVKernel(const int* flowArray, unsigned char* RGBA
 		return;
 	}
 
-	x += 1;
-	y += 1;
+	//x += 1;
+	//y += 1;
 
 	// RGB struct
 	struct RGB {
@@ -374,6 +359,7 @@ __global__ void convertFlowToHSVKernel(const int* flowArray, unsigned char* RGBA
 		case 3: rgb = { static_cast<int>(p * 255), static_cast<int>(q * 255), static_cast<int>(value * 255) }; break;
 		case 4: rgb = { static_cast<int>(t * 255), static_cast<int>(p * 255), static_cast<int>(value * 255) }; break;
 		case 5: rgb = { static_cast<int>(value * 255), static_cast<int>(p * 255), static_cast<int>(q * 255) }; break;
+		default: rgb = { 0, 0, 0 }; break;
 	}
 
 	// Write the RGB values to the array
@@ -422,10 +408,8 @@ OpticalFlowCalc::OpticalFlowCalc() = default;
 * @param dimX: The width of the frame
 */
 void OpticalFlowCalc::init(const unsigned int dimY, const unsigned int dimX) {
-	NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
-	NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
-	grid.x = NUM_BLOCKS_X;
-	grid.y = NUM_BLOCKS_Y;
+	grid.x = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
+	grid.y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
 	grid.z = 1;
 	threads3.x = NUM_THREADS;
 	threads3.y = NUM_THREADS;
@@ -436,28 +420,28 @@ void OpticalFlowCalc::init(const unsigned int dimY, const unsigned int dimX) {
 	threads1.x = NUM_THREADS;
 	threads1.y = NUM_THREADS;
 	threads1.z = 1;
-	frame1.init({ 3, dimY, dimX });
-	frame2.init({ 3, dimY, dimX });
-	imageDeltaArray.init({ 3, dimY, dimX });
-	offsetArray12.init({ 2, dimY, dimX });
-	offsetArray21.init({ 2, dimY, dimX });
-	blurredOffsetArray12.init({ 2, dimY, dimX });
-	blurredOffsetArray21.init({ 2, dimY, dimX });
-	rgboffsetArray.init({ 3, dimY, dimX });
-	statusArray.init({ dimY, dimX });
-	summedUpDeltaArray.init({ dimY, dimX });
-	normalizedDeltaArrayA.init({ dimY, dimX });
-	normalizedDeltaArrayB.init({ dimY, dimX });
-	isValueDecreasedArray.init({ dimY, dimX });
-	warpedFrame12.init({ 3, dimY, dimX });
-	warpedFrame21.init({ 3, dimY, dimX });
-	blendedFrame.init({ 3, dimY, dimX });
-	hitCount.init({ 3, dimY, dimX });
-	ones.init({ 3, dimY, dimX }, 1);
-	windowDimX = dimX;
-	windowDimY = dimY;
-	currentGlobalOffset = fmax(dimX / 192, 1);
-	bIsInitialized = true;
+	m_frame1.init({ 3, dimY, dimX });
+	m_frame2.init({ 3, dimY, dimX });
+	m_imageDeltaArray.init({ 3, dimY, dimX });
+	m_offsetArray12.init({ 2, dimY, dimX });
+	m_offsetArray21.init({ 2, dimY, dimX });
+	m_blurredOffsetArray12.init({ 2, dimY, dimX });
+	m_blurredOffsetArray21.init({ 2, dimY, dimX });
+	m_rgboffsetArray.init({ 3, dimY, dimX });
+	m_statusArray.init({ dimY, dimX });
+	m_summedUpDeltaArray.init({ dimY, dimX });
+	m_normalizedDeltaArrayA.init({ dimY, dimX });
+	m_normalizedDeltaArrayB.init({ dimY, dimX });
+	m_isValueDecreasedArray.init({ dimY, dimX });
+	m_warpedFrame12.init({ 3, dimY, dimX });
+	m_warpedFrame21.init({ 3, dimY, dimX });
+	m_blendedFrame.init({ 3, dimY, dimX });
+	m_hitCount.init({ 3, dimY, dimX });
+	m_ones.init({ 3, dimY, dimX }, 1);
+	m_iWindowDimX = dimX;
+	m_iWindowDimY = dimY;
+	m_iCurrentGlobalOffset = fmax(dimX / 192, 1);
+	m_bIsInitialized = true;
 }
 
 /*
@@ -466,7 +450,7 @@ void OpticalFlowCalc::init(const unsigned int dimY, const unsigned int dimX) {
 * @return: True if the optical flow calculation is initialized, false otherwise
 */
 bool OpticalFlowCalc::isInitialized() const {
-	return bIsInitialized;
+	return m_bIsInitialized;
 	
 }
 
@@ -474,16 +458,16 @@ bool OpticalFlowCalc::isInitialized() const {
 * Updates the frame1 array
 */
 void OpticalFlowCalc::updateFrame1(const BYTE* pInBuffer) {
-	frame1.fillData(pInBuffer);
-	bBisNewest = false;
+	m_frame1.fillData(pInBuffer);
+	m_bBisNewest = false;
 }
 
 /*
 * Updates the frame2 array
 */
 void OpticalFlowCalc::updateFrame2(const BYTE* pInBuffer) {
-	frame2.fillData(pInBuffer);
-	bBisNewest = true;
+	m_frame2.fillData(pInBuffer);
+	m_bBisNewest = true;
 }
 
 /*
@@ -499,64 +483,64 @@ double OpticalFlowCalc::calculateOpticalFlow(int iNumIterations, int iNumSteps, 
 	const auto start = std::chrono::high_resolution_clock::now();
 
 	// Reset variables
-	windowDimX = frame1.dimX;
-	windowDimY = frame1.dimY;
-	currentGlobalOffset = fmax(frame1.dimX / iMaxOffsetDivider, 1);
-	if (iNumIterations == 0 || iNumIterations > ceil(log2f(frame1.dimX))) {
-		iNumIterations = ceil(log2f(frame1.dimX));
+	m_iWindowDimX = m_frame1.dimX;
+	m_iWindowDimY = m_frame1.dimY;
+	m_iCurrentGlobalOffset = fmax(m_frame1.dimX / iMaxOffsetDivider, 1);
+	if (iNumIterations == 0 || iNumIterations > ceil(log2f(m_frame1.dimX))) {
+		iNumIterations = ceil(log2f(m_frame1.dimX));
 	}
 
 	// Reset the arrays
-	offsetArray12.fill(0);
-	summedUpDeltaArray.fill(0);
+	m_offsetArray12.fill(0);
+	m_summedUpDeltaArray.fill(0);
 
 	// We calculate the ideal offset array for each window size (entire frame, ..., individual pixels)
 	for (unsigned int iter = 0; iter < iNumIterations; iter++) {
 		// Each step we adjust the offset array to find the ideal offset
 		for (int step = 0; step < iNumSteps; step++) {
 			// Calculate the image deltas with the current offset array
-			if (bBisNewest) {
-				calcImageDelta << <grid, threads3 >> > (frame1.arrayPtrGPU, frame2.arrayPtrGPU, imageDeltaArray.arrayPtrGPU, offsetArray12.arrayPtrGPU, frame1.dimY, frame1.dimX);
+			if (m_bBisNewest) {
+				calcImageDelta << <grid, threads3 >> > (m_frame1.arrayPtrGPU, m_frame2.arrayPtrGPU, m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU, m_frame1.dimY, m_frame1.dimX);
 			} else {
-				calcImageDelta << <grid, threads3 >> > (frame2.arrayPtrGPU, frame1.arrayPtrGPU, imageDeltaArray.arrayPtrGPU, offsetArray12.arrayPtrGPU, frame1.dimY, frame1.dimX);
+				calcImageDelta << <grid, threads3 >> > (m_frame2.arrayPtrGPU, m_frame1.arrayPtrGPU, m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU, m_frame1.dimY, m_frame1.dimX);
 			}
 			// Sum up the deltas of each window
-			calcDeltaSums << <grid, threads3 >> > (imageDeltaArray.arrayPtrGPU, summedUpDeltaArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
+			calcDeltaSums << <grid, threads3 >> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU, m_iWindowDimY, m_iWindowDimX, m_frame1.dimY, m_frame1.dimX);
 
 			// Switch between the two normalized delta arrays to avoid copying
 			if (step % 2 == 0) {
 				// Normalize the summed up delta array
-				normalizeDeltaSums << <grid, threads1 >> > (summedUpDeltaArray.arrayPtrGPU, normalizedDeltaArrayB.arrayPtrGPU, offsetArray12.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
+				normalizeDeltaSums << <grid, threads1 >> > (m_summedUpDeltaArray.arrayPtrGPU, m_normalizedDeltaArrayB.arrayPtrGPU, m_offsetArray12.arrayPtrGPU, m_iWindowDimY, m_iWindowDimX, m_frame1.dimY, m_frame1.dimX);
 
 				// Check if the new normalized delta array is better than the old one
-				compareArrays << <grid, threads1 >> > (normalizedDeltaArrayA.arrayPtrGPU, normalizedDeltaArrayB.arrayPtrGPU, isValueDecreasedArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
+				compareArrays << <grid, threads1 >> > (m_normalizedDeltaArrayA.arrayPtrGPU, m_normalizedDeltaArrayB.arrayPtrGPU, m_isValueDecreasedArray.arrayPtrGPU, m_iWindowDimY, m_iWindowDimX, m_frame1.dimY, m_frame1.dimX);
 			}
 			else {
 				// Normalize the summed up delta array
-				normalizeDeltaSums << <grid, threads1 >> > (summedUpDeltaArray.arrayPtrGPU, normalizedDeltaArrayA.arrayPtrGPU, offsetArray12.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
+				normalizeDeltaSums << <grid, threads1 >> > (m_summedUpDeltaArray.arrayPtrGPU, m_normalizedDeltaArrayA.arrayPtrGPU, m_offsetArray12.arrayPtrGPU, m_iWindowDimY, m_iWindowDimX, m_frame1.dimY, m_frame1.dimX);
 
 				// Check if the new normalized delta array is better than the old one
-				compareArrays << <grid, threads1 >> > (normalizedDeltaArrayB.arrayPtrGPU, normalizedDeltaArrayA.arrayPtrGPU, isValueDecreasedArray.arrayPtrGPU, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
+				compareArrays << <grid, threads1 >> > (m_normalizedDeltaArrayB.arrayPtrGPU, m_normalizedDeltaArrayA.arrayPtrGPU, m_isValueDecreasedArray.arrayPtrGPU, m_iWindowDimY, m_iWindowDimX, m_frame1.dimY, m_frame1.dimX);
 			}
 
 			// Adjust the offset array based on the comparison results
-			compositeOffsetArray << <grid, threads1 >> > (offsetArray12.arrayPtrGPU, isValueDecreasedArray.arrayPtrGPU, statusArray.arrayPtrGPU, currentGlobalOffset, windowDimY, windowDimX, frame1.dimY, frame1.dimX);
+			compositeOffsetArray << <grid, threads1 >> > (m_offsetArray12.arrayPtrGPU, m_isValueDecreasedArray.arrayPtrGPU, m_statusArray.arrayPtrGPU, m_iCurrentGlobalOffset, m_iWindowDimY, m_iWindowDimX, m_frame1.dimY, m_frame1.dimX);
 
 			// Wait for all threads to finish
 			cudaDeviceSynchronize();
 
 			// Reset the summed up delta array
-			summedUpDeltaArray.fill(0);
+			m_summedUpDeltaArray.fill(0);
 		}
 		// Adjust window size
-		windowDimX = fmax(windowDimX / 2, 1);
-		windowDimY = fmax(windowDimY / 2, 1);
+		m_iWindowDimX = fmax(m_iWindowDimX / 2, 1);
+		m_iWindowDimY = fmax(m_iWindowDimY / 2, 1);
 
 		// Adjust global offset
-		currentGlobalOffset = fmax(currentGlobalOffset / 2, 1);
+		m_iCurrentGlobalOffset = fmax(m_iCurrentGlobalOffset / 2, 1);
 
 		// Reset the status array
-		statusArray.fill(0);
+		m_statusArray.fill(0);
 	}
 
 	// Check for CUDA errors
@@ -583,17 +567,17 @@ void OpticalFlowCalc::warpFrame12(double dScalar) {
 	const double frameScalar = dScalar;
 
 	// Reset the hit count array
-	hitCount.fill(0);
+	m_hitCount.fill(0);
 	//offsetArray.fill(-offsetX, 0, frame1.dimY * frame1.dimX - 1);
 	//offsetArray.fill(offsetY, frame1.dimY * frame1.dimX, 2 * frame1.dimY * frame1.dimX - 1);
 
 	// Warp the frame
-	if (bBisNewest) {
-		warpFrameKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, blurredOffsetArray12.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame12.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
-		//artifactRemovalKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
+	if (m_bBisNewest) {
+		warpFrameKernel << <grid, threads3 >> > (m_frame1.arrayPtrGPU, m_offsetArray12.arrayPtrGPU, m_hitCount.arrayPtrGPU, m_ones.arrayPtrGPU, m_warpedFrame12.arrayPtrGPU, frameScalar, m_frame1.dimY, m_frame1.dimX);
+		//artifactRemovalKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, m_hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
 	} else {
-		warpFrameKernel << <grid, threads3 >> > (frame2.arrayPtrGPU, blurredOffsetArray12.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame12.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
-		//artifactRemovalKernel << <grid, threads3 >> > (frame2.arrayPtrGPU, hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
+		warpFrameKernel << <grid, threads3 >> > (m_frame2.arrayPtrGPU, m_offsetArray12.arrayPtrGPU, m_hitCount.arrayPtrGPU, m_ones.arrayPtrGPU, m_warpedFrame12.arrayPtrGPU, frameScalar, m_frame1.dimY, m_frame1.dimX);
+		//artifactRemovalKernel << <grid, threads3 >> > (frame2.arrayPtrGPU, m_hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
 	}
 
 	// Wait for all threads to finish
@@ -623,17 +607,17 @@ void OpticalFlowCalc::warpFrame21(double dScalar) {
 	const double frameScalar = 1.0 - dScalar;
 
 	// Reset the hit count array
-	hitCount.fill(0);
+	m_hitCount.fill(0);
 	//offsetArray.fill(-offsetX, 0, frame1.dimY * frame1.dimX - 1);
 	//offsetArray.fill(offsetY, frame1.dimY * frame1.dimX, 2 * frame1.dimY * frame1.dimX - 1);
 
 	// Warp the frame
-	if (bBisNewest) {
-		warpFrameKernel << <grid, threads3 >> > (frame2.arrayPtrGPU, blurredOffsetArray21.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame21.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
-		//artifactRemovalKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
+	if (m_bBisNewest) {
+		warpFrameKernel << <grid, threads3 >> > (m_frame2.arrayPtrGPU, m_offsetArray21.arrayPtrGPU, m_hitCount.arrayPtrGPU, m_ones.arrayPtrGPU, m_warpedFrame21.arrayPtrGPU, frameScalar, m_frame1.dimY, m_frame1.dimX);
+		//artifactRemovalKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, m_hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
 	} else {
-		warpFrameKernel << <grid, threads3 >> > (frame1.arrayPtrGPU, blurredOffsetArray21.arrayPtrGPU, hitCount.arrayPtrGPU, ones.arrayPtrGPU, warpedFrame21.arrayPtrGPU, frameScalar, frame1.dimY, frame1.dimX);
-		//artifactRemovalKernel << <grid, threads3 >> > (frame2.arrayPtrGPU, hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
+		warpFrameKernel << <grid, threads3 >> > (m_frame1.arrayPtrGPU, m_offsetArray21.arrayPtrGPU, m_hitCount.arrayPtrGPU, m_ones.arrayPtrGPU, m_warpedFrame21.arrayPtrGPU, frameScalar, m_frame1.dimY, m_frame1.dimX);
+		//artifactRemovalKernel << <grid, threads3 >> > (frame2.arrayPtrGPU, m_hitCount.arrayPtrGPU, warpedFrame.arrayPtrGPU, frame1.dimY, frame1.dimX);
 	}
 
 	// Wait for all threads to finish
@@ -662,7 +646,7 @@ void OpticalFlowCalc::blendFrames(double dScalar) {
 	const double frame2Scalar = dScalar;
 
 	// Blend the frames
-	blendFrameKernel << <grid, threads3 >> > (warpedFrame12.arrayPtrGPU, warpedFrame21.arrayPtrGPU, blendedFrame.arrayPtrGPU, frame1Scalar, frame2Scalar, warpedFrame12.dimY, warpedFrame12.dimX);
+	blendFrameKernel << <grid, threads3 >> > (m_warpedFrame12.arrayPtrGPU, m_warpedFrame21.arrayPtrGPU, m_blendedFrame.arrayPtrGPU, frame1Scalar, frame2Scalar, m_warpedFrame12.dimY, m_warpedFrame12.dimX);
 
 	// Wait for all threads to finish
 	cudaDeviceSynchronize();
@@ -685,7 +669,7 @@ void OpticalFlowCalc::blendFrames(double dScalar) {
 */
 void OpticalFlowCalc::downloadFlowAsHSV(unsigned char* memPointer, const double saturation, const double value, const float threshold) const {
 	// Launch kernel
-	convertFlowToHSVKernel << <grid, threads3 >> > (offsetArray12.arrayPtrGPU, rgboffsetArray.arrayPtrGPU, 3, offsetArray12.dimY, offsetArray12.dimX, saturation, value, threshold);
+	convertFlowToHSVKernel << <grid, threads3 >> > (m_offsetArray12.arrayPtrGPU, m_rgboffsetArray.arrayPtrGPU, 3, m_offsetArray12.dimY, m_offsetArray12.dimX, saturation, value, threshold);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -695,32 +679,18 @@ void OpticalFlowCalc::downloadFlowAsHSV(unsigned char* memPointer, const double 
 	}
 
 	// Copy host array to GPU
-	cudaMemcpy(memPointer, rgboffsetArray.arrayPtrGPU, 3 * offsetArray12.dimY * offsetArray12.dimX, cudaMemcpyDeviceToHost);
+	cudaMemcpy(memPointer, m_rgboffsetArray.arrayPtrGPU, 3 * m_offsetArray12.dimY * m_offsetArray12.dimX, cudaMemcpyDeviceToHost);
 }
 
 /*
 * Translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
-*
-* @param memPointer: Pointer to the memory to transfer the array to
-* @param saturation: The saturation of the flow image
-* @param value: The value of the flow image
-* @param threshold: The threshold to use for the flow image
 */
 void OpticalFlowCalc::flipFlow() {
-	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(offsetArray12.dimX / static_cast<float>(NUM_THREADS)), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(offsetArray12.dimY / static_cast<float>(NUM_THREADS)), 1);
-	const int NUM_BLOCKS_Z = 1;
-
-	// Use dim3 structs for block and grid size
-	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
-	dim3 threads(NUM_THREADS, NUM_THREADS, 2);
-
 	// Reset the offset array
-	offsetArray21.fill(0);
+	m_offsetArray21.fill(0);
 
 	// Launch kernel
-	flipFlowKernel << <grid, threads >> > (offsetArray12.arrayPtrGPU, offsetArray21.arrayPtrGPU, offsetArray12.dimY, offsetArray12.dimX);
+	flipFlowKernel << <grid, threads2 >> > (m_offsetArray12.arrayPtrGPU, m_offsetArray21.arrayPtrGPU, m_offsetArray12.dimY, m_offsetArray12.dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();

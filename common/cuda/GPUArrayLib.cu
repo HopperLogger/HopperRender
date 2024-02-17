@@ -1,22 +1,17 @@
-﻿// Project Includes
-#include "GPUArrayLib.cuh"
-
-// CUDA libraries
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
-
-// C++ libraries
-#include <iostream>
+﻿#include <iostream>
 #include <sstream>
 #include <vector>
 #include <iomanip>
 
-// Image loading/saving library
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "utils/stb/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-
 #include "utils/stb/stb_image_write.h"
+
+#include "GPUArrayLib.cuh"
 
 /*
 * -------------------- KERNELS --------------------
@@ -1330,7 +1325,7 @@ void GPUArray<int>::exportFlowImage(const char* filePath, int direction) {
 * Blurs the array
 */
 template <typename T>
-void GPUArray<T>::blurArray(GPUArray<T> blurredArray) {
+void GPUArray<T>::blurArray(GPUArray<T>* blurredArray) {
 	// Calculate the number of blocks needed
 	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
 	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
@@ -1347,7 +1342,7 @@ void GPUArray<T>::blurArray(GPUArray<T> blurredArray) {
 	}
 
 	// Launch kernel
-	blurKernel << <grid, threads >> > (arrayPtrGPU, blurredArray.arrayPtrGPU, dimZ, dimY, dimX);
+	blurKernel << <grid, threads >> > (arrayPtrGPU, blurredArray->arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
