@@ -19,7 +19,8 @@
 
 // Matrix - Scalar addition kernel
 template <typename T>
-__global__ void matrixScalarAdd(T* a, T b, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void matrixScalarAdd(T* a, T b, T* c, const unsigned int dimZ, const unsigned int dimY,
+                                const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -34,7 +35,8 @@ __global__ void matrixScalarAdd(T* a, T b, T* c, const unsigned int dimZ, const 
 
 // Matrix - Scalar subtraction kernel
 template <typename T>
-__global__ void matrixScalarSub(T* a, T b, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void matrixScalarSub(T* a, T b, T* c, const unsigned int dimZ, const unsigned int dimY,
+                                const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -49,7 +51,8 @@ __global__ void matrixScalarSub(T* a, T b, T* c, const unsigned int dimZ, const 
 
 // Matrix - Scalar multiplication kernel
 template <typename T>
-__global__ void matrixScalarMul(T* a, T b, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void matrixScalarMul(T* a, T b, T* c, const unsigned int dimZ, const unsigned int dimY,
+                                const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -64,7 +67,8 @@ __global__ void matrixScalarMul(T* a, T b, T* c, const unsigned int dimZ, const 
 
 // Matrix - Scalar division kernel
 template <typename T>
-__global__ void matrixScalarDiv(T* a, T b, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void matrixScalarDiv(T* a, T b, T* c, const unsigned int dimZ, const unsigned int dimY,
+                                const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -79,7 +83,8 @@ __global__ void matrixScalarDiv(T* a, T b, T* c, const unsigned int dimZ, const 
 
 // Matrix - Matrix addition kernel
 template <typename T>
-__global__ void matrixMatrixAdd(T* a, T* b, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void matrixMatrixAdd(T* a, T* b, T* c, const unsigned int dimZ, const unsigned int dimY,
+                                const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -94,7 +99,8 @@ __global__ void matrixMatrixAdd(T* a, T* b, T* c, const unsigned int dimZ, const
 
 // Matrix - Matrix subtraction kernel
 template <typename T>
-__global__ void matrixMatrixSub(T* a, T* b, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void matrixMatrixSub(T* a, T* b, T* c, const unsigned int dimZ, const unsigned int dimY,
+                                const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -109,7 +115,9 @@ __global__ void matrixMatrixSub(T* a, T* b, T* c, const unsigned int dimZ, const
 
 // Matrix - Matrix multiplication kernel
 template <typename T>
-__global__ void matrixMatrixMul(T* a, T* b, T* c, const unsigned int NUM_BLOCKS, const unsigned int dimZ, const unsigned int a_dimY, const unsigned int a_dimX, const unsigned int b_dimY, const unsigned int b_dimX, const unsigned int c_dimY, const unsigned int c_dimX) {
+__global__ void matrixMatrixMul(T* a, T* b, T* c, const unsigned int NUM_BLOCKS, const unsigned int dimZ,
+                                const unsigned int a_dimY, const unsigned int a_dimX, const unsigned int b_dimY,
+                                const unsigned int b_dimX, const unsigned int c_dimY, const unsigned int c_dimX) {
 	// Allocate shared memory for the tiles of A and B
 	__shared__ T A[SHMEM_SIZE];
 	__shared__ T B[SHMEM_SIZE];
@@ -120,17 +128,18 @@ __global__ void matrixMatrixMul(T* a, T* b, T* c, const unsigned int NUM_BLOCKS,
 
 	// Check if result is within result matrix boundaries
 	if (cz < dimZ && cy < c_dimY && cx < c_dimX) {
-
 		T temp_sum = 0;
 
 		// Loop over all tiles needed to compute the current value
 		for (int i = 0; i < NUM_BLOCKS; i++) {
 			// Load the current values of A and B into L1 cache
 			if (cz < dimZ && cy < a_dimY && (i * blockDim.x + threadIdx.x) < a_dimX) {
-				A[threadIdx.z * blockDim.y * blockDim.x + threadIdx.y * blockDim.x + threadIdx.x] = a[cz * a_dimY * a_dimX + cy * a_dimX + (i * blockDim.x + threadIdx.x)];
+				A[threadIdx.z * blockDim.y * blockDim.x + threadIdx.y * blockDim.x + threadIdx.x] = a[cz * a_dimY *
+					a_dimX + cy * a_dimX + (i * blockDim.x + threadIdx.x)];
 			}
 			if (cz < dimZ && (i * blockDim.y + threadIdx.y) < b_dimY && cx < b_dimX) {
-				B[threadIdx.z * blockDim.y * blockDim.x + threadIdx.y * blockDim.x + threadIdx.x] = b[cz * b_dimY * b_dimX + (i * blockDim.y + threadIdx.y) * b_dimX + cx];
+				B[threadIdx.z * blockDim.y * blockDim.x + threadIdx.y * blockDim.x + threadIdx.x] = b[cz * b_dimY *
+					b_dimX + (i * blockDim.y + threadIdx.y) * b_dimX + cx];
 			}
 
 			// Wait for all threads to finish filling the tiles
@@ -139,7 +148,8 @@ __global__ void matrixMatrixMul(T* a, T* b, T* c, const unsigned int NUM_BLOCKS,
 			// Compute the partial sum for the value in the current tile
 			for (int k = 0; k < blockDim.x; k++) {
 				if (cz < dimZ && (blockIdx.y * blockDim.y + k) < b_dimY && (blockIdx.x * blockDim.x + k) < a_dimX) {
-					temp_sum += A[threadIdx.z * blockDim.y * blockDim.x + threadIdx.y * blockDim.x + k] * B[threadIdx.z * blockDim.y * blockDim.x + k * blockDim.x + threadIdx.x];
+					temp_sum += A[threadIdx.z * blockDim.y * blockDim.x + threadIdx.y * blockDim.x + k] * B[threadIdx.z
+						* blockDim.y * blockDim.x + k * blockDim.x + threadIdx.x];
 				}
 			}
 
@@ -153,7 +163,8 @@ __global__ void matrixMatrixMul(T* a, T* b, T* c, const unsigned int NUM_BLOCKS,
 
 // Matrix - Matrix element-wise multiplication kernel
 template <typename T1, typename T2>
-__global__ void matrixElementMul(T1* a, T2* b, T1* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void matrixElementMul(T1* a, T2* b, T1* c, const unsigned int dimZ, const unsigned int dimY,
+                                 const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -168,7 +179,8 @@ __global__ void matrixElementMul(T1* a, T2* b, T1* c, const unsigned int dimZ, c
 
 // Matrix - Matrix addition kernel with indexing
 template <typename T>
-__global__ void matrixAddIndexed(T* a, T* b, int* i, T* c, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void matrixAddIndexed(T* a, T* b, int* i, T* c, const unsigned int dimZ, const unsigned int dimY,
+                                 const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -182,7 +194,9 @@ __global__ void matrixAddIndexed(T* a, T* b, int* i, T* c, const unsigned int di
 }
 
 // Kernel that rearranges the image data from RGBRGBRGB... to each channel in a separate layer
-__global__ void rearrangeImageDataRGBtoLayer(const unsigned char* RGBArray, unsigned char* layerArray, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void rearrangeImageDataRGBtoLayer(const unsigned char* RGBArray, unsigned char* layerArray,
+                                             const unsigned int dimZ, const unsigned int dimY,
+                                             const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -195,7 +209,9 @@ __global__ void rearrangeImageDataRGBtoLayer(const unsigned char* RGBArray, unsi
 }
 
 // Kernel that rearranges the image data from each channel in a separate layer to RGBRGBRGB...
-__global__ void rearrangeImageDataLayertoRGB(const unsigned char* layerArray, unsigned char* RGBArray, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void rearrangeImageDataLayertoRGB(const unsigned char* layerArray, unsigned char* RGBArray,
+                                             const unsigned int dimZ, const unsigned int dimY,
+                                             const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -208,7 +224,8 @@ __global__ void rearrangeImageDataLayertoRGB(const unsigned char* layerArray, un
 }
 
 // Kernel that rearranges the flow data from each direction layer to RGBRGBRGB...
-__global__ void rearrangeFlowDataLayertoRGB(const int* layerArray, unsigned char* RGBArray, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX, const int direction) {
+__global__ void rearrangeFlowDataLayertoRGB(const int* layerArray, unsigned char* RGBArray, const unsigned int dimZ,
+                                            const unsigned int dimY, const unsigned int dimX, const int direction) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -216,13 +233,15 @@ __global__ void rearrangeFlowDataLayertoRGB(const int* layerArray, unsigned char
 
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
-		RGBArray[cz + (3 * cy * dimX) + (3 * cx)] = static_cast<unsigned char>(fminf(fmaxf(layerArray[direction * dimY * dimX + cy * dimX + cx] + 127, 0), 255));
+		RGBArray[cz + (3 * cy * dimX) + (3 * cx)] = static_cast<unsigned char>(fminf(
+			fmaxf(layerArray[direction * dimY * dimX + cy * dimX + cx] + 127, 0), 255));
 	}
 }
 
 // Kernel that sets all array entries in the provided range to the provided value
 template <typename T>
-__global__ void setArrayEntriesAll(T* arrayPtrGPU, T value, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void setArrayEntriesAll(T* arrayPtrGPU, T value, const unsigned int dimZ, const unsigned int dimY,
+                                   const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -233,12 +252,13 @@ __global__ void setArrayEntriesAll(T* arrayPtrGPU, T value, const unsigned int d
 	if (cz < dimZ && cy < dimY && cx < dimX) {
 		arrayPtrGPU[absIdx] = value;
 	}
-
 }
 
 // Kernel that sets all array entries in the provided range to the provided value
 template <typename T>
-__global__ void setArrayEntriesInRange(T* arrayPtrGPU, T value, const unsigned int startIdx, const unsigned int endIndex, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void setArrayEntriesInRange(T* arrayPtrGPU, T value, const unsigned int startIdx,
+                                       const unsigned int endIndex, const unsigned int dimZ, const unsigned int dimY,
+                                       const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -265,8 +285,7 @@ __global__ void memTestKernel(long* arrayPtrGPU, const long steps) {
 	for (idx = 0; idx < steps; idx++) {
 		if (arrayPtrGPU[x * steps + idx] != idx) {
 			printf("ERROR: %d != %d\n", arrayPtrGPU[x * steps + idx], idx);
-		}
-		else if ((idx % 10000000) == 0) {
+		} else if ((idx % 10000000) == 0) {
 			printf("T %d - %d MB / %d MB\n", x, idx / 1000000, (steps * 32) / 1000000);
 		}
 	}
@@ -274,7 +293,8 @@ __global__ void memTestKernel(long* arrayPtrGPU, const long steps) {
 
 // Kernel that copies the entries of one array to another
 template <typename T>
-__global__ void copyEntries(T* DstArrayPtrGPU, T* SrcArrayPtrGPU, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void copyEntries(T* DstArrayPtrGPU, T* SrcArrayPtrGPU, const unsigned int dimZ, const unsigned int dimY,
+                            const unsigned int dimX) {
 	// Current entry to be copied by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -284,27 +304,6 @@ __global__ void copyEntries(T* DstArrayPtrGPU, T* SrcArrayPtrGPU, const unsigned
 	// Check if result is within matrix boundaries
 	if (cz < dimZ && cy < dimY && cx < dimX) {
 		DstArrayPtrGPU[absIdx] = SrcArrayPtrGPU[absIdx];
-	}
-}
-
-// Kernel that blurs an array
-template <typename T>
-__global__ void blurKernel(const T* array, T* blurredArray, const int dimZ, const int dimY, const int dimX) {
-	// Current entry to be computed by the thread
-	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const int cz = blockIdx.z * blockDim.z + threadIdx.z;
-
-	// Collect the sum of the surrounding pixels
-	if (cz < dimZ && cy < dimY && cx < dimX) {
-		for (int y = -1; y <= 1; y++) {
-			for (int x = -1; x <= 1; x++) {
-				if ((cy + y) < dimY && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
-					blurredArray[cy * dimX + cx] += array[(cy + y) * dimX + cx + x];
-				}
-			}
-		}
-		blurredArray[cy * dimX + cx] /= 9;
 	}
 }
 
@@ -322,7 +321,7 @@ GPUArray<T>::GPUArray() {
 	arrayPtrCPU = nullptr;
 	arrayPtrGPU = nullptr;
 	dims = 0;
-	std::vector<unsigned int> shape{ 0 };
+	std::vector<unsigned int> shape{0};
 	dimX = 0;
 	dimY = 0;
 	dimZ = 0;
@@ -347,19 +346,17 @@ GPUArray<T>::GPUArray(std::vector<unsigned int> arrayShape, T initializer) {
 		fprintf(stderr, "ERROR: No array dimensions given!\n");
 		exit(-1);
 	}
-	else if (dims == 1) {
+	if (dims == 1) {
 		dimX = 1;
 		dimY = *(arrayShape.end() - 2);
 		dimZ = 1;
 		bytes = dimY * sizeof(T);
-	}
-	else if (dims == 2) {
+	} else if (dims == 2) {
 		dimX = *(arrayShape.end() - 1);
 		dimY = *(arrayShape.end() - 2);
 		dimZ = 1;
 		bytes = dimY * dimX * sizeof(T);
-	}
-	else {
+	} else {
 		dimX = *(arrayShape.end() - 1);
 		dimY = *(arrayShape.end() - 2);
 		dimZ = 1;
@@ -429,7 +426,7 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, unsigned int height, uns
 	}
 
 	// Set dimensions
-	shape = std::vector<unsigned int>{ 3, height, width };
+	shape = std::vector<unsigned int>{3, height, width};
 	dims = 3;
 	dimX = width;
 	dimY = height;
@@ -437,7 +434,7 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, unsigned int height, uns
 	bytes = 3 * height * width;
 
 	// Allocate host memory
-	unsigned char* rawArrayPtrCPU = static_cast<unsigned char*>(malloc(bytes));
+	auto rawArrayPtrCPU = static_cast<unsigned char*>(malloc(bytes));
 
 	// Load image
 	int channels = 3;
@@ -473,7 +470,7 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, unsigned int height, uns
 	cudaMalloc(&arrayPtrGPU, bytes);
 
 	// Launch kernel
-	rearrangeImageDataRGBtoLayer << <grid, threads >> > (rawArrayPtrGPU, arrayPtrGPU, 3, dimY, dimX);
+	rearrangeImageDataRGBtoLayer << <grid, threads >> >(rawArrayPtrGPU, arrayPtrGPU, 3, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -497,7 +494,8 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, unsigned int height, uns
 *
 * @return: GPUArray object
 */
-GPUArray<unsigned char>::GPUArray(const char* filePath, unsigned int batchSize, unsigned int height, unsigned int width) {
+GPUArray<unsigned char>::GPUArray(const char* filePath, unsigned int batchSize, unsigned int height,
+                                  unsigned int width) {
 	// Initialize the array pointers
 	arrayPtrCPU = nullptr;
 
@@ -508,7 +506,7 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, unsigned int batchSize, 
 	}
 
 	// Set dimensions
-	shape = std::vector<unsigned int>{ batchSize, 3, height, width };
+	shape = std::vector<unsigned int>{batchSize, 3, height, width};
 	dims = 4;
 	dimX = width;
 	dimY = height;
@@ -516,8 +514,8 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, unsigned int batchSize, 
 	bytes = batchSize * 3 * height * width;
 
 	// Allocate host memory
-	unsigned char* rawArrayPtrCPU = static_cast<unsigned char*>(malloc(bytes));
-	unsigned char* imageData = static_cast<unsigned char*>(malloc(bytes / batchSize));
+	auto rawArrayPtrCPU = static_cast<unsigned char*>(malloc(bytes));
+	auto imageData = static_cast<unsigned char*>(malloc(bytes / batchSize));
 
 	// Load images
 	int channels = 3;
@@ -566,7 +564,7 @@ GPUArray<unsigned char>::GPUArray(const char* filePath, unsigned int batchSize, 
 	cudaMalloc(&arrayPtrGPU, bytes);
 
 	// Launch kernel
-	rearrangeImageDataRGBtoLayer << <grid, threads >> > (rawArrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
+	rearrangeImageDataRGBtoLayer << <grid, threads >> >(rawArrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -622,7 +620,7 @@ void GPUArray<T>::toCPU() {
 * @param memPointer: Pointer to the memory to transfer the array to
 */
 template <typename T>
-void GPUArray<T>::download(unsigned char* memPointer) {
+void GPUArray<T>::download(unsigned char* memPointer) const {
 	// Copy host array to memory pointer
 	cudaMemcpy(memPointer, arrayPtrGPU, bytes, cudaMemcpyDeviceToHost);
 }
@@ -642,19 +640,17 @@ void GPUArray<T>::changeDims(std::vector<unsigned int> arrayShape, T initializer
 		fprintf(stderr, "ERROR: No array dimensions given!\n");
 		exit(-1);
 	}
-	else if (dims == 1) {
+	if (dims == 1) {
 		dimX = 1;
 		dimY = *(arrayShape.end() - 2);
 		dimZ = 1;
 		bytes = dimY * sizeof(T);
-	}
-	else if (dims == 2) {
+	} else if (dims == 2) {
 		dimX = *(arrayShape.end() - 1);
 		dimY = *(arrayShape.end() - 2);
 		dimZ = 1;
 		bytes = dimY * dimX * sizeof(T);
-	}
-	else {
+	} else {
 		dimX = *(arrayShape.end() - 1);
 		dimY = *(arrayShape.end() - 2);
 		dimZ = 1;
@@ -715,7 +711,7 @@ template <typename T>
 GPUArray<T> GPUArray<T>::copy() {
 	// Create a new array with the same dimensions
 	GPUArray<T> copyArray;
-	
+
 	// Set dimensions
 	copyArray.shape = shape;
 	copyArray.dims = dims;
@@ -739,7 +735,7 @@ GPUArray<T> GPUArray<T>::copy() {
 	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
 
 	// Launch kernel
-	copyEntries << <grid, threads >> > (copyArray.arrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
+	copyEntries << <grid, threads >> >(copyArray.arrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -773,7 +769,7 @@ void GPUArray<T>::add(T value) {
 	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
 
 	// Launch kernel
-	matrixScalarAdd << <grid, threads >> > (arrayPtrGPU, value, arrayPtrGPU, dimZ, dimY, dimX);
+	matrixScalarAdd << <grid, threads >> >(arrayPtrGPU, value, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -805,7 +801,7 @@ void GPUArray<T>::sub(T value) {
 	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
 
 	// Launch kernel
-	matrixScalarSub << <grid, threads >> > (arrayPtrGPU, value, arrayPtrGPU, dimZ, dimY, dimX);
+	matrixScalarSub << <grid, threads >> >(arrayPtrGPU, value, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -837,7 +833,7 @@ void GPUArray<T>::mul(T scalar) {
 	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
 
 	// Launch kernel
-	matrixScalarMul << <grid, threads >> > (arrayPtrGPU, scalar, arrayPtrGPU, dimZ, dimY, dimX);
+	matrixScalarMul << <grid, threads >> >(arrayPtrGPU, scalar, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -869,7 +865,7 @@ void GPUArray<T>::div(T value) {
 	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
 
 	// Launch kernel
-	matrixScalarDiv << <grid, threads >> > (arrayPtrGPU, value, arrayPtrGPU, dimZ, dimY, dimX);
+	matrixScalarDiv << <grid, threads >> >(arrayPtrGPU, value, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -910,7 +906,7 @@ void GPUArray<T>::add(GPUArray<T>& array) {
 	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
 
 	// Launch kernel
-	matrixMatrixAdd << <grid, threads >> > (arrayPtrGPU, array.arrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
+	matrixMatrixAdd << <grid, threads >> >(arrayPtrGPU, array.arrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -951,7 +947,7 @@ void GPUArray<T>::sub(GPUArray<T>& array) {
 	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
 
 	// Launch kernel
-	matrixMatrixSub << <grid, threads >> > (arrayPtrGPU, array.arrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
+	matrixMatrixSub << <grid, threads >> >(arrayPtrGPU, array.arrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -992,7 +988,7 @@ void GPUArray<T>::elementMul(GPUArray<T>& array) {
 	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
 
 	// Launch kernel
-	matrixElementMul << <grid, threads >> > (arrayPtrGPU, array.arrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
+	matrixElementMul << <grid, threads >> >(arrayPtrGPU, array.arrayPtrGPU, arrayPtrGPU, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1024,7 +1020,7 @@ void GPUArray<T>::fill(T value) {
 	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
 
 	// Set the array entries to the provided value
-	setArrayEntriesAll << <grid, threads >> > (arrayPtrGPU, value, dimZ, dimY, dimX);
+	setArrayEntriesAll << <grid, threads >> >(arrayPtrGPU, value, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1064,7 +1060,7 @@ void GPUArray<T>::fill(T value, int startIdx, int endIndex) {
 	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
 
 	// Set the array entries to the provided value
-	setArrayEntriesInRange << <grid, threads >> > (arrayPtrGPU, value, startIdx, endIndex, dimZ, dimY, dimX);
+	setArrayEntriesInRange << <grid, threads >> >(arrayPtrGPU, value, startIdx, endIndex, dimZ, dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1084,7 +1080,6 @@ template <typename T>
 void GPUArray<T>::fillData(const T* memPointer) {
 	// Copy the data to the GPU
 	cudaMemcpy(arrayPtrGPU, memPointer, bytes, cudaMemcpyHostToDevice);
-	cudaDeviceSynchronize();
 }
 
 /*
@@ -1110,8 +1105,7 @@ void GPUArray<T>::print<S>(const unsigned int startIdx, const int numElements) {
 				if (numElements == -1 || counter < numElements) {
 					std::cout << static_cast<S>(*(arrayPtrCPU + (startIdx + z * dimY * dimX + y * dimX + x))) << " ";
 					counter++;
-				}
-				else {
+				} else {
 					printf("\n");
 					return;
 				}
@@ -1172,7 +1166,7 @@ void GPUArray<T>::exportPNG(const char* filePath) {
 		fprintf(stderr, "ERROR: Array has too few dimensions to be exported as an image!\n");
 		exit(-1);
 	}
-	else if (dims > 4) {
+	if (dims > 4) {
 		fprintf(stderr, "ERROR: Array has too many dimensions to be exported as image(s)!\n");
 		exit(-1);
 	}
@@ -1183,7 +1177,7 @@ void GPUArray<T>::exportPNG(const char* filePath) {
 	}
 
 	// Allocate host memory
-	unsigned char* rawArrayPtrCPU = static_cast<unsigned char*>(malloc(bytes));
+	const auto rawArrayPtrCPU = static_cast<unsigned char*>(malloc(bytes));
 
 	// Calculate the number of blocks needed
 	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
@@ -1205,7 +1199,8 @@ void GPUArray<T>::exportPNG(const char* filePath) {
 	cudaMalloc(&rawArrayPtrGPU, bytes);
 
 	// Launch kernel
-	rearrangeImageDataLayertoRGB << <grid, threads >> > ((unsigned char*)arrayPtrGPU, rawArrayPtrGPU, dimZ, dimY, dimX);
+	rearrangeImageDataLayertoRGB << <grid, threads >> >((unsigned char*)arrayPtrGPU, rawArrayPtrGPU, dimZ,
+	                                                    dimY, dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1223,7 +1218,7 @@ void GPUArray<T>::exportPNG(const char* filePath) {
 	// Export single image
 	if ((dimZ / 3) == 1) {
 		stbi_write_png(filePath, dimX, dimY, 3, rawArrayPtrCPU, dimX * 3);
-	// Export image batch
+		// Export image batch
 	} else {
 		for (int i = 0; i < dimZ / 3; i++) {
 			// Format the file name
@@ -1252,7 +1247,7 @@ void GPUArray<int>::exportFlowImage(const char* filePath, int direction) {
 		fprintf(stderr, "ERROR: Array has too few dimensions to be exported as an image!\n");
 		exit(-1);
 	}
-	else if (dims > 4) {
+	if (dims > 4) {
 		fprintf(stderr, "ERROR: Array has too many dimensions to be exported as image(s)!\n");
 		exit(-1);
 	}
@@ -1264,7 +1259,7 @@ void GPUArray<int>::exportFlowImage(const char* filePath, int direction) {
 
 	// Allocate host memory
 	const size_t rgb_bytes = 3 * dimY * dimX;
-	unsigned char* rawArrayPtrCPU = static_cast<unsigned char*>(malloc(rgb_bytes));
+	auto rawArrayPtrCPU = static_cast<unsigned char*>(malloc(rgb_bytes));
 
 	// Calculate the number of blocks needed
 	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
@@ -1286,7 +1281,8 @@ void GPUArray<int>::exportFlowImage(const char* filePath, int direction) {
 	cudaMalloc(&rawArrayPtrGPU, rgb_bytes);
 
 	// Launch kernel
-	rearrangeFlowDataLayertoRGB << <grid, threads >> > (arrayPtrGPU, rawArrayPtrGPU, fmax(dimZ, 3), dimY, dimX, direction);
+	rearrangeFlowDataLayertoRGB << <grid, threads >> >(arrayPtrGPU, rawArrayPtrGPU, fmax(dimZ, 3), dimY, dimX,
+	                                                   direction);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1304,7 +1300,7 @@ void GPUArray<int>::exportFlowImage(const char* filePath, int direction) {
 	// Export single image
 	if ((dimZ / 3) == 1) {
 		stbi_write_png(filePath, dimX, dimY, 3, rawArrayPtrCPU, dimX * 3);
-	// Export image batch
+		// Export image batch
 	} else {
 		for (int i = 0; i < dimZ / 2; i++) {
 			// Format the file name
@@ -1322,37 +1318,6 @@ void GPUArray<int>::exportFlowImage(const char* filePath, int direction) {
 }
 
 /*
-* Blurs the array
-*/
-template <typename T>
-void GPUArray<T>::blurArray(GPUArray<T>* blurredArray) {
-	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
-	int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
-	if (dims == 3) {
-		NUM_BLOCKS_Z = 1;
-	}
-
-	// Use dim3 structs for block and grid size
-	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
-	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
-	if (dims == 3) {
-		dim3 threads(NUM_THREADS, NUM_THREADS, 3);
-	}
-
-	// Launch kernel
-	blurKernel << <grid, threads >> > (arrayPtrGPU, blurredArray->arrayPtrGPU, dimZ, dimY, dimX);
-
-	// Check for CUDA errors
-	const cudaError_t cudaError = cudaGetLastError();
-	if (cudaError != cudaSuccess) {
-		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
-		exit(-1);
-	}
-}
-
-/*
 * Destructor
 */
 template <typename T>
@@ -1365,11 +1330,9 @@ void GPUArray<T>::del() const {
 }
 
 
-
 /*
 * -------------------- MATRIX - VALUE OPERATIONS --------------------
 */
-
 
 
 /*
@@ -1400,7 +1363,8 @@ GPUArray<T> add(GPUArray<T>& array, T value) {
 	GPUArray<T> resultArray(array.shape, 0);
 
 	// Launch kernel
-	matrixScalarAdd << <grid, threads >> > (array.arrayPtrGPU, value, resultArray.arrayPtrGPU, array.dimZ, array.dimY, array.dimX);
+	matrixScalarAdd << <grid, threads >> >(array.arrayPtrGPU, value, resultArray.arrayPtrGPU, array.dimZ, array.dimY,
+	                                       array.dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1441,7 +1405,8 @@ GPUArray<T> sub(GPUArray<T>& array, T value) {
 	GPUArray<T> resultArray(array.shape, 0);
 
 	// Launch kernel
-	matrixScalarSub << <grid, threads >> > (array.arrayPtrGPU, value, resultArray.arrayPtrGPU, array.dimZ, array.dimY, array.dimX);
+	matrixScalarSub << <grid, threads >> >(array.arrayPtrGPU, value, resultArray.arrayPtrGPU, array.dimZ, array.dimY,
+	                                       array.dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1482,7 +1447,8 @@ GPUArray<T> mul(GPUArray<T>& array, T scalar) {
 	GPUArray<T> resultArray(array.shape, 0);
 
 	// Launch kernel
-	matrixScalarMul << <grid, threads >> > (array.arrayPtrGPU, scalar, resultArray.arrayPtrGPU, array.dimZ, array.dimY, array.dimX);
+	matrixScalarMul << <grid, threads >> >(array.arrayPtrGPU, scalar, resultArray.arrayPtrGPU, array.dimZ, array.dimY,
+	                                       array.dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1523,7 +1489,8 @@ GPUArray<T> div(GPUArray<T>& array, T value) {
 	GPUArray<T> resultArray(array.shape, 0);
 
 	// Launch kernel
-	matrixScalarDiv << <grid, threads >> > (array.arrayPtrGPU, value, resultArray.arrayPtrGPU, array.dimZ, array.dimY, array.dimX);
+	matrixScalarDiv << <grid, threads >> >(array.arrayPtrGPU, value, resultArray.arrayPtrGPU, array.dimZ, array.dimY,
+	                                       array.dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1537,11 +1504,9 @@ GPUArray<T> div(GPUArray<T>& array, T value) {
 }
 
 
-
 /*
 * -------------------- MATRIX - MATRIX OPERATIONS --------------------
 */
-
 
 
 /*
@@ -1581,7 +1546,8 @@ GPUArray<T> add(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 	GPUArray<T> resultArray(arrayA.shape, 0);
 
 	// Launch kernel
-	matrixMatrixAdd << <grid, threads >> > (arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, resultArray.arrayPtrGPU, arrayA.dimZ, arrayA.dimY, arrayA.dimX);
+	matrixMatrixAdd << <grid, threads >> >(arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, resultArray.arrayPtrGPU, arrayA.dimZ,
+	                                       arrayA.dimY, arrayA.dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1631,7 +1597,8 @@ GPUArray<T> sub(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 	GPUArray<T> resultArray(arrayA.shape, 0);
 
 	// Launch kernel
-	matrixMatrixSub << <grid, threads >> > (arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, resultArray.arrayPtrGPU, arrayA.dimZ, arrayA.dimY, arrayA.dimX);
+	matrixMatrixSub << <grid, threads >> >(arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, resultArray.arrayPtrGPU, arrayA.dimZ,
+	                                       arrayA.dimY, arrayA.dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1677,10 +1644,12 @@ GPUArray<T> mul(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
 
 	// Initialize result array
-	GPUArray<T> resultArray({ arrayA.dimZ, arrayA.dimY, arrayB.dimX }, 0);
+	GPUArray<T> resultArray({arrayA.dimZ, arrayA.dimY, arrayB.dimX}, 0);
 
 	// Launch kernel
-	matrixMatrixMul << <grid, threads >> > (arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, resultArray.arrayPtrGPU, NUM_BLOCKS_XY, arrayA.dimZ, arrayA.dimY, arrayA.dimX, arrayB.dimY, arrayB.dimX, resultArray.dimY, resultArray.dimX);
+	matrixMatrixMul << <grid, threads >> >(arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, resultArray.arrayPtrGPU,
+	                                       NUM_BLOCKS_XY, arrayA.dimZ, arrayA.dimY, arrayA.dimX, arrayB.dimY,
+	                                       arrayB.dimX, resultArray.dimY, resultArray.dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1730,7 +1699,8 @@ GPUArray<T> elementMul(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 	GPUArray<T> resultArray(arrayA.shape, 0);
 
 	// Launch kernel
-	matrixElementMul << <grid, threads >> > (arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, resultArray.arrayPtrGPU, arrayA.dimZ, arrayA.dimY, arrayA.dimX);
+	matrixElementMul << <grid, threads >> >(arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, resultArray.arrayPtrGPU,
+	                                        arrayA.dimZ, arrayA.dimY, arrayA.dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1755,7 +1725,8 @@ GPUArray<T> elementMul(GPUArray<T>& arrayA, GPUArray<T>& arrayB) {
 template <typename T>
 GPUArray<T> addIndexed(GPUArray<T>& arrayA, GPUArray<T>& arrayB, GPUArray<int>& i) {
 	// Check if the matrices can be added
-	if (arrayA.dimZ != arrayB.dimZ || arrayA.dimY != arrayB.dimY || arrayA.dimX != arrayB.dimX || arrayA.dimZ != i.dimZ || arrayA.dimY != i.dimY || arrayA.dimX != i.dimX) {
+	if (arrayA.dimZ != arrayB.dimZ || arrayA.dimY != arrayB.dimY || arrayA.dimX != arrayB.dimX || arrayA.dimZ != i.dimZ
+		|| arrayA.dimY != i.dimY || arrayA.dimX != i.dimX) {
 		fprintf(stderr, "ERROR: Array dimensions do not match!\n");
 		exit(-1);
 	}
@@ -1784,7 +1755,8 @@ GPUArray<T> addIndexed(GPUArray<T>& arrayA, GPUArray<T>& arrayB, GPUArray<int>& 
 	GPUArray<T> resultArray(arrayA.shape, 0);
 
 	// Launch kernel
-	matrixAddIndexed << <grid, threads >> > (arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, i.arrayPtrGPU, resultArray.arrayPtrGPU, arrayA.dimZ, arrayA.dimY, arrayA.dimX);
+	matrixAddIndexed << <grid, threads >> >(arrayA.arrayPtrGPU, arrayB.arrayPtrGPU, i.arrayPtrGPU,
+	                                        resultArray.arrayPtrGPU, arrayA.dimZ, arrayA.dimY, arrayA.dimX);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -1804,7 +1776,7 @@ GPUArray<T> addIndexed(GPUArray<T>& arrayA, GPUArray<T>& arrayB, GPUArray<int>& 
 */
 void memTest(size_t bytes) {
 	// Allocate host memory
-	long* arrayPtrCPU = static_cast<long*>(malloc(bytes));
+	auto arrayPtrCPU = static_cast<long*>(malloc(bytes));
 
 	// Allocate VRAM
 	long* arrayPtrGPU;
@@ -1821,7 +1793,7 @@ void memTest(size_t bytes) {
 	dim3 threads(16, 1, 1);
 
 	// Launch kernel
-	memTestKernel << <grid, threads >> > (arrayPtrGPU, (bytes / 8) / 16);
+	memTestKernel << <grid, threads >> >(arrayPtrGPU, (bytes / 8) / 16);
 	cudaDeviceSynchronize();
 
 	// Check for CUDA errors
@@ -1847,12 +1819,10 @@ template class GPUArray<long>;
 template class GPUArray<unsigned char>;
 template class GPUArray<bool>;
 
-template void GPUArray<int>::print<int>(const unsigned int startIdx, const int numElements);
-template void GPUArray<unsigned char>::print<int>(const unsigned int startIdx, const int numElements);
-template void GPUArray<float>::print<float>(const unsigned int startIdx, const int numElements);
-template void GPUArray<double>::print<double>(const unsigned int startIdx, const int numElements);
-template void GPUArray<long>::print<long>(const unsigned int startIdx, const int numElements);
-template void GPUArray<unsigned int>::print<unsigned int>(const unsigned int startIdx, const int numElements);
-template void GPUArray<bool>::print<bool>(const unsigned int startIdx, const int numElements);
-
-template void GPUArray<unsigned char>::download(unsigned char* memPointer);
+template void GPUArray<int>::print<int>(unsigned int startIdx, int numElements);
+template void GPUArray<unsigned char>::print<int>(unsigned int startIdx, int numElements);
+template void GPUArray<float>::print<float>(unsigned int startIdx, int numElements);
+template void GPUArray<double>::print<double>(unsigned int startIdx, int numElements);
+template void GPUArray<long>::print<long>(unsigned int startIdx, int numElements);
+template void GPUArray<unsigned int>::print<unsigned int>(unsigned int startIdx, int numElements);
+template void GPUArray<bool>::print<bool>(unsigned int startIdx, int numElements);
