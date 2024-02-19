@@ -111,11 +111,11 @@ public:
 	GPUArray<unsigned int> m_summedUpDeltaArray; // Array containing the summed up delta values of each window
 	GPUArray<float> m_normalizedDeltaArrayA; // Array containing the normalized delta values of each window
 	GPUArray<float> m_normalizedDeltaArrayB; // Array containing the normalized delta values of each window
-	GPUArray<bool> m_isValueDecreasedArray;
-	// Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
+	GPUArray<bool> m_isValueDecreasedArray; // Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
 	GPUArray<unsigned char> m_warpedFrame12; // Array containing the warped frame (frame 1 to frame 2)
 	GPUArray<unsigned char> m_warpedFrame21; // Array containing the warped frame (frame 2 to frame 1)
 	GPUArray<unsigned char> m_blendedFrame; // Array containing the blended frame
+	GPUArray<unsigned short> m_outputFrame; // Array containing the output frame in P010 format
 	GPUArray<int> m_hitCount; // Array containing the number of times a pixel was hit
 	GPUArray<int> m_ones; // Array containing only ones for atomic add
 };

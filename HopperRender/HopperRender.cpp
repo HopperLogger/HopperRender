@@ -14,6 +14,7 @@
 #include "HopperRenderSettings.h"
 #include "HopperRender.h"
 
+#include <dvdmedia.h>
 #include <numeric>
 
 #include "resource.h"
@@ -28,11 +29,19 @@ void DebugMessage(const std::string& message) {
 }
 
 
-// Input/Output pin types
-constexpr AMOVIESETUP_MEDIATYPE sudPinTypes =
+// Input pin types
+constexpr AMOVIESETUP_MEDIATYPE sudPinTypesIn =
 {
 	&MEDIATYPE_Video, // Major type
-	&MEDIASUBTYPE_RGB24 // Minor type
+	&MEDIASUBTYPE_NV12 // Minor type
+};
+
+
+// Output pin types
+constexpr AMOVIESETUP_MEDIATYPE sudPinTypesOut =
+{
+	&MEDIATYPE_Video, // Major type
+	&MEDIASUBTYPE_P010 // Minor type
 };
 
 
@@ -48,7 +57,7 @@ constexpr AMOVIESETUP_PIN sudpPins[] =
 		&CLSID_NULL, // Connects to filter
 		nullptr, // Connects to pin
 		1, // Number of types
-		&sudPinTypes // Pin information
+		&sudPinTypesIn // Pin information
 	},
 	{
 		L"Output", // Pins string name
@@ -59,7 +68,7 @@ constexpr AMOVIESETUP_PIN sudpPins[] =
 		&CLSID_NULL, // Connects to filter
 		nullptr, // Connects to pin
 		1, // Number of types
-		&sudPinTypes // Pin information
+		&sudPinTypesOut // Pin information
 	}
 };
 
@@ -159,46 +168,39 @@ STDMETHODIMP CHopperRender::NonDelegatingQueryInterface(REFIID riid, void** ppv)
 }
 
 
-// Checks whether a specified media type is acceptable for input.
+// Checks whether a specified media type is acceptable for input
 HRESULT CHopperRender::CheckInputType(const CMediaType* mtIn) {
 	CheckPointer(mtIn, E_POINTER)
 
-	// Check this is a VIDEOINFOHEADER type
-	if (*mtIn->FormatType() != FORMAT_VideoInfo) {
+	// Check this is a VIDEOINFOHEADER2 type
+	if (*mtIn->FormatType() != FORMAT_VideoInfo2) {
 		return E_INVALIDARG;
 	}
 
 	// Can we transform this type
-	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) && IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_RGB24)) {
-		auto pvi = (VIDEOINFOHEADER*)mtIn->Format();
-		if (pvi->bmiHeader.biBitCount == 24) {
-			return NOERROR;
-		}
+	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) && IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12)) {
+		return NOERROR;
 	}
 	return E_FAIL;
 }
 
 
-// Checks whether an input media type is compatible with an output media type.
+// Checks whether an input media type is compatible with an output media type
 HRESULT CHopperRender::CheckTransform(const CMediaType* mtIn, const CMediaType* mtOut) {
 	CheckPointer(mtIn, E_POINTER)
 	CheckPointer(mtOut, E_POINTER)
 
-	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) && IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_RGB24)) {
-		auto pvi = (VIDEOINFOHEADER*)mtIn->Format();
-		if (pvi->bmiHeader.biBitCount == 24) {
-			if (*mtIn == *mtOut) {
-				m_rtAvgSourceFrameTime = pvi->AvgTimePerFrame;
-				const unsigned int dimX = pvi->bmiHeader.biWidth;
-				const unsigned int dimY = pvi->bmiHeader.biHeight;
+	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) && IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) && IsEqualGUID(*mtOut->Subtype(), MEDIASUBTYPE_P010)) {
+		auto pvi = (VIDEOINFOHEADER2*)mtIn->Format();
+		m_rtAvgSourceFrameTime = pvi->AvgTimePerFrame;
+		const unsigned int dimX = pvi->bmiHeader.biWidth;
+		const unsigned int dimY = pvi->bmiHeader.biHeight;
 
-				// Initialize the Optical Flow Calculator
-				if (!m_ofcOpticalFlowCalc.isInitialized()) {
-					m_ofcOpticalFlowCalc.init(dimY, dimX);
-				}
-				return NOERROR;
-			}
+		// Initialize the Optical Flow Calculator
+		if (!m_ofcOpticalFlowCalc.isInitialized()) {
+			m_ofcOpticalFlowCalc.init(dimY, dimX);
 		}
+		return NOERROR;
 	}
 	return E_FAIL;
 }
@@ -242,18 +244,66 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
 
 // Retrieves a preferred media type for the output pin
 HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType) {
-	// This should never happen
 	if (iPosition < 0) {
 		return E_INVALIDARG;
 	}
 
-	// Do we have more items to offer
 	if (iPosition > 0) {
 		return VFW_S_NO_MORE_ITEMS;
 	}
 
-	CheckPointer(pMediaType, E_POINTER)
-	*pMediaType = m_pInput->CurrentMediaType();
+	CheckPointer(pMediaType, E_POINTER);
+
+	pMediaType->SetType(&MEDIATYPE_Video);
+	pMediaType->SetFormatType(&FORMAT_VideoInfo2);
+	pMediaType->SetSubtype(&MEDIASUBTYPE_P010);
+
+	UpdateVideoInfoHeader(pMediaType);
+
+	return NOERROR;
+}
+
+
+// Updates the video info header with the information for the output pin
+HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) const {
+	// Get the input media type information
+	CMediaType* mtIn = &m_pInput->CurrentMediaType();
+	auto pvi = (VIDEOINFOHEADER2*)mtIn->Format();
+	const long biWidth = pvi->bmiHeader.biWidth;
+	const long biHeight = pvi->bmiHeader.biHeight;
+	const unsigned int dwX = pvi->dwPictAspectRatioX;
+	const unsigned int dwY = pvi->dwPictAspectRatioY;
+	const bool bInterlaced = (pvi->dwInterlaceFlags & AMINTERLACE_IsInterlaced) != 0;
+	const GUID guid = MEDIASUBTYPE_P010;
+
+	// Set the VideoInfoHeader2 information
+	VIDEOINFOHEADER2* vih2 = (VIDEOINFOHEADER2*)pMediaType->ReallocFormatBuffer(sizeof(VIDEOINFOHEADER2));
+	memset(vih2, 0, sizeof(VIDEOINFOHEADER2));
+	vih2->rcSource.right = vih2->rcTarget.right = biWidth;
+	vih2->rcSource.bottom = vih2->rcTarget.bottom = biHeight;
+	vih2->AvgTimePerFrame = pvi->AvgTimePerFrame;
+	vih2->dwPictAspectRatioX = dwX;
+	vih2->dwPictAspectRatioY = dwY;
+	vih2->dwBitRate = pvi->dwBitRate;
+	vih2->dwBitErrorRate = pvi->dwBitErrorRate;
+	vih2->dwCopyProtectFlags = pvi->dwCopyProtectFlags;
+	if (bInterlaced)
+		vih2->dwInterlaceFlags = AMINTERLACE_IsInterlaced | AMINTERLACE_DisplayModeBobOrWeave;
+
+	// Set the BitmapInfoHeader information
+	BITMAPINFOHEADER* pBIH = nullptr;
+	pBIH = &vih2->bmiHeader;
+	pBIH->biSize = sizeof(BITMAPINFOHEADER);
+	pBIH->biWidth = biWidth;
+	pBIH->biHeight = biHeight;
+	pBIH->biBitCount = 24;
+	pBIH->biPlanes = 2;
+	pBIH->biSizeImage = (biWidth * biHeight * 12) >> 3;
+	pBIH->biCompression = guid.Data1;
+
+	// Set the media type information
+	pMediaType->SetSampleSize((biWidth * biHeight * 24) >> 3);
+	pMediaType->SetTemporalCompression(0);
 
 	return NOERROR;
 }
@@ -322,6 +372,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 
 	// Get the size of the samples
 	const long lInSize = pIn->GetActualDataLength();
+	const long lOutSize = pOut->GetActualDataLength();
 
 	// Get the presentation times for the new output sample
 	REFERENCE_TIME rtStartTime, rtEndTime;
@@ -469,7 +520,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 		}
 
 		// Copy the actual data length
-		hr = pOutNew->SetActualDataLength(lInSize);
+		hr = pOutNew->SetActualDataLength(lOutSize);
 		if (FAILED(hr)) {
 			return hr;
 		}
@@ -481,7 +532,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 				return hr;
 			}
 		} else {
-			memcpy(pOutNewBuffer, pInBuffer, lInSize);
+			CopyFrame(pInBuffer, pOutNewBuffer, lInSize, lOutSize);
 		}
 
 		// Deliver the new output sample downstream
@@ -496,6 +547,15 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 		}
 	}
 
+	return NOERROR;
+}
+
+
+// Copies an NV12 frame to a P010 frame
+HRESULT CHopperRender::CopyFrame(BYTE* pInBuffer, BYTE* pOutBuffer, long lInSize, long lOutSize) {
+	m_ofcOpticalFlowCalc.updateFrame1(pInBuffer);
+	m_ofcOpticalFlowCalc.m_frame1.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame);
+	m_ofcOpticalFlowCalc.m_outputFrame.download(pOutBuffer);
 	return NOERROR;
 }
 
@@ -547,14 +607,15 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
 
 	// Download the result to the Output Sample
 	if (m_iFrameOutput == 0) {
-		m_ofcOpticalFlowCalc.m_warpedFrame12.download(pOutBuffer);
+		m_ofcOpticalFlowCalc.m_warpedFrame12.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame);
 	} else if (m_iFrameOutput == 1) {
-		m_ofcOpticalFlowCalc.m_warpedFrame21.download(pOutBuffer);
+		m_ofcOpticalFlowCalc.m_warpedFrame21.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame);
 	} else if (m_iFrameOutput == 2) {
-		m_ofcOpticalFlowCalc.m_blendedFrame.download(pOutBuffer);
+		m_ofcOpticalFlowCalc.m_blendedFrame.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame);
 	} else {
-		m_ofcOpticalFlowCalc.downloadFlowAsHSV(pOutBuffer, 1.0, 1.0, 0.4);
+		m_ofcOpticalFlowCalc.downloadFlowAsHSV(pOutBuffer, 1.0, 1.0, 0.4); // TODO Change this
 	}
+	m_ofcOpticalFlowCalc.m_outputFrame.download(pOutBuffer);
 
 	// Adjust the settings to process everything fast enough
 	if (iIntFrameNum == 0) {

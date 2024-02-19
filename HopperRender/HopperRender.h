@@ -43,7 +43,9 @@ private:
 	// Constructor
 	CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr);
 
+	HRESULT UpdateVideoInfoHeader(CMediaType* pMediaType) const;
 	HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget);
+	HRESULT CopyFrame(BYTE* pInBuffer, BYTE* pOutBuffer, long lInSize, long lOutSize);
 	HRESULT InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, double dScalar, int iIntFrameNum);
 
 	CCritSec m_csHopperRenderLock; // Private play critical section
