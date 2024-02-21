@@ -88,6 +88,7 @@ public:
 	* Initializes the array with the provided dimensions
 	*
 	* @param arrayShape: Dimensions of the array (e.g. {2, 3, 4} for a 3D array with 2 layers, 3 rows and 4 columns)
+	* @param initializer: Value to initialize all array entries with
 	* @param bytesRequest: Size of the array in bytes (optional)
 	*/
 	void init(std::vector<unsigned int> arrayShape, T initializer = 0, size_t bytesRequest = 0) {

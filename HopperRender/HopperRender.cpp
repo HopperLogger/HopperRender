@@ -287,8 +287,11 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) const {
 	vih2->dwBitRate = pvi->dwBitRate;
 	vih2->dwBitErrorRate = pvi->dwBitErrorRate;
 	vih2->dwCopyProtectFlags = pvi->dwCopyProtectFlags;
-	if (bInterlaced)
+	if (bInterlaced) {
 		vih2->dwInterlaceFlags = AMINTERLACE_IsInterlaced | AMINTERLACE_DisplayModeBobOrWeave;
+	} else {
+		vih2->dwInterlaceFlags = AMINTERLACE_1FieldPerSample;
+	}
 
 	// Set the BitmapInfoHeader information
 	BITMAPINFOHEADER* pBIH = nullptr;
@@ -525,6 +528,12 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 			return hr;
 		}
 
+		// Set the new media type
+		CMediaType& mt = m_pOutput->CurrentMediaType();
+		AM_MEDIA_TYPE* sendmt = CreateMediaType(&mt);
+		pOutNew->SetMediaType(sendmt);
+		DeleteMediaType(sendmt);
+
 		// Interpolate the frame if necessary
 		if (m_bIntNeeded) {
 			hr = InterpolateFrame(pInBuffer, pOutNewBuffer, dScalar, iIntFrameNum);
@@ -613,7 +622,7 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
 	} else if (m_iFrameOutput == 2) {
 		m_ofcOpticalFlowCalc.m_blendedFrame.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame);
 	} else {
-		m_ofcOpticalFlowCalc.downloadFlowAsHSV(pOutBuffer, 1.0, 1.0, 0.4); // TODO Change this
+		m_ofcOpticalFlowCalc.drawFlowAsHSV(1.0, 1.0, 0.4); // TODO Implement RGB to P010 conversion
 	}
 	m_ofcOpticalFlowCalc.m_outputFrame.download(pOutBuffer);
 

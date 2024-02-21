@@ -64,14 +64,13 @@ public:
 	void blendFrames(double dScalar);
 
 	/*
-	* Downloads the array as a flow image into the output memory pointer
+	* Draws the flow as an RGB image
 	*
-	* @param memPointer: Pointer to the memory to transfer the array to
 	* @param saturation: The saturation of the flow image
 	* @param value: The value of the flow image
 	* @param threshold: The threshold to use for the flow image
 	*/
-	void downloadFlowAsHSV(unsigned char* memPointer, double saturation, double value, float threshold) const;
+	void drawFlowAsHSV(double saturation, double value, float threshold) const;
 
 	/*
 	* Translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1

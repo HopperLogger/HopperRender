@@ -42,12 +42,12 @@ __global__ void calcImageDelta(const unsigned char* frame1, const unsigned char*
 
 	// U/V Channels
 	} else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
-		const int offsetX = -static_cast<int>(static_cast<double>(offsetArray[cy * 2 * dimX + (cx / 2) * 2]));
-		const int offsetY = -static_cast<int>(static_cast<double>(offsetArray[dimY * dimX + cy * 2 * dimX + (cx / 2) * 2]) / 2.0);
+		const int offsetX = -static_cast<int>(static_cast<double>(offsetArray[2 * cy * dimX + (cx / 2) * 2]));
+		const int offsetY = -static_cast<int>(static_cast<double>(offsetArray[dimY * dimX + 2 * cy * dimX + (cx / 2) * 2]) / 2.0);
 
 		// Current pixel is outside of frame
 		if ((cy + offsetY < 0) || (cx + offsetX < 0) || (cy + offsetY > dimY / 2) || (cx + offsetX > dimX)) {
-			imageDeltaArray[dimY * dimX + cy * dimX + cx] = 128;
+			imageDeltaArray[dimY * dimX + cy * dimX + cx] = 0;
 		// Current pixel is inside of frame
 		} else {
 			const int newCx = fminf(fmaxf(cx + offsetX, 0), dimX - 1);
@@ -77,9 +77,21 @@ __global__ void calcDeltaSums(unsigned char* imageDeltaArray, unsigned int* summ
 	const unsigned int windowIndexY = cy / windowDimY;
 
 	// Check if the thread is inside the frame
-	if (cz < 3 && cy < dimY && cx < dimX) {
-		atomicAdd(&summedUpDeltaArray[(windowIndexY * windowDimY) * dimX + (windowIndexX * windowDimX)],
-		          imageDeltaArray[cz + (3 * cy * dimX) + (3 * cx)]);
+	if (cz < 2 && cy < dimY && cx < dimX) {
+		// Y Channel
+		if (cz == 0) {
+			atomicAdd(&summedUpDeltaArray[(windowIndexY * windowDimY) * dimX + (windowIndexX * windowDimX)],
+		          imageDeltaArray[cy * dimX + cx]);
+		// U Channel
+		} else if (cx % 2 == 0 && cy < dimY / 2) {
+			atomicAdd(&summedUpDeltaArray[(windowIndexY * windowDimY) * dimX + (windowIndexX * windowDimX)],
+			          imageDeltaArray[dimY * dimX + cy * dimX + (cx / 2) * 2]);
+		// V Channel
+		} else if (cy < dimY / 2) {
+			atomicAdd(&summedUpDeltaArray[(windowIndexY * windowDimY) * dimX + (windowIndexX * windowDimX)],
+			          imageDeltaArray[dimY * dimX + cy * dimX + (cx / 2) * 2 + 1]);
+		}
+		
 	}
 }
 
@@ -319,8 +331,8 @@ __global__ void warpFrameKernel(const unsigned char* frame1, const int* offsetAr
 
 	// U/V Channels
 	} else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
-		const int offsetX = static_cast<int>(static_cast<double>(offsetArray[cy * 2 * dimX + (cx / 2) * 2]) * frameScalar);
-		const int offsetY = static_cast<int>((static_cast<double>(offsetArray[dimY * dimX + cy * 2 * dimX + (cx / 2) * 2]) * frameScalar) / 2.0);
+		const int offsetX = static_cast<int>(static_cast<double>(offsetArray[2 * cy * dimX + (cx / 2) * 2]) * frameScalar);
+		const int offsetY = static_cast<int>((static_cast<double>(offsetArray[dimY * dimX + 2 * cy * dimX + (cx / 2) * 2]) * frameScalar) / 2.0);
 
 		// Check if the current pixel is inside the frame
 		if ((cy + offsetY >= 0) && (cy + offsetY < dimY / 2) && (cx + offsetX >= 0) && (cx + offsetX < dimX)) {
@@ -560,7 +572,7 @@ void OpticalFlowCalc::init(const unsigned int dimY, const unsigned int dimX) {
 	m_warpedFrame12.init({1, dimY, dimX}, 0, 1.5 * dimY * dimX);
 	m_warpedFrame21.init({1, dimY, dimX}, 0, 1.5 * dimY * dimX);
 	m_blendedFrame.init({1, dimY, dimX}, 0, 1.5 * dimY * dimX);
-	m_outputFrame.init({1, dimY, dimX}, 0, 3 * dimY * dimX);
+	m_outputFrame.init({1, dimY, dimX}, 0, 3 * dimY * dimX * 16.0 / 15.0);
 	m_hitCount.init({1, dimY, dimX});
 	m_ones.init({1, dimY, dimX}, 1);
 	m_iWindowDimX = dimX;
@@ -804,14 +816,13 @@ void OpticalFlowCalc::blendFrames(double dScalar) {
 }
 
 /*
-* Downloads the array as a flow image into the output memory pointer
+* Draws the flow as an RGB image
 *
-* @param memPointer: Pointer to the memory to transfer the array to
 * @param saturation: The saturation of the flow image
 * @param value: The value of the flow image
 * @param threshold: The threshold to use for the flow image
 */
-void OpticalFlowCalc::downloadFlowAsHSV(unsigned char* memPointer, const double saturation, const double value,
+void OpticalFlowCalc::drawFlowAsHSV(const double saturation, const double value,
                                         const float threshold) const {
 	// Launch kernel
 	convertFlowToHSVKernel << <grid, threads3 >> >(m_blurredOffsetArray12.arrayPtrGPU, m_rgboffsetArray.arrayPtrGPU, 3,
@@ -824,10 +835,6 @@ void OpticalFlowCalc::downloadFlowAsHSV(unsigned char* memPointer, const double 
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
 	}
-
-	// Copy host array to GPU
-	cudaMemcpy(memPointer, m_rgboffsetArray.arrayPtrGPU, 3 * m_offsetArray12.dimY * m_offsetArray12.dimX,
-	           cudaMemcpyDeviceToHost);
 }
 
 /*
