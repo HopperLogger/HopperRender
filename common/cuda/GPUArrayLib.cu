@@ -8,6 +8,14 @@
 
 #include "GPUArrayLib.cuh"
 
+#include <amvideo.h>
+
+// Debug message function
+void GPUDebugMessage(const std::string& message) {
+	const std::string m_debugMessage = message + "\n";
+	OutputDebugStringA(m_debugMessage.c_str());
+}
+
 /*
 * -------------------- KERNELS --------------------
 */
@@ -54,9 +62,11 @@ __global__ void convertNV12toP010Kernel(const unsigned char* nv12Array, unsigned
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = threadIdx.z;
 
-	if (cz < 2 && cy < dimY && cx < dimX) {
-		if ((cz * dimY * dimX + cy * dimX + cx) < (1.5 * dimY * dimX)) {
-			p010Array[cz * dimY * dimX + cy * dimX + cx] = static_cast<unsigned short>(nv12Array[cz * dimY * dimX + cy * dimX + cx]) << 8;
+	constexpr double scalar = 16.0 / 15.0;
+
+	if (cz < 2 && cy < dimY * scalar && cx < dimX * scalar) {
+		if ((cz == 0 && cy < dimY * scalar && cx < dimX * scalar) || (cz == 1 && cy < ((dimY * scalar) / 2) && cx < dimX * scalar)) {
+			p010Array[static_cast<int>(cz * dimY * dimX * scalar + cy * dimX * scalar + cx)] = static_cast<unsigned short>(nv12Array[cz * dimY * dimX + cy * dimX + cx]) << 8;
 		}
 	}
 }
