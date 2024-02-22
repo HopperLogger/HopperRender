@@ -14,8 +14,9 @@ public:
 	* 
 	* @param dimY: The height of the frame
 	* @param dimX: The width of the frame
+	* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
 	*/
-	void init(unsigned int dimY, unsigned int dimX);
+	void init(unsigned int dimY, unsigned int dimX, const double dDimScalar);
 
 	/*
 	* Returns whether the optical flow calculation is initialized

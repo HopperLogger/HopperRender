@@ -136,7 +136,11 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_iNumSamples(1),
 	m_rtAvgSourceFrameTime(0),
 	m_rtCurrPlaybackFrameTime(0),
-	m_dCurrCalcDuration(0) {
+	m_dCurrCalcDuration(0),
+	m_bFirstFrame(true),
+	m_dDimScalar(1.0),
+	m_iDimX(1),
+	m_iDimY(1) {
 }
 
 
@@ -191,15 +195,6 @@ HRESULT CHopperRender::CheckTransform(const CMediaType* mtIn, const CMediaType* 
 	CheckPointer(mtOut, E_POINTER)
 
 	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) && IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) && IsEqualGUID(*mtOut->Subtype(), MEDIASUBTYPE_P010)) {
-		auto pvi = (VIDEOINFOHEADER2*)mtIn->Format();
-		m_rtAvgSourceFrameTime = pvi->AvgTimePerFrame;
-		const unsigned int dimX = pvi->bmiHeader.biWidth;
-		const unsigned int dimY = pvi->bmiHeader.biHeight;
-
-		// Initialize the Optical Flow Calculator
-		if (!m_ofcOpticalFlowCalc.isInitialized()) {
-			m_ofcOpticalFlowCalc.init(dimY, dimX);
-		}
 		return NOERROR;
 	}
 	return E_FAIL;
@@ -309,6 +304,54 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) const {
 	pMediaType->SetTemporalCompression(0);
 
 	return NOERROR;
+}
+
+
+// Retrieves the filter's settings
+IBaseFilter* GetFilterFromPin(IPin* pPin)
+{
+	CheckPointer(pPin, nullptr);
+
+	PIN_INFO pi;
+	if (pPin && SUCCEEDED(pPin->QueryPinInfo(&pi)))
+	{
+		return pi.pFilter;
+	}
+
+	return nullptr;
+}
+
+
+// Completes the pin connection process
+HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
+	if (dir == PINDIR_OUTPUT) {
+		// Check if we're connecting to madVR
+		IBaseFilter* pFilter = GetFilterFromPin(pReceivePin);
+		if (pFilter != nullptr) {
+			CLSID guid;
+			if (SUCCEEDED(pFilter->GetClassID(&guid))) {
+				if (guid == CLSID_madVR) {
+					m_dDimScalar = 16.0 / 15.0;
+				}
+				else {
+					m_dDimScalar = 1.0;
+				}
+			}
+			pFilter->Release();
+		}
+
+		// Get the frame dimensions and frame rate
+		auto pvi = (VIDEOINFOHEADER2*)m_pInput->CurrentMediaType().Format();
+		m_rtAvgSourceFrameTime = pvi->AvgTimePerFrame;
+		m_iDimX = pvi->bmiHeader.biWidth;
+		m_iDimY = pvi->bmiHeader.biHeight;
+
+		// Initialize the Optical Flow Calculator
+		if (!m_ofcOpticalFlowCalc.isInitialized()) {
+			m_ofcOpticalFlowCalc.init(m_iDimY, m_iDimX, m_dDimScalar);
+		}
+	}
+	return __super::CompleteConnect(dir, pReceivePin);
 }
 
 
@@ -541,7 +584,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 				return hr;
 			}
 		} else {
-			CopyFrame(pInBuffer, pOutNewBuffer, lInSize, lOutSize);
+			CopyFrame(pInBuffer, pOutNewBuffer);
 		}
 
 		// Deliver the new output sample downstream
@@ -561,9 +604,9 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 
 
 // Copies an NV12 frame to a P010 frame
-HRESULT CHopperRender::CopyFrame(BYTE* pInBuffer, BYTE* pOutBuffer, long lInSize, long lOutSize) {
-	m_ofcOpticalFlowCalc.updateFrame1(pInBuffer);
-	m_ofcOpticalFlowCalc.m_frame1.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame);
+HRESULT CHopperRender::CopyFrame(BYTE* pInBuffer, BYTE* pOutBuffer) {
+	m_ofcOpticalFlowCalc.m_frame1.fillData(pInBuffer);
+	m_ofcOpticalFlowCalc.m_frame1.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame, m_dDimScalar);
 	m_ofcOpticalFlowCalc.m_outputFrame.download(pOutBuffer);
 	return NOERROR;
 }
@@ -586,6 +629,15 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
 		m_bBisNewest = !m_bBisNewest;
 	}
 
+	// If this is the very first frame, we can't interpolate
+	if (m_bFirstFrame) {
+		if (m_iFrameCounter > 1) {
+			m_bFirstFrame = false;
+		}
+		return CopyFrame(pInBuffer, pOutBuffer);
+	}
+
+	// Calculate the optical flow in both directions and blur it
 	if (iIntFrameNum == 0) {
 		// Calculate the optical flow (frame 1 to frame 2)
 		m_ofcOpticalFlowCalc.calculateOpticalFlow(m_iNumIterations, m_iNumSteps);
@@ -614,16 +666,18 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
 		m_ofcOpticalFlowCalc.blendFrames(dScalar);
 	}
 
-	// Download the result to the Output Sample
+	// Convert the results to P010
 	if (m_iFrameOutput == 0) {
-		m_ofcOpticalFlowCalc.m_warpedFrame12.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame);
+		m_ofcOpticalFlowCalc.m_warpedFrame12.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame, m_dDimScalar);
 	} else if (m_iFrameOutput == 1) {
-		m_ofcOpticalFlowCalc.m_warpedFrame21.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame);
+		m_ofcOpticalFlowCalc.m_warpedFrame21.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame, m_dDimScalar);
 	} else if (m_iFrameOutput == 2) {
-		m_ofcOpticalFlowCalc.m_blendedFrame.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame);
+		m_ofcOpticalFlowCalc.m_blendedFrame.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame, m_dDimScalar);
 	} else {
 		m_ofcOpticalFlowCalc.drawFlowAsHSV(1.0, 1.0, 0.4); // TODO Implement RGB to P010 conversion
 	}
+
+	// Download the result to the output buffer
 	m_ofcOpticalFlowCalc.m_outputFrame.download(pOutBuffer);
 
 	// Adjust the settings to process everything fast enough

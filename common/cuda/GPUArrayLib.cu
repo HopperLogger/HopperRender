@@ -56,17 +56,15 @@ __global__ void setArrayEntriesInRange(T* arrayPtrGPU, T value, const unsigned i
 }
 
 // Kernel that converts an NV12 array to a P010 array
-__global__ void convertNV12toP010Kernel(const unsigned char* nv12Array, unsigned short* p010Array, const unsigned int dimY, const unsigned int dimX) {
+__global__ void convertNV12toP010Kernel(const unsigned char* nv12Array, unsigned short* p010Array, const unsigned int dimY, const unsigned int dimX, const double dDimScalar) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = threadIdx.z;
 
-	constexpr double scalar = 16.0 / 15.0;
-
-	if (cz < 2 && cy < dimY * scalar && cx < dimX * scalar) {
-		if ((cz == 0 && cy < dimY * scalar && cx < dimX * scalar) || (cz == 1 && cy < ((dimY * scalar) / 2) && cx < dimX * scalar)) {
-			p010Array[static_cast<int>(cz * dimY * dimX * scalar + cy * dimX * scalar + cx)] = static_cast<unsigned short>(nv12Array[cz * dimY * dimX + cy * dimX + cx]) << 8;
+	if (cz < 2 && cy < dimY * dDimScalar && cx < dimX * dDimScalar) {
+		if ((cz == 0 && cy < dimY * dDimScalar && cx < dimX * dDimScalar) || (cz == 1 && cy < ((dimY * dDimScalar) / 2) && cx < dimX * dDimScalar)) {
+			p010Array[static_cast<int>(cz * dimY * dimX * dDimScalar + cy * dimX * dDimScalar + cx)] = static_cast<unsigned short>(nv12Array[cz * dimY * dimX + cy * dimX + cx]) << 8;
 		}
 	}
 }
@@ -434,8 +432,9 @@ void GPUArray<T>::print<S>(const unsigned int startIdx, const int numElements) {
 * Converts the array from NV12 to P010 format
 *
 * @param p010Array: Pointer to the P010 array
+* @param dDimScalar: Scalar to scale the frame dimensions with depending on the renderer used
 */
-void GPUArray<unsigned char>::convertNV12toP010(const GPUArray<unsigned short>* p010Array) {
+void GPUArray<unsigned char>::convertNV12toP010(const GPUArray<unsigned short>* p010Array, const double dDimScalar) {
 	// Check if the array is on the GPU
 	if (!isOnGPU) {
 		toGPU();
@@ -451,7 +450,7 @@ void GPUArray<unsigned char>::convertNV12toP010(const GPUArray<unsigned short>* 
 	dim3 threads(NUM_THREADS, NUM_THREADS, 2);
 
 	// Set the array entries to the provided value
-	convertNV12toP010Kernel << <grid, threads >> >(arrayPtrGPU, p010Array->arrayPtrGPU, dimY, dimX);
+	convertNV12toP010Kernel << <grid, threads >> >(arrayPtrGPU, p010Array->arrayPtrGPU, dimY, dimX, dDimScalar);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();

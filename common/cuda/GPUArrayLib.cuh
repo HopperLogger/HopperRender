@@ -138,6 +138,7 @@ public:
 	* Converts the array from NV12 to P010 format
 	*
 	* @param p010Array: Pointer to the P010 array
+	* @param dDimScalar: Scalar to scale the frame dimensions with depending on the renderer used
 	*/
-	void convertNV12toP010(const GPUArray<unsigned short>* p010Array);
+	void convertNV12toP010(const GPUArray<unsigned short>* p010Array, const double dDimScalar);
 };

@@ -542,8 +542,9 @@ OpticalFlowCalc::OpticalFlowCalc() = default;
 *
 * @param dimY: The height of the frame
 * @param dimX: The width of the frame
+* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
 */
-void OpticalFlowCalc::init(const unsigned int dimY, const unsigned int dimX) {
+void OpticalFlowCalc::init(const unsigned int dimY, const unsigned int dimX, const double dDimScalar) {
 	grid.x = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
 	grid.y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
 	grid.z = 1;
@@ -572,7 +573,7 @@ void OpticalFlowCalc::init(const unsigned int dimY, const unsigned int dimX) {
 	m_warpedFrame12.init({1, dimY, dimX}, 0, 1.5 * dimY * dimX);
 	m_warpedFrame21.init({1, dimY, dimX}, 0, 1.5 * dimY * dimX);
 	m_blendedFrame.init({1, dimY, dimX}, 0, 1.5 * dimY * dimX);
-	m_outputFrame.init({1, dimY, dimX}, 0, 3 * dimY * dimX * 16.0 / 15.0);
+	m_outputFrame.init({1, dimY, dimX}, 0, 3 * dimY * dimX * dDimScalar);
 	m_hitCount.init({1, dimY, dimX});
 	m_ones.init({1, dimY, dimX}, 1);
 	m_iWindowDimX = dimX;
