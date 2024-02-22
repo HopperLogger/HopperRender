@@ -73,4 +73,6 @@ private:
 	double m_dDimScalar; // The scalar to scale the frame dimensions with depending on the renderer used
 	unsigned int m_iDimX; // The width of the frame
 	unsigned int m_iDimY; // The height of the frame
+	double m_dResolutionScalar; // The scalar to scale the resolution with
+	double m_dResolutionDivider; // The divider to scale the resolution with
 };

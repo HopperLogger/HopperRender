@@ -1,3 +1,5 @@
 ﻿  HopperRender.cpp
 C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\HopperRender\HopperRender.cpp(125,14): warning C4305: 'initializing': truncation from 'int' to 'bool'
+  HopperRenderSettings.cpp
+  Generating Code...
   HopperRender.vcxproj -> C:\Users\Julian Reichen\OneDrive\RWTH\Own Programs\2023-10-24 - HopperRender DShow\x64\Debug\HopperRender.dll
