@@ -15,8 +15,9 @@ public:
 	* @param dimY: The height of the frame
 	* @param dimX: The width of the frame
 	* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
+	* @param resolutionDivider: The scalar to divide the resolution with
 	*/
-	void init(unsigned int dimY, unsigned int dimX, const double dDimScalar);
+	void init(unsigned int dimY, unsigned int dimX, const double dDimScalar, const double resolutionDivider);
 
 	/*
 	* Returns whether the optical flow calculation is initialized
@@ -40,22 +41,27 @@ public:
 	*
 	* @param iNumIterations: Number of iterations to calculate the optical flow
 	* @param iNumSteps: Number of steps executed to find the ideal offset (limits the maximum offset)
+	* @param resolutionScalar: The scalar to scale the resolution with
 	*/
-	void calculateOpticalFlow(unsigned int iNumIterations, unsigned int iNumSteps);
+	void calculateOpticalFlow(unsigned int iNumIterations, unsigned int iNumSteps, const double resolutionScalar);
 
 	/*
 	* Warps frame1 according to the offset array to frame2
 	*
 	* @param dScalar: The scalar to blend the frames with
+	* @param resolutionScalar: The scalar to scale the resolution with
+	* @param resolutionDivider: The scalar to divide the resolution with
 	*/
-	void warpFrame12(double dScalar);
+	void warpFrame12(double dScalar, const double resolutionScalar, const double resolutionDivider);
 
 	/*
 	* Warps frame2 according to the offset array to frame1
 	*
 	* @param dScalar: The scalar to blend the frames with
+	* @param resolutionScalar: The scalar to scale the resolution with
+	* @param resolutionDivider: The scalar to divide the resolution with
 	*/
-	void warpFrame21(double dScalar);
+	void warpFrame21(double dScalar, const double resolutionScalar, const double resolutionDivider);
 
 	/*
 	* Blends warpedFrame1 to warpedFrame2
@@ -86,7 +92,7 @@ public:
 
 	// The number of cuda threads needed
 	dim3 grid;
-	dim3 threads3;
+	dim3 highGrid;
 	dim3 threads2;
 	dim3 threads1;
 
