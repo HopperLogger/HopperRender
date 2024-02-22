@@ -25,6 +25,7 @@ public:
 	HRESULT DecideBufferSize(IMemAllocator* pAlloc,
 	                         ALLOCATOR_PROPERTIES* ppropInputRequest) override;
 	HRESULT GetMediaType(int iPosition, CMediaType* pMediaType) override;
+	HRESULT CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) override;
 	HRESULT Transform(IMediaSample* pIn, IMediaSample* pOut) override;
 	HRESULT NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) override;
 
@@ -45,7 +46,7 @@ private:
 
 	HRESULT UpdateVideoInfoHeader(CMediaType* pMediaType) const;
 	HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget);
-	HRESULT CopyFrame(BYTE* pInBuffer, BYTE* pOutBuffer, long lInSize, long lOutSize);
+	HRESULT CopyFrame(BYTE* pInBuffer, BYTE* pOutBuffer);
 	HRESULT InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, double dScalar, int iIntFrameNum);
 
 	CCritSec m_csHopperRenderLock; // Private play critical section
@@ -68,4 +69,8 @@ private:
 	std::chrono::time_point<std::chrono::high_resolution_clock> m_tpCurrCalcStart; // The start time of the current calculation
 	std::chrono::time_point<std::chrono::high_resolution_clock> m_tpCurrCalcEnd; // The end time of the current calculation
 	double m_dCurrCalcDuration; // The duration of the current calculation
+	bool m_bFirstFrame; // Whether the current frame is the first frame
+	double m_dDimScalar; // The scalar to scale the frame dimensions with depending on the renderer used
+	unsigned int m_iDimX; // The width of the frame
+	unsigned int m_iDimY; // The height of the frame
 };
