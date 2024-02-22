@@ -85,6 +85,15 @@
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
     <ResourceCompile Include="Version.rc" />
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc">
       <Filter>Resource Files</Filter>

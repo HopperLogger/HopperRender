@@ -375,6 +375,7 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 
 // Called when a new segment is started
 HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) {
+	// Calculate the current playback frame time
 	m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(static_cast<double>(m_rtAvgSourceFrameTime) * (1.0 /
 		dRate));
 
@@ -416,8 +417,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 		return hr;
 	}
 
-	// Get the size of the samples
-	const long lInSize = pIn->GetActualDataLength();
+	// Get the size of the output sample
 	const long lOutSize = pOut->GetActualDataLength();
 
 	// Get the presentation times for the new output sample
@@ -521,7 +521,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 
 		// Copy the media type
 		AM_MEDIA_TYPE* pMediaType;
-		hr = pIn->GetMediaType(&pMediaType);
+		hr = pOut->GetMediaType(&pMediaType);
 		if (FAILED(hr)) {
 			return hr;
 		}
@@ -570,12 +570,6 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 		if (FAILED(hr)) {
 			return hr;
 		}
-
-		// Set the new media type
-		CMediaType& mt = m_pOutput->CurrentMediaType();
-		AM_MEDIA_TYPE* sendmt = CreateMediaType(&mt);
-		pOutNew->SetMediaType(sendmt);
-		DeleteMediaType(sendmt);
 
 		// Interpolate the frame if necessary
 		if (m_bIntNeeded) {
@@ -674,7 +668,8 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
 	} else if (m_iFrameOutput == 2) {
 		m_ofcOpticalFlowCalc.m_blendedFrame.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame, m_dDimScalar);
 	} else {
-		m_ofcOpticalFlowCalc.drawFlowAsHSV(1.0, 1.0, 0.4); // TODO Implement RGB to P010 conversion
+		m_ofcOpticalFlowCalc.drawFlowAsHSV(1.0, 1.0);
+		m_ofcOpticalFlowCalc.m_blendedFrame.convertNV12toP010(&m_ofcOpticalFlowCalc.m_outputFrame, m_dDimScalar);
 	}
 
 	// Download the result to the output buffer
