@@ -69,9 +69,8 @@ public:
 	*
 	* @param saturation: The saturation of the flow image
 	* @param value: The value of the flow image
-	* @param threshold: The threshold to use for the flow image
 	*/
-	void drawFlowAsHSV(double saturation, double value, float threshold) const;
+	void drawFlowAsHSV(double saturation, double value) const;
 
 	/*
 	* Translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
@@ -106,7 +105,6 @@ public:
 	GPUArray<int> m_offsetArray21; // Array containing x,y offsets for each pixel of frame2
 	GPUArray<int> m_blurredOffsetArray12; // Array containing x,y offsets for each pixel of frame1
 	GPUArray<int> m_blurredOffsetArray21; // Array containing x,y offsets for each pixel of frame2
-	GPUArray<unsigned char> m_rgboffsetArray; // Array containing the x,y offsets for each pixel of frame1 in rgb format
 	GPUArray<int> m_statusArray; // Array containing the calculation status of each pixel of frame1
 	GPUArray<unsigned int> m_summedUpDeltaArray; // Array containing the summed up delta values of each window
 	GPUArray<float> m_normalizedDeltaArrayA; // Array containing the normalized delta values of each window

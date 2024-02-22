@@ -22,10 +22,9 @@ __global__ void calcImageDelta(const unsigned char* frame1, const unsigned char*
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = threadIdx.z;
 
 	// Y Channel
-	if (cz == 0 && cy < dimY && cx < dimX) {
+	if (cy < dimY && cx < dimX) {
 		// Get the current offsets to use
 		const int offsetX = -static_cast<int>(static_cast<double>(offsetArray[cy * dimX + cx]));
 		const int offsetY = -static_cast<int>(static_cast<double>(offsetArray[dimY * dimX + cy * dimX + cx]));
@@ -39,29 +38,6 @@ __global__ void calcImageDelta(const unsigned char* frame1, const unsigned char*
 			const int newCy = fminf(fmaxf(cy + offsetY, 0), dimY - 1);
 			imageDeltaArray[cy * dimX + cx] = fabsf(frame1[newCy * dimX + newCx] - frame2[cy * dimX + cx]);
 		}
-
-	// U/V Channels
-	} else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
-		const int offsetX = -static_cast<int>(static_cast<double>(offsetArray[2 * cy * dimX + (cx / 2) * 2]));
-		const int offsetY = -static_cast<int>(static_cast<double>(offsetArray[dimY * dimX + 2 * cy * dimX + (cx / 2) * 2]) / 2.0);
-
-		// Current pixel is outside of frame
-		if ((cy + offsetY < 0) || (cx + offsetX < 0) || (cy + offsetY > dimY / 2) || (cx + offsetX > dimX)) {
-			imageDeltaArray[dimY * dimX + cy * dimX + cx] = 0;
-		// Current pixel is inside of frame
-		} else {
-			const int newCx = fminf(fmaxf(cx + offsetX, 0), dimX - 1);
-			const int newCy = fminf(fmaxf(cy + offsetY, 0), (dimY / 2) - 1);
-
-			// U Channel
-			if (cx % 2 == 0) {
-				imageDeltaArray[dimY * dimX + cy * dimX + (cx / 2) * 2] = fabsf(frame1[dimY * dimX + newCy * dimX + (newCx / 2) * 2] - frame2[dimY * dimX + cy * dimX + (cx / 2) * 2]);
-
-			// V Channel
-			} else {
-				imageDeltaArray[dimY * dimX + cy * dimX + (cx / 2) * 2 + 1] = fabsf(frame1[dimY * dimX + newCy * dimX + (newCx / 2) * 2 + 1] - frame2[dimY * dimX + cy * dimX + (cx / 2) * 2 + 1]);
-			}
-		}
 	}
 }
 
@@ -72,26 +48,13 @@ __global__ void calcDeltaSums(unsigned char* imageDeltaArray, unsigned int* summ
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = threadIdx.z;
 	const unsigned int windowIndexX = cx / windowDimX;
 	const unsigned int windowIndexY = cy / windowDimY;
 
 	// Check if the thread is inside the frame
-	if (cz < 2 && cy < dimY && cx < dimX) {
-		// Y Channel
-		if (cz == 0) {
-			atomicAdd(&summedUpDeltaArray[(windowIndexY * windowDimY) * dimX + (windowIndexX * windowDimX)],
-		          imageDeltaArray[cy * dimX + cx]);
-		// U Channel
-		} else if (cx % 2 == 0 && cy < dimY / 2) {
-			atomicAdd(&summedUpDeltaArray[(windowIndexY * windowDimY) * dimX + (windowIndexX * windowDimX)],
-			          imageDeltaArray[dimY * dimX + cy * dimX + (cx / 2) * 2]);
-		// V Channel
-		} else if (cy < dimY / 2) {
-			atomicAdd(&summedUpDeltaArray[(windowIndexY * windowDimY) * dimX + (windowIndexX * windowDimX)],
-			          imageDeltaArray[dimY * dimX + cy * dimX + (cx / 2) * 2 + 1]);
-		}
-		
+	if (cy < dimY && cx < dimX) {
+		atomicAdd(&summedUpDeltaArray[(windowIndexY * windowDimY) * dimX + (windowIndexX * windowDimX)],
+			imageDeltaArray[cy * dimX + cx]);
 	}
 }
 
@@ -397,22 +360,23 @@ __global__ void blendFrameKernel(const unsigned char* frame1, const unsigned cha
 }
 
 // Kernel that creates an HSV flow image from the offset array
-__global__ void convertFlowToHSVKernel(const int* flowArray, unsigned char* RGBArray, const unsigned int dimZ,
+__global__ void convertFlowToHSVKernel(const int* flowArray, unsigned char* nv12Array,
                                        const unsigned int dimY, const unsigned int dimX, const double saturation,
-                                       const double value, const float threshold) {
+                                       const double value) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = threadIdx.z;
 
 	// Get the current flow values
-	const double x = flowArray[cy * dimX + cx];
-	const double y = flowArray[dimY * dimX + cy * dimX + cx];
-
-	// Check if the flow is below the threshold
-	if (fabsf(x) < threshold && fabsf(y) < threshold) {
-		RGBArray[cz + (3 * cy * dimX) + (3 * cx)] = 0;
-		return;
+	double x = 0.0;
+	double y = 0.0;
+	if (cz == 0) {
+		x = flowArray[cy * dimX + cx];
+		y = flowArray[dimY * dimX + cy * dimX + cx];
+	} else {
+		x = flowArray[cy * 2 * dimX + (cx / 2) * 2];
+		y = flowArray[dimY * dimX + cy * 2 * dimX + (cx / 2) * 2];
 	}
 
 	// RGB struct
@@ -466,16 +430,16 @@ __global__ void convertFlowToHSVKernel(const int* flowArray, unsigned char* RGBA
 	}
 
 	// Write the RGB values to the array
-	if (cz < dimZ && cy < dimY && cx < dimX) {
-		// Blue
+	if (cz < 2 && cy < dimY && cx < dimX) {
+		// Y Channel
 		if (cz == 0) {
-			RGBArray[cz + (3 * cy * dimX) + (3 * cx)] = fminf(rgb.b, 255);
-			// Green
-		} else if (cz == 1) {
-			RGBArray[cz + (3 * cy * dimX) + (3 * cx)] = fminf(rgb.g, 255);
-			// Red
-		} else {
-			RGBArray[cz + (3 * cy * dimX) + (3 * cx)] = fminf(rgb.r, 255);
+			nv12Array[cy * dimX + cx] = static_cast<unsigned char>(fmaxf(fminf(0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b, 255), 0));
+		// U Channel
+		} else if (cz == 1 && cx % 2 == 0 && cy < dimY / 2) {
+			nv12Array[dimY * dimX + cy * dimX + (cx / 2) * 2] = static_cast<unsigned char>(fmaxf(fminf(-0.147 * rgb.r - 0.289 * rgb.g + 0.436 * rgb.b, 255), 0));
+		// V Channel
+		} else if (cy < dimY / 2) {
+			nv12Array[dimY * dimX + cy * dimX + (cx / 2) * 2 + 1] = static_cast<unsigned char>(fmaxf(fminf(0.615 * rgb.r - 0.515 * rgb.g - 0.100 * rgb.b, 255), 0));
 		}
 	}
 }
@@ -559,12 +523,11 @@ void OpticalFlowCalc::init(const unsigned int dimY, const unsigned int dimX, con
 	threads1.z = 1;
 	m_frame1.init({1, dimY, dimX}, 0, 1.5 * dimY * dimX);
 	m_frame2.init({1, dimY, dimX}, 0, 1.5 * dimY * dimX);
-	m_imageDeltaArray.init({1, dimY, dimX}, 0, 1.5 * dimY * dimX);
+	m_imageDeltaArray.init({1, dimY, dimX});
 	m_offsetArray12.init({2, dimY, dimX});
 	m_offsetArray21.init({2, dimY, dimX});
 	m_blurredOffsetArray12.init({2, dimY, dimX});
 	m_blurredOffsetArray21.init({2, dimY, dimX});
-	m_rgboffsetArray.init({1, dimY, dimX}, 0, 1.5 * dimY * dimX);
 	m_statusArray.init({dimY, dimX});
 	m_summedUpDeltaArray.init({dimY, dimX});
 	m_normalizedDeltaArrayA.init({dimY, dimX});
@@ -614,8 +577,6 @@ void OpticalFlowCalc::updateFrame2(const BYTE* pInBuffer) {
 * @param iNumSteps: Number of steps executed to find the ideal offset (limits the maximum offset)
 */
 void OpticalFlowCalc::calculateOpticalFlow(unsigned int iNumIterations, unsigned int iNumSteps) {
-	const auto start = std::chrono::high_resolution_clock::now();
-
 	// Reset variables
 	m_iWindowDimX = m_frame1.dimX;
 	m_iWindowDimY = m_frame1.dimY;
@@ -634,16 +595,16 @@ void OpticalFlowCalc::calculateOpticalFlow(unsigned int iNumIterations, unsigned
 		for (unsigned int step = 0; step < iNumSteps; step++) {
 			// 1. Calculate the image deltas with the current offset array
 			if (m_bBisNewest) {
-				calcImageDelta << <grid, threads2 >> >(m_frame1.arrayPtrGPU, m_frame2.arrayPtrGPU,
+				calcImageDelta << <grid, threads1 >> >(m_frame1.arrayPtrGPU, m_frame2.arrayPtrGPU,
 				                                       m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
 				                                       m_frame1.dimY, m_frame1.dimX);
 			} else {
-				calcImageDelta << <grid, threads2 >> >(m_frame2.arrayPtrGPU, m_frame1.arrayPtrGPU,
+				calcImageDelta << <grid, threads1 >> >(m_frame2.arrayPtrGPU, m_frame1.arrayPtrGPU,
 				                                       m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
 				                                       m_frame1.dimY, m_frame1.dimX);
 			}
 			// 2. Sum up the deltas of each window
-			calcDeltaSums << <grid, threads2 >> >(m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU,
+			calcDeltaSums << <grid, threads1 >> >(m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU,
 			                                      m_iWindowDimY, m_iWindowDimX, m_frame1.dimY, m_frame1.dimX);
 
 			// Switch between the two normalized delta arrays to avoid copying
@@ -701,9 +662,6 @@ void OpticalFlowCalc::calculateOpticalFlow(unsigned int iNumIterations, unsigned
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
 	}
-
-	const auto stop = std::chrono::high_resolution_clock::now();
-	const auto duration = std::chrono::duration<double, std::milli>(stop - start).count();
 }
 
 /*
@@ -712,8 +670,6 @@ void OpticalFlowCalc::calculateOpticalFlow(unsigned int iNumIterations, unsigned
 * @param offsetArray: The array containing the offsets
 */
 void OpticalFlowCalc::warpFrame12(double dScalar) {
-	const auto start = std::chrono::high_resolution_clock::now();
-
 	// Calculate the blend scalar
 	const double frameScalar = dScalar;
 
@@ -742,10 +698,6 @@ void OpticalFlowCalc::warpFrame12(double dScalar) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
 	}
-
-	const auto stop = std::chrono::high_resolution_clock::now();
-	const auto duration = std::chrono::duration<double, std::milli>(stop - start).count();
-	//CudaDebugMessage("\nWarp Time: " + std::to_string(duration) + " milliseconds");
 }
 
 /*
@@ -754,8 +706,6 @@ void OpticalFlowCalc::warpFrame12(double dScalar) {
 * @param offsetArray: The array containing the offsets
 */
 void OpticalFlowCalc::warpFrame21(double dScalar) {
-	const auto start = std::chrono::high_resolution_clock::now();
-
 	// Calculate the blend scalar
 	const double frameScalar = 1.0 - dScalar;
 
@@ -784,10 +734,6 @@ void OpticalFlowCalc::warpFrame21(double dScalar) {
 		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
 		exit(-1);
 	}
-
-	const auto stop = std::chrono::high_resolution_clock::now();
-	const auto duration = std::chrono::duration<double, std::milli>(stop - start).count();
-	//CudaDebugMessage("\nWarp Time: " + std::to_string(duration) + " milliseconds");
 }
 
 /*
@@ -821,14 +767,11 @@ void OpticalFlowCalc::blendFrames(double dScalar) {
 *
 * @param saturation: The saturation of the flow image
 * @param value: The value of the flow image
-* @param threshold: The threshold to use for the flow image
 */
-void OpticalFlowCalc::drawFlowAsHSV(const double saturation, const double value,
-                                        const float threshold) const {
+void OpticalFlowCalc::drawFlowAsHSV(const double saturation, const double value) const {
 	// Launch kernel
-	convertFlowToHSVKernel << <grid, threads3 >> >(m_blurredOffsetArray12.arrayPtrGPU, m_rgboffsetArray.arrayPtrGPU, 3,
-	                                               m_offsetArray12.dimY, m_offsetArray12.dimX, saturation, value,
-	                                               threshold);
+	convertFlowToHSVKernel << <grid, threads2 >> >(m_blurredOffsetArray12.arrayPtrGPU, m_blendedFrame.arrayPtrGPU,
+	                                               m_offsetArray12.dimY, m_offsetArray12.dimX, saturation, value);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
