@@ -348,7 +348,7 @@ HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
 
 		// Initialize the Optical Flow Calculator
 		if (!m_ofcOpticalFlowCalc.isInitialized()) {
-			m_ofcOpticalFlowCalc.init(m_iDimY, m_iDimX, m_dDimScalar);
+			m_ofcOpticalFlowCalc.init(m_iDimY, m_iDimX, m_dDimScalar, 1);
 		}
 	}
 	return __super::CompleteConnect(dir, pReceivePin);
@@ -634,7 +634,7 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
 	// Calculate the optical flow in both directions and blur it
 	if (iIntFrameNum == 0) {
 		// Calculate the optical flow (frame 1 to frame 2)
-		m_ofcOpticalFlowCalc.calculateOpticalFlow(m_iNumIterations, m_iNumSteps);
+		m_ofcOpticalFlowCalc.calculateOpticalFlow(m_iNumIterations, m_iNumSteps, 1);
 
 		// Flip the flow array to frame 2 to frame 1
 		if (m_iFrameOutput == 1 || m_iFrameOutput == 2) {
@@ -647,12 +647,12 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
 
 	// Warp frame 1 to frame 2
 	if (m_iFrameOutput == 0 || m_iFrameOutput == 2) {
-		m_ofcOpticalFlowCalc.warpFrame12(dScalar);
+		m_ofcOpticalFlowCalc.warpFrame12(dScalar, 1, 1);
 	}
 
 	// Warp frame 2 to frame 1
 	if (m_iFrameOutput == 1 || m_iFrameOutput == 2) {
-		m_ofcOpticalFlowCalc.warpFrame21(dScalar);
+		m_ofcOpticalFlowCalc.warpFrame21(dScalar, 1, 1);
 	}
 
 	// Blend the frames together
