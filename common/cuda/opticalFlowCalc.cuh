@@ -93,6 +93,7 @@ public:
 	// The number of cuda threads needed
 	dim3 grid;
 	dim3 highGrid;
+	dim3 threads5;
 	dim3 threads2;
 	dim3 threads1;
 
@@ -113,9 +114,8 @@ public:
 	GPUArray<int> m_blurredOffsetArray21; // Array containing x,y offsets for each pixel of frame2
 	GPUArray<int> m_statusArray; // Array containing the calculation status of each pixel of frame1
 	GPUArray<unsigned int> m_summedUpDeltaArray; // Array containing the summed up delta values of each window
-	GPUArray<float> m_normalizedDeltaArrayA; // Array containing the normalized delta values of each window
-	GPUArray<float> m_normalizedDeltaArrayB; // Array containing the normalized delta values of each window
-	GPUArray<bool> m_isValueDecreasedArray; // Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
+	GPUArray<float> m_normalizedDeltaArray; // Array containing the normalized delta values of each window
+	GPUArray<unsigned char> m_lowestLayerArray; // Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
 	GPUArray<unsigned char> m_warpedFrame12; // Array containing the warped frame (frame 1 to frame 2)
 	GPUArray<unsigned char> m_warpedFrame21; // Array containing the warped frame (frame 2 to frame 1)
 	GPUArray<unsigned char> m_blendedFrame; // Array containing the blended frame
