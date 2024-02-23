@@ -714,7 +714,7 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
 		}
 
 		// Disable Interpolation if we are too slow
-		if (m_iNumSteps < 4) {
+		if (m_iNumSteps < 2) {
 			m_bIntNeeded = false;
 			m_bIntTooSlow = true;
 		}
