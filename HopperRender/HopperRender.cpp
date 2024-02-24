@@ -123,10 +123,10 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	CTransformFilter(tszName, punk, CLSID_HopperRender),
 	CPersistStream(punk, phr),
 	m_bActivated(IDC_ON),
-	m_iFrameOutput(2),
-	m_iNumIterations(0),
+	m_iFrameOutput(0),
+	m_iNumIterations(1),
 	m_iNumSteps(10),
-	m_iBlurKernelSize(4),
+	m_iBlurKernelSize(0),
 	m_lBufferRequest(32),
 	m_bBisNewest(true),
 	m_iFrameCounter(0),
@@ -612,6 +612,7 @@ HRESULT CHopperRender::CopyFrame(BYTE* pInBuffer, BYTE* pOutBuffer) {
 }
 
 
+// Interpolates a frame
 HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, double dScalar, int iIntFrameNum) {
 	// Note the calculation start time at the start of a new sample
 	if (iIntFrameNum == 0) {
@@ -682,7 +683,7 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
 	m_ofcOpticalFlowCalc.m_outputFrame.download(pOutBuffer);
 
 	// Adjust the settings to process everything fast enough
-	if (iIntFrameNum == 0) {
+	if (iIntFrameNum == (m_iNumSamples - 1)) {
 		m_tpCurrCalcEnd = std::chrono::high_resolution_clock::now();
 		m_dCurrCalcDuration = std::chrono::duration<double, std::milli>(m_tpCurrCalcEnd - m_tpCurrCalcStart).count();
 
