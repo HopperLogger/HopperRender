@@ -126,31 +126,59 @@ __global__ void compareArrays(const float* normalizedDeltaArray,
 
 // Kernel that sets the initial offset array
 __global__ void setInitialOffset(int* offsetArray, const unsigned int dimZ, const unsigned int dimY,
-								 const unsigned int dimX) {
+								 const unsigned int dimX, bool firstTime) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = threadIdx.z;
 
 	if (cz < dimZ && cy < dimY && cx < dimX) {
-		// Set the Y direction to 0
-		offsetArray[dimZ * dimY * dimX + cz * dimY * dimX + cy * dimX + cx] = 0;
+		// If it is the first time, set the default values
+		if (firstTime) {
+			// Set the Y direction to no offset
+			offsetArray[dimZ * dimY * dimX + cz * dimY * dimX + cy * dimX + cx] = 0;
 
-		// Set the X direction layer 0 to 0
-		if (cz == 0) {
-			offsetArray[cy * dimX + cx] = -2;
-		// Set the X direction layer 1 to 1
-		} else if (cz == 1) {
-			offsetArray[dimY * dimX + cy * dimX + cx] = -1;
-		// Set the X direction layer 2 to 2
-		} else if (cz == 2) {
-			offsetArray[2 * dimY * dimX + cy * dimX + cx] = 0;
-		// Set the X direction layer 3 to -1
-		} else if (cz == 3) {
-			offsetArray[3 * dimY * dimX + cy * dimX + cx] = 1;
-		// Set the X direction layer 4 to -2
-		} else if (cz == 4) {
-			offsetArray[4 * dimY * dimX + cy * dimX + cx] = 2;
+			// Set the X direction layer 0 to a -2 offset
+			if (cz == 0) {
+				offsetArray[cy * dimX + cx] = -2;
+			// Set the X direction layer 1 to a -1 offset
+			} else if (cz == 1) {
+				offsetArray[dimY * dimX + cy * dimX + cx] = -1;
+			// Set the X direction layer 2 to no offset
+			} else if (cz == 2) {
+				offsetArray[2 * dimY * dimX + cy * dimX + cx] = 0;
+			// Set the X direction layer 3 to a +1 offset
+			} else if (cz == 3) {
+				offsetArray[3 * dimY * dimX + cy * dimX + cx] = 1;
+			// Set the X direction layer 4 to a +2 offset
+			} else if (cz == 4) {
+				offsetArray[4 * dimY * dimX + cy * dimX + cx] = 2;
+			}
+
+		// If it is not the first time, shift the values relatively
+		} else {
+			const int currX = offsetArray[cy * dimX + cx];
+			const int currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
+
+			// Set all Y direction layers to the previous Y direction
+			offsetArray[dimZ * dimY * dimX + cz * dimY * dimX + cy * dimX + cx] = currY;
+
+			// Shift the X direction layer 0 by -2
+			if (cz == 0) {
+				offsetArray[cy * dimX + cx] = currX - 2;
+			// Shift the X direction layer 1 by -1
+			} else if (cz == 1) {
+				offsetArray[dimY * dimX + cy * dimX + cx] = currX - 1;
+			// Set the X direction layer 2 to the previous X direction
+			} else if (cz == 1) {
+				offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX;
+			// Shift the X direction layer 3 by +1
+			} else if (cz == 3) {
+				offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX + 1;
+			// Shift the X direction layer 4 by +2
+			} else if (cz == 4) {
+				offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX + 2;
+			}
 		}
 	}
 }
@@ -190,53 +218,61 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* lowestL
 				// If the lowest layer is 2, no x direction is needed -> continue to y direction
 				if (lowestLayer == 2) {
 					statusArray[cy * dimX + cx] = 3;
+					const int currX = offsetArray[2 * dimY * dimX + cy * dimX + cx];
+					const int currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
 					for (int z = 0; z < dimZ; z++) {
-						offsetArray[z * dimY * dimX + cy * dimX + cx] = 0;
+						offsetArray[z * dimY * dimX + cy * dimX + cx] = currX;
 					}
-					offsetArray[dimZ * dimY * dimX + 0 * dimY * dimX + cy * dimX + cx] = -2;
-					offsetArray[dimZ * dimY * dimX + 1 * dimY * dimX + cy * dimX + cx] = -1;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = 1;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = 2;
+					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY - 2;
+					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 1;
+					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
+					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY + 2;
 
 				// If the lowest layer is 1, ideal x direction found -> continue to y direction
 				} else if (lowestLayer == 1) {
 					statusArray[cy * dimX + cx] = 3;
-					offsetArray[0 * dimY * dimX + cy * dimX + cx] = -1;
-					offsetArray[2 * dimY * dimX + cy * dimX + cx] = -1;
-					offsetArray[3 * dimY * dimX + cy * dimX + cx] = -1;
-					offsetArray[4 * dimY * dimX + cy * dimX + cx] = -1;
-					offsetArray[dimZ * dimY * dimX + 0 * dimY * dimX + cy * dimX + cx] = -2;
-					offsetArray[dimZ * dimY * dimX + 1 * dimY * dimX + cy * dimX + cx] = -1;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = 1;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = 2;
+					const int currX = offsetArray[dimY * dimX + cy * dimX + cx];
+					const int currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
+					offsetArray[cy * dimX + cx] = currX;
+					offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX;
+					offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX;
+					offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX;
+					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY - 2;
+					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 1;
+					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
+					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY + 2;
 
 				// If the lowest layer is 3, ideal x direction found -> continue to y direction
 				} else if (lowestLayer == 3) {
 					statusArray[cy * dimX + cx] = 3;
-					offsetArray[0 * dimY * dimX + cy * dimX + cx] = 1;
-					offsetArray[1 * dimY * dimX + cy * dimX + cx] = 1;
-					offsetArray[2 * dimY * dimX + cy * dimX + cx] = 1;
-					offsetArray[4 * dimY * dimX + cy * dimX + cx] = 1;
-					offsetArray[dimZ * dimY * dimX + 0 * dimY * dimX + cy * dimX + cx] = -2;
-					offsetArray[dimZ * dimY * dimX + 1 * dimY * dimX + cy * dimX + cx] = -1;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = 1;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = 2;
+					const int currX = offsetArray[3 * dimY * dimX + cy * dimX + cx];
+					const int currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
+					offsetArray[cy * dimX + cx] = currX;
+					offsetArray[dimY * dimX + cy * dimX + cx] = currX;
+					offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX;
+					offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX;
+					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY - 2;
+					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 1;
+					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
+					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY + 2;
 
 				// If the lowest layer is 4 -> continue moving in the positive x direction
 				} else if (lowestLayer == 4) {
 					statusArray[cy * dimX + cx] = 1;
-					offsetArray[0 * dimY * dimX + cy * dimX + cx] = 6;
-					offsetArray[1 * dimY * dimX + cy * dimX + cx] = 5;
-					offsetArray[2 * dimY * dimX + cy * dimX + cx] = 4;
-					offsetArray[3 * dimY * dimX + cy * dimX + cx] = 3;
-					
+					const int currX = offsetArray[4 * dimY * dimX + cy * dimX + cx];
+					offsetArray[0 * dimY * dimX + cy * dimX + cx] = currX + 4;
+					offsetArray[1 * dimY * dimX + cy * dimX + cx] = currX + 3;
+					offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX + 2;
+					offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX + 1;
+
 				// If the lowest layer is 0 -> continue moving in the negative x direction
 				} else if (lowestLayer == 0) {
 					statusArray[cy * dimX + cx] = 2;
-					offsetArray[1 * dimY * dimX + cy * dimX + cx] = -3;
-					offsetArray[2 * dimY * dimX + cy * dimX + cx] = -4;
-					offsetArray[3 * dimY * dimX + cy * dimX + cx] = -5;
-					offsetArray[4 * dimY * dimX + cy * dimX + cx] = -6;
+					const int currX = offsetArray[cy * dimX + cx];
+					offsetArray[1 * dimY * dimX + cy * dimX + cx] = currX - 1;
+					offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX - 2;
+					offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX - 3;
+					offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX - 4;
 				}
 				break;
 
@@ -249,14 +285,15 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* lowestL
 					for (int z = 0; z < dimZ; z++) {
 						offsetArray[z * dimY * dimX + cy * dimX + cx] = idealX;
 					}
-					offsetArray[dimZ * dimY * dimX + 0 * dimY * dimX + cy * dimX + cx] = -2;
-					offsetArray[dimZ * dimY * dimX + 1 * dimY * dimX + cy * dimX + cx] = -1;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = 1;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = 2;
+					const int currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
+					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY - 2;
+					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 1;
+					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
+					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY + 2;
 
 				// If the lowest layer is 0 -> continue moving in x direction
 				} else {
-					int currX = offsetArray[cy * dimX + cx];
+					const int currX = offsetArray[cy * dimX + cx];
 					offsetArray[0 * dimY * dimX + cy * dimX + cx] = currX + 4;
 					offsetArray[1 * dimY * dimX + cy * dimX + cx] = currX + 3;
 					offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX + 2;
@@ -274,10 +311,11 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* lowestL
 					for (int z = 0; z < dimZ; z++) {
 						offsetArray[z * dimY * dimX + cy * dimX + cx] = idealX;
 					}
-					offsetArray[dimZ * dimY * dimX + 0 * dimY * dimX + cy * dimX + cx] = -2;
-					offsetArray[dimZ * dimY * dimX + 1 * dimY * dimX + cy * dimX + cx] = -1;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = 1;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = 2;
+					const int currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
+					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY - 2;
+					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 1;
+					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
+					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY + 2;
 
 				// If the lowest layer is 4 -> continue moving in x direction
 				} else {
@@ -295,36 +333,29 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* lowestL
 			*/
 			// Find the initial y direction
 			case 3:
-				// If the lowest layer is 2, no y direction is needed -> we are done
-				if (lowestLayer == 2) {
+				// If the lowest layer is 1,2, or 3, no y direction is needed -> we are done
+				if (lowestLayer == 1 || lowestLayer == 2 || lowestLayer == 3) {
 					statusArray[cy * dimX + cx] = 6;
-					offsetArray[dimZ * dimY * dimX + 0 * dimY * dimX + cy * dimX + cx] = 0;
-
-				// If the lowest layer is 1, ideal y direction found -> we are done
-				} else if (lowestLayer == 1) {
-					statusArray[cy * dimX + cx] = 6;
-					offsetArray[dimZ * dimY * dimX + 0 * dimY * dimX + cy * dimX + cx] = -1;
-
-				// If the lowest layer is 3, ideal y direction found -> we are done
-				} else if (lowestLayer == 3) {
-					statusArray[cy * dimX + cx] = 6;
-					offsetArray[dimZ * dimY * dimX + 0 * dimY * dimX + cy * dimX + cx] = 1;
+					const int currY = offsetArray[dimZ * dimY * dimX + lowestLayer * dimY * dimX + cy * dimX + cx];
+					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY;
 
 				// If the lowest layer is 4 -> continue moving in the positive y direction
 				} else if (lowestLayer == 4) {
 					statusArray[cy * dimX + cx] = 4;
-					offsetArray[dimZ * dimY * dimX + 0 * dimY * dimX + cy * dimX + cx] = 6;
-					offsetArray[dimZ * dimY * dimX + 1 * dimY * dimX + cy * dimX + cx] = 5;
-					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = 4;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = 3;
+					const int currY = offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx];
+					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY + 4;
+					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY + 3;
+					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = currY + 2;
+					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
 
 				// If the lowest layer is 0 -> continue moving in the negative y direction
 				} else if (lowestLayer == 0) {
 					statusArray[cy * dimX + cx] = 5;
-					offsetArray[dimZ * dimY * dimX + 1 * dimY * dimX + cy * dimX + cx] = -3;
-					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = -4;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = -5;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = -6;
+					const int currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
+					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 1;
+					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = currY - 2;
+					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY - 3;
+					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY - 4;
 				}
 				break;
 
@@ -334,13 +365,13 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* lowestL
 				if (lowestLayer != 0) {
 					statusArray[cy * dimX + cx] = 6;
 					int idealY = offsetArray[dimZ * dimY * dimX + lowestLayer * dimY * dimX + cy * dimX + cx];
-					offsetArray[dimZ * dimY * dimX + 0 * dimY * dimX + cy * dimX + cx] = idealY;
+					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = idealY;
 
 				// If the lowest layer is 0 -> continue moving in y direction
 				} else {
 					int currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
-					offsetArray[dimZ * dimY * dimX + 0 * dimY * dimX + cy * dimX + cx] = currY + 4;
-					offsetArray[dimZ * dimY * dimX + 1 * dimY * dimX + cy * dimX + cx] = currY + 3;
+					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY + 4;
+					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY + 3;
 					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = currY + 2;
 					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
 					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY;
@@ -353,13 +384,13 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* lowestL
 				if (lowestLayer != 4) {
 					statusArray[cy * dimX + cx] = 6;
 					int idealY = offsetArray[dimZ * dimY * dimX + lowestLayer * dimY * dimX + cy * dimX + cx];
-					offsetArray[dimZ * dimY * dimX + 0 * dimY * dimX + cy * dimX + cx] = idealY;
+					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = idealY;
 
 				// If the lowest layer is 4 -> continue moving in y direction
 				} else {
 					int currY = offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx];
-					offsetArray[dimZ * dimY * dimX + 0 * dimY * dimX + cy * dimX + cx] = currY;
-					offsetArray[dimZ * dimY * dimX + 1 * dimY * dimX + cy * dimX + cx] = currY - 1;
+					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY;
+					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 1;
 					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = currY - 2;
 					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY - 3;
 					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY - 4;
@@ -694,14 +725,16 @@ void OpticalFlowCalc::calculateOpticalFlow(unsigned int iNumIterations, unsigned
 		iNumIterations = ceil(log2f(m_imageDeltaArray.dimX));
 	}
 
-	// Reset the arrays
-	setInitialOffset << <grid, threads5 >> > (m_offsetArray12.arrayPtrGPU,
-											  m_imageDeltaArray.dimZ, m_imageDeltaArray.dimY,
-											  m_imageDeltaArray.dimX);
+	// Reset the delta array
 	m_summedUpDeltaArray.fill(0);
 
 	// We calculate the ideal offset array for each window size (entire frame, ..., individual pixels)
 	for (unsigned int iter = 0; iter < iNumIterations; iter++) {
+		// Set the starting offset for the current window size
+		setInitialOffset << <grid, threads5 >> > (m_offsetArray12.arrayPtrGPU,
+			m_imageDeltaArray.dimZ, m_imageDeltaArray.dimY,
+			m_imageDeltaArray.dimX, !iter);
+
 		// Each step we adjust the offset array to find the ideal offset
 		for (unsigned int step = 0; step < iNumSteps; step++) {
 			// 1. Calculate the image deltas with the current offset array
@@ -716,6 +749,7 @@ void OpticalFlowCalc::calculateOpticalFlow(unsigned int iNumIterations, unsigned
 												       m_imageDeltaArray.dimZ, m_imageDeltaArray.dimY,
 													   m_imageDeltaArray.dimX, resolutionScalar);
 			}
+
 			// 2. Sum up the deltas of each window
 			calcDeltaSums << <grid, threads5 >> >(m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU,
 			                                      m_iWindowDimY, m_iWindowDimX, m_imageDeltaArray.dimZ, 
@@ -735,7 +769,7 @@ void OpticalFlowCalc::calculateOpticalFlow(unsigned int iNumIterations, unsigned
 
 			// 5. Adjust the offset array based on the comparison results
 			if (true) {
-				adjustOffsetArray << <grid, threads5 >> > (m_offsetArray12.arrayPtrGPU,
+				adjustOffsetArray << <grid, threads1 >> > (m_offsetArray12.arrayPtrGPU,
 					m_lowestLayerArray.arrayPtrGPU, m_statusArray.arrayPtrGPU,
 					m_iCurrentGlobalOffset, m_iWindowDimY, m_iWindowDimX,
 					m_imageDeltaArray.dimZ, m_imageDeltaArray.dimY,
@@ -743,7 +777,7 @@ void OpticalFlowCalc::calculateOpticalFlow(unsigned int iNumIterations, unsigned
 			}
 
 			// Wait for all threads to finish
-			cudaDeviceSynchronize();
+			//cudaDeviceSynchronize();
 
 			// Reset the summed up delta array
 			m_summedUpDeltaArray.fill(0);
@@ -793,7 +827,7 @@ void OpticalFlowCalc::warpFrame12(double dScalar, const double resolutionScalar,
 	}
 
 	// Wait for all threads to finish
-	cudaDeviceSynchronize();
+	//cudaDeviceSynchronize();
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -831,7 +865,7 @@ void OpticalFlowCalc::warpFrame21(double dScalar, const double resolutionScalar,
 	}
 
 	// Wait for all threads to finish
-	cudaDeviceSynchronize();
+	//cudaDeviceSynchronize();
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -857,7 +891,7 @@ void OpticalFlowCalc::blendFrames(double dScalar) {
 	                                         m_warpedFrame12.dimY, m_warpedFrame12.dimX);
 
 	// Wait for all threads to finish
-	cudaDeviceSynchronize();
+	//cudaDeviceSynchronize();
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
