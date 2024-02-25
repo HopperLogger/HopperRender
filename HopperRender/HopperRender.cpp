@@ -649,7 +649,9 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
 		}
 
 		// Blur the flow arrays
-		m_ofcOpticalFlowCalc.blurFlowArrays(m_iBlurKernelSize);
+		if (m_iBlurKernelSize > 1) {
+			m_ofcOpticalFlowCalc.blurFlowArrays(m_iBlurKernelSize);
+		}
 	}
 
 	// Warp frame 1 to frame 2

@@ -20,41 +20,6 @@ void GPUDebugMessage(const std::string& message) {
 * -------------------- KERNELS --------------------
 */
 
-// Kernel that sets all array entries in the provided range to the provided value
-template <typename T>
-__global__ void setArrayEntriesAll(T* arrayPtrGPU, T value, const unsigned int dimZ, const unsigned int dimY,
-                                   const unsigned int dimX) {
-	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	const unsigned int absIdx = cz * dimY * dimX + cy * dimX + cx;
-
-	// Check if result is within matrix boundaries
-	if (cz < dimZ && cy < dimY && cx < dimX) {
-		arrayPtrGPU[absIdx] = value;
-	}
-}
-
-// Kernel that sets all array entries in the provided range to the provided value
-template <typename T>
-__global__ void setArrayEntriesInRange(T* arrayPtrGPU, T value, const unsigned int startIdx,
-                                       const unsigned int endIndex, const unsigned int dimZ, const unsigned int dimY,
-                                       const unsigned int dimX) {
-	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	const unsigned int absIdx = cz * dimY * dimX + cy * dimX + cx;
-
-	// Check if result is within matrix boundaries
-	if (cz < dimZ && cy < dimY && cx < dimX) {
-		if (absIdx >= startIdx && absIdx <= endIndex) {
-			arrayPtrGPU[absIdx] = value;
-		}
-	}
-}
-
 // Kernel that converts an NV12 array to a P010 array
 __global__ void convertNV12toP010Kernel(const unsigned char* nv12Array, unsigned short* p010Array, const unsigned int dimY, const unsigned int dimX, const double dDimScalar) {
 	// Current entry to be computed by the thread
@@ -316,29 +281,7 @@ bool GPUArray<T>::isInitialized() const {
 */
 template <typename T>
 void GPUArray<T>::fill(T value) {
-	// Check if the array is on the GPU
-	if (!isOnGPU) {
-		toGPU();
-	}
-
-	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
-
-	// Use dim3 structs for block and grid size
-	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
-	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
-
-	// Set the array entries to the provided value
-	setArrayEntriesAll << <grid, threads >> >(arrayPtrGPU, value, dimZ, dimY, dimX);
-
-	// Check for CUDA errors
-	const cudaError_t cudaError = cudaGetLastError();
-	if (cudaError != cudaSuccess) {
-		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
-		exit(-1);
-	}
+	cudaMemset(arrayPtrGPU, value, bytes);
 }
 
 /*
@@ -350,35 +293,13 @@ void GPUArray<T>::fill(T value) {
 */
 template <typename T>
 void GPUArray<T>::fill(T value, int startIdx, int endIndex) {
-	// Check if the array is on the GPU
-	if (!isOnGPU) {
-		toGPU();
-	}
-
 	// Check if the provided range is valid
 	if (startIdx < 0 || endIndex >= dimZ * dimY * dimX) {
 		fprintf(stderr, "ERROR: Provided range is invalid!\n");
 		exit(-1);
 	}
 
-	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
-
-	// Use dim3 structs for block and grid size
-	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
-	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
-
-	// Set the array entries to the provided value
-	setArrayEntriesInRange << <grid, threads >> >(arrayPtrGPU, value, startIdx, endIndex, dimZ, dimY, dimX);
-
-	// Check for CUDA errors
-	const cudaError_t cudaError = cudaGetLastError();
-	if (cudaError != cudaSuccess) {
-		fprintf(stderr, "ERROR1: %s\n", cudaGetErrorString(cudaError));
-		exit(-1);
-	}
+	cudaMemset(arrayPtrGPU + startIdx, value, endIndex - startIdx * sizeof(T));
 }
 
 /*
