@@ -3,6 +3,7 @@
 #include <vector>
 #include <cmath>
 #include <string>
+#include <chrono>
 
 #include <cuda_runtime_api.h>
 
@@ -14,119 +15,9 @@ void CudaDebugMessage(const std::string& message) {
 	OutputDebugStringA(m_debugMessage.c_str());
 }
 
-// Kernel that calculates the absolute difference between two frames using the offset array
-__global__ void calcImageDelta(const unsigned char* frame1, const unsigned char* frame2, unsigned char* imageDeltaArray,
-                               const int* offsetArray, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX, const double resolutionScalar) {
-	// Current entry to be computed by the thread
-	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const int cz = threadIdx.z;
-
-	if (cz < dimZ && cy < dimY && cx < dimX) {
-		// Get the current offsets to use
-		const int offsetX = -static_cast<int>(static_cast<double>(offsetArray[cz * dimY * dimX + cy * dimX + cx]));
-		const int offsetY = -static_cast<int>(static_cast<double>(offsetArray[dimZ * dimY * dimX + cz * dimY * dimX + cy * dimX + cx]));
-
-		// Current pixel is outside of frame
-		if ((cy + offsetY < 0) || (cx + offsetX < 0) || (cy + offsetY > dimY) || (cx + offsetX > dimX)) {
-			imageDeltaArray[cz * dimY * dimX + cy * dimX + cx] = 0;
-		// Current pixel is inside of frame
-		} else {
-			const int newCx = fminf(fmaxf(cx + offsetX, 0), dimX - 1);
-			const int newCy = fminf(fmaxf(cy + offsetY, 0), dimY - 1);
-			imageDeltaArray[cz * dimY * dimX + cy * dimX + cx] = fabsf(frame1[static_cast<int>(newCy * resolutionScalar * dimX * resolutionScalar + newCx * resolutionScalar)] - frame2[static_cast<int>(cy * resolutionScalar * dimX * resolutionScalar + cx * resolutionScalar)]);
-		}
-	}
-}
-
-// Kernel that sums up all the pixel deltas of each window
-__global__ void calcDeltaSums(unsigned char* imageDeltaArray, unsigned int* summedUpDeltaArray,
-                              const unsigned int windowDimY, const unsigned int windowDimX, const unsigned int dimZ,
-                              const unsigned int dimY, const unsigned int dimX) {
-	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = threadIdx.z;
-	const unsigned int windowIndexX = cx / windowDimX;
-	const unsigned int windowIndexY = cy / windowDimY;
-
-	// Check if the thread is inside the frame
-	if (cz < dimZ && cy < dimY && cx < dimX) {
-		atomicAdd(&summedUpDeltaArray[cz * dimY * dimX + (windowIndexY * windowDimY) * dimX + (windowIndexX * windowDimX)],
-			imageDeltaArray[cz * dimY * dimX + cy * dimX + cx]);
-	}
-}
-
-// Kernel that normalizes all the pixel deltas of each window
-__global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, float* normalizedDeltaArray,
-                                   const int* offsetArray, const unsigned int windowDimY, const unsigned int windowDimX,
-								   const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
-	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = threadIdx.z;
-
-	// Check if the thread is a window represent
-	if (cy % windowDimY == 0 && cx % windowDimX == 0) {
-		// Get the current window information
-		const int offsetX = offsetArray[cz * dimY * dimX + cy * dimX + cx];
-		const int offsetY = offsetArray[dimZ * dimY * dimX + cz * dimY * dimX + cy * dimX + cx];
-
-		// Calculate the number of pixels in the window
-		unsigned int numPixels = windowDimY * windowDimX;
-
-		// Calculate the not overlapping pixels
-		int overlapX;
-		int overlapY;
-
-		// Calculate the number of not overlapping pixels
-		if ((cx + windowDimX + fabsf(offsetX) > dimX) || (cx - offsetX < 0)) {
-			overlapX = fabsf(offsetX);
-		} else {
-			overlapX = 0;
-		}
-
-		if ((cy + windowDimY + fabsf(offsetY) > dimY) || (cy - offsetY < 0)) {
-			overlapY = fabsf(offsetY);
-		} else {
-			overlapY = 0;
-		}
-
-		const int numNotOverlappingPixels = overlapY * overlapX;
-		numPixels -= numNotOverlappingPixels;
-
-		// Normalize the summed up delta
-		normalizedDeltaArray[cz * dimY * dimX + cy * dimX + cx] = static_cast<float>(summedUpDeltaArray[cz * dimY * dimX + cy * dimX + cx]) / static_cast<
-			float>(numPixels);
-	}
-}
-
-// Kernel that compares two arrays to find the lowest values
-__global__ void compareArrays(const float* normalizedDeltaArray,
-                              unsigned char* lowestLayerArray, const unsigned int windowDimY, const unsigned int windowDimX,
-                              const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
-	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-
-	// Check if the thread is a window represent
-	if (cy % windowDimY == 0 && cx % windowDimX == 0) {
-		// Find the layer with the lowest value
-		unsigned char minLayer = 0;
-
-		for (unsigned char z = 1; z < dimZ; ++z) {
-			if (normalizedDeltaArray[z * dimY * dimX + cy * dimX + cx] < normalizedDeltaArray[minLayer * dimY * dimX + cy * dimX + cx]) {
-				minLayer = z;
-			}
-		}
-
-		lowestLayerArray[cy * dimX + cx] = minLayer;
-	}
-}
-
 // Kernel that sets the initial offset array
 __global__ void setInitialOffset(int* offsetArray, const unsigned int dimZ, const unsigned int dimY,
-								 const unsigned int dimX, bool firstTime) {
+	const unsigned int dimX, bool firstTime) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -183,16 +74,124 @@ __global__ void setInitialOffset(int* offsetArray, const unsigned int dimZ, cons
 	}
 }
 
-// Kernel that adjusts the offset array based on the comparison results
-__global__ void adjustOffsetArray(int* offsetArray, const unsigned char* lowestLayerArray, int* statusArray,
-	const int currentGlobalOffset, const unsigned int windowDimY,
-	const unsigned int windowDimX, const unsigned int dimZ, const unsigned int dimY,
-	const unsigned int dimX) {
+// Kernel that calculates the absolute difference between two frames using the offset array
+__global__ void calcImageDelta(const unsigned char* frame1, const unsigned char* frame2, unsigned char* imageDeltaArray,
+                               const int* offsetArray, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX, const double resolutionScalar) {
+	// Current entry to be computed by the thread
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = threadIdx.z;
+
+	if (cz < dimZ && cy < dimY && cx < dimX) {
+		// Get the current offsets to use
+		const int offsetX = -static_cast<int>(static_cast<double>(offsetArray[cz * dimY * dimX + cy * dimX + cx]));
+		const int offsetY = -static_cast<int>(static_cast<double>(offsetArray[dimZ * dimY * dimX + cz * dimY * dimX + cy * dimX + cx]));
+
+		// Current pixel is outside of frame
+		if ((cy + offsetY < 0) || (cx + offsetX < 0) || (cy + offsetY > dimY) || (cx + offsetX > dimX)) {
+			imageDeltaArray[cz * dimY * dimX + cy * dimX + cx] = 0;
+		// Current pixel is inside of frame
+		} else {
+			const int newCx = fminf(fmaxf(cx + offsetX, 0), dimX - 1);
+			const int newCy = fminf(fmaxf(cy + offsetY, 0), dimY - 1);
+			imageDeltaArray[cz * dimY * dimX + cy * dimX + cx] = fabsf(frame1[static_cast<int>(newCy * resolutionScalar * dimX * resolutionScalar + newCx * resolutionScalar)] - frame2[static_cast<int>(cy * resolutionScalar * dimX * resolutionScalar + cx * resolutionScalar)]);
+		}
+	}
+}
+
+// Kernel that sums up all the pixel deltas of each window
+__global__ void calcDeltaSums(unsigned char* imageDeltaArray, unsigned int* summedUpDeltaArray,
+                              const unsigned int windowDimY, const unsigned int windowDimX, const unsigned int dimZ,
+                              const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int wx = (cx / windowDimX) * windowDimX;
-	const unsigned int wy = (cy / windowDimY) * windowDimY;
+	const unsigned int cz = threadIdx.z;
+	const unsigned int windowIndexX = cx / windowDimX;
+	const unsigned int windowIndexY = cy / windowDimY;
+
+	// Check if the thread is inside the frame
+	if (cz < dimZ && cy < dimY && cx < dimX) {
+		atomicAdd(&summedUpDeltaArray[cz * dimY * dimX + (windowIndexY * windowDimY) * dimX + (windowIndexX * windowDimX)],
+			imageDeltaArray[cz * dimY * dimX + cy * dimX + cx]);
+	}
+}
+
+// Kernel that normalizes all the pixel deltas of each window
+__global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsigned char* globalLowestLayerArray,
+                                   int* offsetArray, const unsigned int windowDimY, const unsigned int windowDimX,
+								   const int dimZ, const int dimY, const int dimX) {
+	// Allocate shared memory to share values accross layers
+	__shared__ float normalizedDeltaArray[5 * NUM_THREADS * NUM_THREADS];
+	
+	// Current entry to be computed by the thread
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = threadIdx.z;
+
+	// Check if the thread is a window represent
+	if (cy % windowDimY == 0 && cx % windowDimX == 0) {
+		// Get the current window information
+		const int offsetX = offsetArray[cz * dimY * dimX + cy * dimX + cx];
+		const int offsetY = offsetArray[dimZ * dimY * dimX + cz * dimY * dimX + cy * dimX + cx];
+
+		// Calculate the number of pixels in the window
+		unsigned int numPixels = windowDimY * windowDimX;
+
+		// Calculate the not overlapping pixels
+		int overlapX;
+		int overlapY;
+
+		// Calculate the number of not overlapping pixels
+		if ((cx + windowDimX + fabsf(offsetX) > dimX) || (cx - offsetX < 0)) {
+			overlapX = fabsf(offsetX);
+		} else {
+			overlapX = 0;
+		}
+
+		if ((cy + windowDimY + fabsf(offsetY) > dimY) || (cy - offsetY < 0)) {
+			overlapY = fabsf(offsetY);
+		} else {
+			overlapY = 0;
+		}
+
+		const int numNotOverlappingPixels = overlapY * overlapX;
+		numPixels -= numNotOverlappingPixels;
+
+		// Normalize the summed up delta
+		normalizedDeltaArray[cz * NUM_THREADS * NUM_THREADS + threadIdx.y * NUM_THREADS + threadIdx.x] = static_cast<float>(summedUpDeltaArray[cz * dimY * dimX + threadIdx.y * dimX + threadIdx.x]) / static_cast<
+			float>(numPixels);
+	}
+
+	// Wait for all threads to finish filling the values
+	__syncthreads();
+
+	// Find the layer with the lowest value
+	if (cz == 0 && cy % windowDimY == 0 && cx % windowDimX == 0) {
+		unsigned char lowestLayer = 0;
+
+		for (unsigned char z = 1; z < dimZ; ++z) {
+			if (normalizedDeltaArray[z * NUM_THREADS * NUM_THREADS + threadIdx.y * NUM_THREADS + threadIdx.x] < normalizedDeltaArray[lowestLayer * NUM_THREADS * NUM_THREADS + threadIdx.y * NUM_THREADS + threadIdx.x]) {
+				lowestLayer = z;
+			}
+		}
+
+		globalLowestLayerArray[cy * dimX + cx] = lowestLayer;
+	}
+}
+
+// Kernel that adjusts the offset array based on the comparison results
+__global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalLowestLayerArray, unsigned char* statusArray,
+		const unsigned int windowDimY,
+		const unsigned int windowDimX, const unsigned int dimZ, const unsigned int dimY,
+		const unsigned int dimX) {
+
+	// Allocatete shared memory to chache the lowest layer
+	__shared__ unsigned char lowestLayerArray[NUM_THREADS * NUM_THREADS];
+
+	// Current entry to be computed by the thread
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 
 	/*
 	* Status Array Key:
@@ -206,8 +205,32 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* lowestL
 	*/
 
 	if (cy < dimY && cx < dimX) {
+		const unsigned int trwx = (((cx / blockDim.x) * blockDim.x) / windowDimX) * windowDimX;
+		const unsigned int trwy = (((cy / blockDim.y) * blockDim.y) / windowDimY) * windowDimY;
+		const unsigned int wx = (cx / windowDimX) * windowDimX;
+		const unsigned int wy = (cy / windowDimY) * windowDimY;
+		unsigned char lowestLayer;
+
+		// We are the block representant
+		if (threadIdx.y == 0 && threadIdx.x == 0) {
+			lowestLayer = globalLowestLayerArray[wy * dimX + wx];
+			lowestLayerArray[0] = lowestLayer;
+		}
+		
+		__syncthreads();
+
+		// We can reuse the block representants value
+		if (wy == trwy && wx == trwx) {
+			lowestLayer = lowestLayerArray[0];
+		// The value relevant to us is different from the chached one
+		} else {
+			lowestLayer = globalLowestLayerArray[wy * dimX + wx];
+		}
+
+
+		
 		const int currentStatus = statusArray[cy * dimX + cx];
-		const unsigned char lowestLayer = lowestLayerArray[wy * dimX + wx];
+		
 
 		switch (currentStatus) {
 			/*
@@ -725,18 +748,18 @@ void OpticalFlowCalc::calculateOpticalFlow(unsigned int iNumIterations, unsigned
 		iNumIterations = ceil(log2f(m_imageDeltaArray.dimX));
 	}
 
-	// Reset the delta array
-	m_summedUpDeltaArray.fill(0);
-
 	// We calculate the ideal offset array for each window size (entire frame, ..., individual pixels)
 	for (unsigned int iter = 0; iter < iNumIterations; iter++) {
 		// Set the starting offset for the current window size
 		setInitialOffset << <grid, threads5 >> > (m_offsetArray12.arrayPtrGPU,
-			m_imageDeltaArray.dimZ, m_imageDeltaArray.dimY,
-			m_imageDeltaArray.dimX, !iter);
+												  m_imageDeltaArray.dimZ, m_imageDeltaArray.dimY,
+												  m_imageDeltaArray.dimX, !iter);
 
 		// Each step we adjust the offset array to find the ideal offset
 		for (unsigned int step = 0; step < iNumSteps; step++) {
+			// Reset the summed up delta array
+			m_summedUpDeltaArray.fill(0);
+
 			// 1. Calculate the image deltas with the current offset array
 			if (m_bBisNewest) {
 				calcImageDelta << <grid, threads5 >> >(m_frame1.arrayPtrGPU, m_frame2.arrayPtrGPU,
@@ -755,35 +778,26 @@ void OpticalFlowCalc::calculateOpticalFlow(unsigned int iNumIterations, unsigned
 			                                      m_iWindowDimY, m_iWindowDimX, m_imageDeltaArray.dimZ, 
 											      m_imageDeltaArray.dimY, m_imageDeltaArray.dimX);
 
-			// 3. Normalize the summed up delta array
-			normalizeDeltaSums << <grid, threads5 >> >(m_summedUpDeltaArray.arrayPtrGPU,
-				                                       m_normalizedDeltaArray.arrayPtrGPU,
+			// 3. Normalize the summed up delta array and find the best layer
+			normalizeDeltaSums << <grid, threads5 >> >(m_summedUpDeltaArray.arrayPtrGPU, m_lowestLayerArray.arrayPtrGPU,
 				                                       m_offsetArray12.arrayPtrGPU, m_iWindowDimY, m_iWindowDimX,
 													   m_imageDeltaArray.dimZ, m_imageDeltaArray.dimY, 
 													   m_imageDeltaArray.dimX);
 
-			// 4. Check if the new normalized delta array is better than the old one
-			compareArrays << <grid, threads1 >> > (m_normalizedDeltaArray.arrayPtrGPU,
-												   m_lowestLayerArray.arrayPtrGPU, m_iWindowDimY, m_iWindowDimX,
-												   m_imageDeltaArray.dimZ, m_imageDeltaArray.dimY, m_imageDeltaArray.dimX);
-
-			// 5. Adjust the offset array based on the comparison results
+			// 4. Adjust the offset array based on the comparison results
 			if (true) {
 				adjustOffsetArray << <grid, threads1 >> > (m_offsetArray12.arrayPtrGPU,
 					m_lowestLayerArray.arrayPtrGPU, m_statusArray.arrayPtrGPU,
-					m_iCurrentGlobalOffset, m_iWindowDimY, m_iWindowDimX,
+					m_iWindowDimY, m_iWindowDimX,
 					m_imageDeltaArray.dimZ, m_imageDeltaArray.dimY,
 					m_imageDeltaArray.dimX);
 			}
 
 			// Wait for all threads to finish
 			//cudaDeviceSynchronize();
-
-			// Reset the summed up delta array
-			m_summedUpDeltaArray.fill(0);
 		}
 
-		// 6. Adjust window size
+		// 5. Adjust window size
 		m_iWindowDimX = fmax(m_iWindowDimX / 2, 1);
 		m_iWindowDimY = fmax(m_iWindowDimY / 2, 1);
 

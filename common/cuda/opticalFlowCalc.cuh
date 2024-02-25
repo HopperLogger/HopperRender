@@ -112,7 +112,7 @@ public:
 	GPUArray<int> m_offsetArray21; // Array containing x,y offsets for each pixel of frame2
 	GPUArray<int> m_blurredOffsetArray12; // Array containing x,y offsets for each pixel of frame1
 	GPUArray<int> m_blurredOffsetArray21; // Array containing x,y offsets for each pixel of frame2
-	GPUArray<int> m_statusArray; // Array containing the calculation status of each pixel of frame1
+	GPUArray<unsigned char> m_statusArray; // Array containing the calculation status of each pixel of frame1
 	GPUArray<unsigned int> m_summedUpDeltaArray; // Array containing the summed up delta values of each window
 	GPUArray<float> m_normalizedDeltaArray; // Array containing the normalized delta values of each window
 	GPUArray<unsigned char> m_lowestLayerArray; // Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)

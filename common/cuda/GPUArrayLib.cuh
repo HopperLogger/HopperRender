@@ -3,7 +3,6 @@
 #include <vector>
 
 constexpr int NUM_THREADS = 8;
-constexpr size_t SHMEM_SIZE = 3 * NUM_THREADS * NUM_THREADS;
 
 /*
 * This class initializes a multidimensional array on the GPU
