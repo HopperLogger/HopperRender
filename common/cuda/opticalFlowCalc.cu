@@ -3,7 +3,6 @@
 #include <vector>
 #include <cmath>
 #include <string>
-#include <chrono>
 
 #include <cuda_runtime_api.h>
 
@@ -61,7 +60,7 @@ __global__ void setInitialOffset(int* offsetArray, const unsigned int dimZ, cons
 			} else if (cz == 1) {
 				offsetArray[dimY * dimX + cy * dimX + cx] = currX - 1;
 			// Set the X direction layer 2 to the previous X direction
-			} else if (cz == 1) {
+			} else if (cz == 2) {
 				offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX;
 			// Shift the X direction layer 3 by +1
 			} else if (cz == 3) {
@@ -76,7 +75,7 @@ __global__ void setInitialOffset(int* offsetArray, const unsigned int dimZ, cons
 
 // Kernel that calculates the absolute difference between two frames using the offset array
 __global__ void calcImageDelta(const unsigned char* frame1, const unsigned char* frame2, unsigned char* imageDeltaArray,
-                               const int* offsetArray, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX, const double resolutionScalar) {
+                               const int* offsetArray, const int dimZ, const int dimY, const int dimX, const double resolutionScalar) {
 	// Current entry to be computed by the thread
 	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -119,9 +118,9 @@ __global__ void calcDeltaSums(unsigned char* imageDeltaArray, unsigned int* summ
 
 // Kernel that normalizes all the pixel deltas of each window
 __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsigned char* globalLowestLayerArray,
-                                   int* offsetArray, const unsigned int windowDimY, const unsigned int windowDimX,
+                                   const int* offsetArray, const unsigned int windowDimY, const unsigned int windowDimX,
 								   const int dimZ, const int dimY, const int dimX) {
-	// Allocate shared memory to share values accross layers
+	// Allocate shared memory to share values across layers
 	__shared__ float normalizedDeltaArray[5 * NUM_THREADS * NUM_THREADS];
 	
 	// Current entry to be computed by the thread
@@ -159,7 +158,7 @@ __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsig
 		numPixels -= numNotOverlappingPixels;
 
 		// Normalize the summed up delta
-		normalizedDeltaArray[cz * NUM_THREADS * NUM_THREADS + threadIdx.y * NUM_THREADS + threadIdx.x] = static_cast<float>(summedUpDeltaArray[cz * dimY * dimX + threadIdx.y * dimX + threadIdx.x]) / static_cast<
+		normalizedDeltaArray[cz * NUM_THREADS * NUM_THREADS + threadIdx.y * NUM_THREADS + threadIdx.x] = static_cast<float>(summedUpDeltaArray[cz * dimY * dimX + cy * dimX + cx]) / static_cast<
 			float>(numPixels);
 	}
 
@@ -186,7 +185,7 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 		const unsigned int windowDimX, const unsigned int dimZ, const unsigned int dimY,
 		const unsigned int dimX) {
 
-	// Allocatete shared memory to chache the lowest layer
+	// Allocate shared memory to cache the lowest layer
 	__shared__ unsigned char lowestLayerArray[NUM_THREADS * NUM_THREADS];
 
 	// Current entry to be computed by the thread
@@ -222,15 +221,12 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 		// We can reuse the block representants value
 		if (wy == trwy && wx == trwx) {
 			lowestLayer = lowestLayerArray[0];
-		// The value relevant to us is different from the chached one
+		// The value relevant to us is different from the cached one
 		} else {
 			lowestLayer = globalLowestLayerArray[wy * dimX + wx];
 		}
 
-
-		
-		const int currentStatus = statusArray[cy * dimX + cx];
-		
+		const unsigned char currentStatus = statusArray[cy * dimX + cx];
 
 		switch (currentStatus) {
 			/*
@@ -703,7 +699,6 @@ void OpticalFlowCalc::init(const unsigned int dimY, const unsigned int dimX, con
 	m_ones.init({1, dimY, dimX}, 1);
 	m_iWindowDimX = dimX;
 	m_iWindowDimY = dimY;
-	m_iCurrentGlobalOffset = 1;
 	m_bIsInitialized = true;
 }
 
@@ -743,7 +738,6 @@ void OpticalFlowCalc::calculateOpticalFlow(unsigned int iNumIterations, unsigned
 	// Reset variables
 	m_iWindowDimX = m_imageDeltaArray.dimX;
 	m_iWindowDimY = m_imageDeltaArray.dimY;
-	m_iCurrentGlobalOffset = 1;
 	if (iNumIterations == 0 || iNumIterations > ceil(log2f(m_imageDeltaArray.dimX))) {
 		iNumIterations = ceil(log2f(m_imageDeltaArray.dimX));
 	}

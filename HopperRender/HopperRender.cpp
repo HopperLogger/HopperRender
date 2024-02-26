@@ -124,7 +124,7 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	CPersistStream(punk, phr),
 	m_bActivated(IDC_ON),
 	m_iFrameOutput(0),
-	m_iNumIterations(1),
+	m_iNumIterations(0),
 	m_iNumSteps(10),
 	m_iBlurKernelSize(0),
 	m_lBufferRequest(32),
@@ -649,9 +649,7 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
 		}
 
 		// Blur the flow arrays
-		if (m_iBlurKernelSize > 1) {
-			m_ofcOpticalFlowCalc.blurFlowArrays(m_iBlurKernelSize);
-		}
+		m_ofcOpticalFlowCalc.blurFlowArrays(m_iBlurKernelSize);
 	}
 
 	// Warp frame 1 to frame 2
@@ -717,9 +715,13 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, doubl
 		}
 
 		// Disable Interpolation if we are too slow
-		if (m_iNumSteps < 2) {
+		if (m_iNumSteps < 2 && false) {
 			m_bIntNeeded = false;
 			m_bIntTooSlow = true;
+		}
+
+		if (m_iNumSteps < 2) {
+			m_iNumSteps = 2;
 		}
 	}
 

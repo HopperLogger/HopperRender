@@ -102,7 +102,6 @@ public:
 	bool m_bBisNewest = true; // Whether frame1 or frame2 is the newest frame
 	unsigned int m_iWindowDimX; // Current window size of the optical flow calculation
 	unsigned int m_iWindowDimY; // Current window size of the optical flow calculation
-	unsigned int m_iCurrentGlobalOffset; // Current global offset of the optical flow calculation
 
 	// GPU Arrays
 	GPUArray<unsigned char> m_frame1; // Array containing the first frame
