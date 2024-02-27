@@ -17,24 +17,6 @@ void GPUDebugMessage(const std::string& message) {
 }
 
 /*
-* -------------------- KERNELS --------------------
-*/
-
-// Kernel that converts an NV12 array to a P010 array
-__global__ void convertNV12toP010Kernel(const unsigned char* nv12Array, unsigned short* p010Array, const unsigned int dimY, const unsigned int dimX, const double dDimScalar) {
-	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = threadIdx.z;
-
-	if (cz < 2 && cy < dimY * dDimScalar && cx < dimX * dDimScalar) {
-		if ((cz == 0 && cy < dimY * dDimScalar && cx < dimX * dDimScalar) || (cz == 1 && cy < ((dimY * dDimScalar) / 2) && cx < dimX * dDimScalar)) {
-			p010Array[static_cast<int>(cz * dimY * dimX * dDimScalar + cy * dimX * dDimScalar + cx)] = static_cast<unsigned short>(nv12Array[cz * dimY * dimX + cy * dimX + cx]) << 8;
-		}
-	}
-}
-
-/*
 * -------------------- GPUArray CLASS --------------------
 */
 
@@ -88,14 +70,14 @@ GPUArray<T>::GPUArray(std::vector<unsigned int> arrayShape, T initializer) {
 		dimY = *(arrayShape.end() - 2);
 		dimZ = 1;
 		bytes = dimY * dimX * sizeof(T);
-		for (int i = 2; i < dims; i++) {
+		for (unsigned int i = 2; i < dims; i++) {
 			dimZ *= *(arrayShape.end() - i - 1);
 			bytes *= *(arrayShape.end() - i - 1);
 		}
 	}
 
 	// Check if all dimensions are positive
-	for (int i = 0; i < dims; i++) {
+	for (unsigned int i = 0; i < dims; i++) {
 		if (*(arrayShape.begin() + i) <= 0) {
 			fprintf(stderr, "ERROR: All array dimensions must be positive!\n");
 			exit(-1);
@@ -106,9 +88,9 @@ GPUArray<T>::GPUArray(std::vector<unsigned int> arrayShape, T initializer) {
 	arrayPtrCPU = static_cast<T*>(malloc(bytes));
 
 	// Set all array entries to the initializer value
-	for (int z = 0; z < dimZ; z++) {
-		for (int y = 0; y < dimY; y++) {
-			for (int x = 0; x < dimX; x++) {
+	for (unsigned int z = 0; z < dimZ; z++) {
+		for (unsigned int y = 0; y < dimY; y++) {
+			for (unsigned int x = 0; x < dimX; x++) {
 				*(arrayPtrCPU + z * dimY * dimX + y * dimX + x) = initializer;
 			}
 		}
@@ -215,7 +197,7 @@ void GPUArray<T>::changeDims(std::vector<unsigned int> arrayShape, T initializer
 		dimY = *(arrayShape.end() - 2);
 		dimZ = 1;
 		bytes = dimY * dimX * sizeof(T);
-		for (int i = 2; i < dims; i++) {
+		for (unsigned int i = 2; i < dims; i++) {
 			dimZ *= *(arrayShape.end() - i - 1);
 			bytes *= *(arrayShape.end() - i - 1);
 		}
@@ -227,7 +209,7 @@ void GPUArray<T>::changeDims(std::vector<unsigned int> arrayShape, T initializer
 	}
 
 	// Check if all dimensions are positive
-	for (int i = 0; i < dims; i++) {
+	for (unsigned int i = 0; i < dims; i++) {
 		if (*(arrayShape.begin() + i) <= 0) {
 			fprintf(stderr, "ERROR: All array dimensions must be positive!\n");
 			exit(-1);
@@ -244,9 +226,9 @@ void GPUArray<T>::changeDims(std::vector<unsigned int> arrayShape, T initializer
 		}
 	} else {
 		// Set all array entries to the initializer value
-		for (int z = 0; z < dimZ; z++) {
-			for (int y = 0; y < dimY; y++) {
-				for (int x = 0; x < dimX; x++) {
+		for (unsigned int z = 0; z < dimZ; z++) {
+			for (unsigned int y = 0; y < dimY; y++) {
+				for (unsigned int x = 0; x < dimX; x++) {
 					*(arrayPtrCPU + z * dimY * dimX + y * dimX + x) = initializer;
 				}
 			}
@@ -281,7 +263,7 @@ bool GPUArray<T>::isInitialized() const {
 */
 template <typename T>
 void GPUArray<T>::fill(T value) {
-	cudaMemset(arrayPtrGPU, value, bytes);
+	cudaMemset(arrayPtrGPU, static_cast<int>(value), bytes);
 }
 
 /*
@@ -292,14 +274,14 @@ void GPUArray<T>::fill(T value) {
 * @param endIndex: Index of the last array entry to set
 */
 template <typename T>
-void GPUArray<T>::fill(T value, int startIdx, int endIndex) {
+void GPUArray<T>::fill(T value, const unsigned int startIdx, const unsigned int endIndex) {
 	// Check if the provided range is valid
-	if (startIdx < 0 || endIndex >= dimZ * dimY * dimX) {
+	if (endIndex >= dimZ * dimY * dimX) {
 		fprintf(stderr, "ERROR: Provided range is invalid!\n");
 		exit(-1);
 	}
 
-	cudaMemset(arrayPtrGPU + startIdx, value, endIndex - startIdx * sizeof(T));
+	cudaMemset(arrayPtrGPU + startIdx, static_cast<int>(value), endIndex - startIdx * sizeof(T));
 }
 
 /*
@@ -331,9 +313,9 @@ void GPUArray<T>::print<S>(const unsigned int startIdx, const int numElements) {
 	int counter = 0;
 
 	// Print the array
-	for (int z = 0; z < dimZ; z++) {
-		for (int y = 0; y < dimY; y++) {
-			for (int x = 0; x < dimX; x++) {
+	for (unsigned int z = 0; z < dimZ; z++) {
+		for (unsigned int y = 0; y < dimY; y++) {
+			for (unsigned int x = 0; x < dimX; x++) {
 				if (numElements == -1 || counter < numElements) {
 					std::cout << static_cast<S>(*(arrayPtrCPU + (startIdx + z * dimY * dimX + y * dimX + x))) << " ";
 					counter++;
@@ -347,38 +329,6 @@ void GPUArray<T>::print<S>(const unsigned int startIdx, const int numElements) {
 		printf("\n");
 	}
 	printf("\n");
-}
-
-/*
-* Converts the array from NV12 to P010 format
-*
-* @param p010Array: Pointer to the P010 array
-* @param dDimScalar: Scalar to scale the frame dimensions with depending on the renderer used
-*/
-void GPUArray<unsigned char>::convertNV12toP010(const GPUArray<unsigned short>* p010Array, const double dDimScalar) {
-	// Check if the array is on the GPU
-	if (!isOnGPU) {
-		toGPU();
-	}
-
-	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
-	constexpr int NUM_BLOCKS_Z = 1;
-
-	// Use dim3 structs for block and grid size
-	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
-	dim3 threads(NUM_THREADS, NUM_THREADS, 2);
-
-	// Set the array entries to the provided value
-	convertNV12toP010Kernel << <grid, threads >> >(arrayPtrGPU, p010Array->arrayPtrGPU, dimY, dimX, dDimScalar);
-
-	// Check for CUDA errors
-	const cudaError_t cudaError = cudaGetLastError();
-	if (cudaError != cudaSuccess) {
-		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
-		exit(-1);
-	}
 }
 
 // Explicit instantiations

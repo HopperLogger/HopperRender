@@ -68,8 +68,10 @@
       <SplitCompileCustomThreads>16</SplitCompileCustomThreads>
       <FastMath>true</FastMath>
       <PtxAsOptionV>true</PtxAsOptionV>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat>None</DebugInformationFormat>
       <CompileOut>$(SolutionDir)$(Platform)\$(Configuration)\$(ProjectName)\%(Filename)%(Extension).obj</CompileOut>
+      <HostDebugInfo>false</HostDebugInfo>
+      <GPUDebugInfo>false</GPUDebugInfo>
     </CudaCompile>
     <CudaLink>
       <LinkOut>$(SolutionDir)$(Platform)\$(Configuration)\.device-link.obj</LinkOut>
