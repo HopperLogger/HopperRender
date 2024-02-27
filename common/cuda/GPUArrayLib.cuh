@@ -115,7 +115,7 @@ public:
 	* @param startIdx: Index of the first array entry to set
 	* @param endIndex: Index of the last array entry to set
 	*/
-	void fill(T value, int startIdx, int endIndex);
+	void fill(T value, unsigned int startIdx, unsigned int endIndex);
 
 	/*
 	* Fills the array with data from system memory
@@ -132,12 +132,4 @@ public:
 	*/
 	template <typename S>
 	void print(unsigned int startIdx, int numElements);
-
-	/*
-	* Converts the array from NV12 to P010 format
-	*
-	* @param p010Array: Pointer to the P010 array
-	* @param dDimScalar: Scalar to scale the frame dimensions with depending on the renderer used
-	*/
-	void convertNV12toP010(const GPUArray<unsigned short>* p010Array, const double dDimScalar);
 };

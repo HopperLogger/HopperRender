@@ -47,7 +47,7 @@ private:
 	HRESULT UpdateVideoInfoHeader(CMediaType* pMediaType) const;
 	HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget);
 	HRESULT CopyFrame(BYTE* pInBuffer, BYTE* pOutBuffer);
-	HRESULT InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, double dScalar, int iIntFrameNum);
+	HRESULT InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, float dScalar, int iIntFrameNum);
 
 	CCritSec m_csHopperRenderLock; // Private play critical section
 	bool m_bActivated; // Whether the filter is activated
@@ -70,9 +70,9 @@ private:
 	std::chrono::time_point<std::chrono::high_resolution_clock> m_tpCurrCalcEnd; // The end time of the current calculation
 	double m_dCurrCalcDuration; // The duration of the current calculation
 	bool m_bFirstFrame; // Whether the current frame is the first frame
-	double m_dDimScalar; // The scalar to scale the frame dimensions with depending on the renderer used
+	float m_fDimScalar; // The scalar to scale the frame dimensions with depending on the renderer used
 	unsigned int m_iDimX; // The width of the frame
 	unsigned int m_iDimY; // The height of the frame
-	double m_dResolutionScalar; // The scalar to scale the resolution with
-	double m_dResolutionDivider; // The divider to scale the resolution with
+	float m_fResolutionScalar; // The scalar to scale the resolution with
+	float m_fResolutionDivider; // The divider to scale the resolution with
 };

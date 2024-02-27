@@ -17,7 +17,7 @@ public:
 	* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
 	* @param resolutionDivider: The scalar to divide the resolution with
 	*/
-	void init(unsigned int dimY, unsigned int dimX, const double dDimScalar, const double resolutionDivider);
+	void init(unsigned int dimY, unsigned int dimX, float dDimScalar, float resolutionDivider);
 
 	/*
 	* Returns whether the optical flow calculation is initialized
@@ -43,40 +43,44 @@ public:
 	* @param iNumSteps: Number of steps executed to find the ideal offset (limits the maximum offset)
 	* @param resolutionScalar: The scalar to scale the resolution with
 	*/
-	void calculateOpticalFlow(unsigned int iNumIterations, unsigned int iNumSteps, const double resolutionScalar);
+	void calculateOpticalFlow(unsigned int iNumIterations, unsigned int iNumSteps, float resolutionScalar);
 
 	/*
-	* Warps frame1 according to the offset array to frame2
+	* Warps the frames according to the calculated optical flow
+	*
+	* @param fScalar: The scalar to blend the frames with
+	* @param resolutionScalar: The scalar to scale the resolution with
+	* @param resolutionDivider: The scalar to divide the resolution with
+	*/
+	void warpFramesForBlending(float fScalar, float resolutionScalar, float resolutionDivider);
+
+	/*
+	* Warps the frames according to the calculated optical flow
 	*
 	* @param dScalar: The scalar to blend the frames with
 	* @param resolutionScalar: The scalar to scale the resolution with
 	* @param resolutionDivider: The scalar to divide the resolution with
+	* @param bOutput12: Whether to output the warped frame 12 or 21
+	* @param fDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
 	*/
-	void warpFrame12(double dScalar, const double resolutionScalar, const double resolutionDivider);
-
-	/*
-	* Warps frame2 according to the offset array to frame1
-	*
-	* @param dScalar: The scalar to blend the frames with
-	* @param resolutionScalar: The scalar to scale the resolution with
-	* @param resolutionDivider: The scalar to divide the resolution with
-	*/
-	void warpFrame21(double dScalar, const double resolutionScalar, const double resolutionDivider);
+	void warpFramesForOutput(float dScalar, float resolutionScalar, float resolutionDivider, bool bOutput12, float fDimScalar);
 
 	/*
 	* Blends warpedFrame1 to warpedFrame2
 	*
 	* @param dScalar: The scalar to blend the frames with
+	* @param fDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
 	*/
-	void blendFrames(double dScalar);
+	void blendFrames(float fScalar, float fDimScalar);
 
 	/*
 	* Draws the flow as an RGB image
 	*
 	* @param saturation: The saturation of the flow image
 	* @param value: The value of the flow image
+	* @param fDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
 	*/
-	void drawFlowAsHSV(double saturation, double value) const;
+	void drawFlowAsHSV(float saturation, float value, float fDimScalar) const;
 
 	/*
 	* Translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
@@ -89,6 +93,14 @@ public:
 	* @param kernelSize: Size of the kernel to use for the blur
 	*/
 	void blurFlowArrays(int kernelSize);
+
+	/*
+	* Converts a frame from NV12 to P010 format (stored in the output frame)
+	*
+	* @param p010Array: Pointer to the NV12 frame
+	* @param fDimScalar: Scalar to scale the frame dimensions with depending on the renderer used
+	*/
+	void convertNV12toP010(const GPUArray<unsigned char>* nv12Array, float fDimScalar);
 
 	// The number of cuda threads needed
 	dim3 grid;
@@ -117,8 +129,8 @@ public:
 	GPUArray<unsigned char> m_lowestLayerArray; // Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
 	GPUArray<unsigned char> m_warpedFrame12; // Array containing the warped frame (frame 1 to frame 2)
 	GPUArray<unsigned char> m_warpedFrame21; // Array containing the warped frame (frame 2 to frame 1)
-	GPUArray<unsigned char> m_blendedFrame; // Array containing the blended frame
-	GPUArray<unsigned short> m_outputFrame; // Array containing the output frame in P010 format
-	GPUArray<int> m_hitCount; // Array containing the number of times a pixel was hit
+	GPUArray<unsigned short> m_outputFrame; // Array containing the output frame
+	GPUArray<int> m_hitCount12; // Array containing the number of times a pixel was hit
+	GPUArray<int> m_hitCount21; // Array containing the number of times a pixel was hit
 	GPUArray<int> m_ones; // Array containing only ones for atomic add
 };
