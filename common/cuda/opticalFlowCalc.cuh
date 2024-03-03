@@ -15,9 +15,9 @@ public:
 	* @param dimY: The height of the frame
 	* @param dimX: The width of the frame
 	* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
-	* @param fResolutionDivider: The scalar to divide the resolution with
+	* @param fResolutionScalar: The scalar to scale the resolution with
 	*/
-	void init(unsigned int dimY, unsigned int dimX, double dDimScalar, float fResolutionDivider);
+	void init(unsigned int dimY, unsigned int dimX, double dDimScalar, float fResolutionScalar);
 
 	/*
 	* Returns whether the optical flow calculation is initialized
@@ -37,58 +37,24 @@ public:
 	void updateFrame2(const BYTE* pInBuffer);
 
 	/*
+	* Converts a frame from NV12 to P010 format (stored in the output frame)
+	*
+	* @param p010Array: Pointer to the NV12 frame
+	*/
+	void convertNV12toP010(const GPUArray<unsigned char>* nv12Array);
+
+	/*
 	* Calculates the optical flow between frame1 and frame2
 	*
 	* @param iNumIterations: Number of iterations to calculate the optical flow
 	* @param iNumSteps: Number of steps executed to find the ideal offset (limits the maximum offset)
-	* @param resolutionScalar: The scalar to scale the resolution with
 	*/
-	void calculateOpticalFlow(unsigned int iNumIterations, unsigned int iNumSteps, float resolutionScalar);
-
-	/*
-	* Warps the frames according to the calculated optical flow
-	*
-	* @param fScalar: The scalar to blend the frames with
-	* @param resolutionScalar: The scalar to scale the resolution with
-	* @param resolutionDivider: The scalar to divide the resolution with
-	*/
-	void warpFramesForBlending(float fScalar, float resolutionScalar, float resolutionDivider);
-
-	/*
-	* Warps the frames according to the calculated optical flow
-	*
-	* @param fScalar: The scalar to blend the frames with
-	* @param resolutionScalar: The scalar to scale the resolution with
-	* @param resolutionDivider: The scalar to divide the resolution with
-	* @param bOutput12: Whether to output the warped frame 12 or 21
-	* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
-	*/
-	void warpFramesForOutput(float fScalar, float resolutionScalar, float resolutionDivider, bool bOutput12, double dDimScalar);
-
-	/*
-	* Blends warpedFrame1 to warpedFrame2
-	*
-	* @param dScalar: The scalar to blend the frames with
-	* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
-	*/
-	void blendFrames(float fScalar, double dDimScalar);
-
-	/*
-	* Draws the flow as an RGB image
-	*
-	* @param saturation: The saturation of the flow image
-	* @param value: The value of the flow image
-	* @param fResolutionDivider: The scalar to divide the resolution with
-	* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
-	*/
-	void drawFlowAsHSV(float saturation, float value, float fResolutionDivider, double dDimScalar) const;
+	void calculateOpticalFlow(unsigned int iNumIterations, unsigned int iNumSteps);
 
 	/*
 	* Translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
-	*
-	* @param fResolutionDivider: The scalar to divide the resolution with
 	*/
-	void flipFlow(float fResolutionDivider);
+	void flipFlow();
 
 	/*
 	* Blurs the offset arrays
@@ -98,25 +64,53 @@ public:
 	void blurFlowArrays(int kernelSize);
 
 	/*
-	* Converts a frame from NV12 to P010 format (stored in the output frame)
+	* Warps the frames according to the calculated optical flow
 	*
-	* @param p010Array: Pointer to the NV12 frame
-	* @param dDimScalar: Scalar to scale the frame dimensions with depending on the renderer used
+	* @param fScalar: The scalar to blend the frames with
+	* @param bOutput12: Whether to output the warped frame 12 or 21
 	*/
-	void convertNV12toP010(const GPUArray<unsigned char>* nv12Array, double dDimScalar);
+	void warpFramesForOutput(float fScalar, bool bOutput12);
+
+	/*
+	* Warps the frames according to the calculated optical flow
+	*
+	* @param fScalar: The scalar to blend the frames with
+	*/
+	void warpFramesForBlending(float fScalar);
+
+	/*
+	* Blends warpedFrame1 to warpedFrame2
+	*
+	* @param dScalar: The scalar to blend the frames with
+	*/
+	void blendFrames(float fScalar);
+
+	/*
+	* Draws the flow as an RGB image
+	*
+	* @param saturation: The saturation of the flow image
+	* @param value: The value of the flow image
+	*/
+	void drawFlowAsHSV(float saturation, float value) const;
 
 	// The number of cuda threads needed
-	dim3 grid;
-	dim3 highGrid;
-	dim3 threads5;
-	dim3 threads2;
-	dim3 threads1;
+	dim3 m_lowGrid;
+	dim3 m_grid;
+	dim3 m_threads5;
+	dim3 m_threads2;
+	dim3 m_threads1;
 
 	// Variables
 	bool m_bIsInitialized = false; // Whether the optical flow calculation is initialized
 	bool m_bBisNewest = true; // Whether frame1 or frame2 is the newest frame
-	unsigned int m_iWindowDimX; // Current window size of the optical flow calculation
-	unsigned int m_iWindowDimY; // Current window size of the optical flow calculation
+	float m_fResolutionScalar; // Scalar to scale the resolution with
+	float m_fResolutionDivider; // Scalar to divide the resolution with
+	unsigned int m_iDimX; // Width of the frame
+	unsigned int m_iDimY; // Height of the frame
+	unsigned int m_iLowDimX; // Width of the frame used by the optical flow calculation
+	unsigned int m_iLowDimY; // Height of the frame used by the optical flow calculation
+	unsigned int m_iLowDimZ; // Number of layers used by the optical flow calculation
+	double m_dDimScalar; // Scalar to scale the frame dimensions with depending on the renderer used
 
 	// GPU Arrays
 	GPUArray<unsigned char> m_frame1; // Array containing the first frame

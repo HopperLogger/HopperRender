@@ -356,7 +356,7 @@ HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
 
 		// Initialize the Optical Flow Calculator
 		if (!m_ofcOpticalFlowCalc.isInitialized()) {
-			m_ofcOpticalFlowCalc.init(m_iDimY, m_iDimX, m_dDimScalar, m_fResolutionDivider);
+			m_ofcOpticalFlowCalc.init(m_iDimY, m_iDimX, m_dDimScalar, m_fResolutionScalar);
 		}
 	}
 	return __super::CompleteConnect(dir, pReceivePin);
@@ -608,7 +608,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 // Copies an NV12 frame to a P010 frame
 HRESULT CHopperRender::CopyFrame(BYTE* pInBuffer, BYTE* pOutBuffer) {
 	m_ofcOpticalFlowCalc.m_frame1.fillData(pInBuffer);
-	m_ofcOpticalFlowCalc.convertNV12toP010(&m_ofcOpticalFlowCalc.m_frame1, m_dDimScalar);
+	m_ofcOpticalFlowCalc.convertNV12toP010(&m_ofcOpticalFlowCalc.m_frame1);
 	m_ofcOpticalFlowCalc.m_outputFrame.download(pOutBuffer);
 	return NOERROR;
 }
@@ -643,11 +643,11 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, float
 	// Calculate the optical flow in both directions and blur it
 	if (iIntFrameNum == 0) {
 		// Calculate the optical flow (frame 1 to frame 2)
-		m_ofcOpticalFlowCalc.calculateOpticalFlow(m_iNumIterations, m_iNumSteps, m_fResolutionScalar);
+		m_ofcOpticalFlowCalc.calculateOpticalFlow(m_iNumIterations, m_iNumSteps);
 
 		// Flip the flow array to frame 2 to frame 1
 		if (m_iFrameOutput == 1 || m_iFrameOutput == 2) {
-			m_ofcOpticalFlowCalc.flipFlow(m_fResolutionDivider);
+			m_ofcOpticalFlowCalc.flipFlow();
 		}
 
 		// Blur the flow arrays
@@ -656,19 +656,19 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, float
 
 	// Warp frames
 	if (m_iFrameOutput == 0 || m_iFrameOutput == 1) {
-		m_ofcOpticalFlowCalc.warpFramesForOutput(fScalar, m_fResolutionScalar, m_fResolutionDivider, m_iFrameOutput == 0, m_dDimScalar);
+		m_ofcOpticalFlowCalc.warpFramesForOutput(fScalar, m_iFrameOutput == 0);
 	} else if (m_iFrameOutput == 2) {
-		m_ofcOpticalFlowCalc.warpFramesForBlending(fScalar, m_fResolutionScalar, m_fResolutionDivider);
+		m_ofcOpticalFlowCalc.warpFramesForBlending(fScalar);
 	}
 
 	// Blend the frames together
 	if (m_iFrameOutput == 2) {
-		m_ofcOpticalFlowCalc.blendFrames(fScalar, m_dDimScalar);
+		m_ofcOpticalFlowCalc.blendFrames(fScalar);
 	}
 
 	// Draw the flow as an HSV image
 	if (m_iFrameOutput == 3) {
-		m_ofcOpticalFlowCalc.drawFlowAsHSV(1.0, 1.0, m_fResolutionDivider, m_dDimScalar);
+		m_ofcOpticalFlowCalc.drawFlowAsHSV(1.0, 1.0);
 	}
 
 	// Download the result to the output buffer
@@ -710,6 +710,9 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, float
 		if (m_iNumSteps < 2) {
 			m_bIntNeeded = false;
 			m_bIntTooSlow = true;
+		// And limit the number of steps to not waste resources
+		} else if (m_iNumSteps > 30) {
+			m_iNumSteps = 30;
 		}
 	}
 
