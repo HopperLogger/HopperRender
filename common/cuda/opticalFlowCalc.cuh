@@ -15,9 +15,9 @@ public:
 	* @param dimY: The height of the frame
 	* @param dimX: The width of the frame
 	* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
-	* @param resolutionDivider: The scalar to divide the resolution with
+	* @param fResolutionDivider: The scalar to divide the resolution with
 	*/
-	void init(unsigned int dimY, unsigned int dimX, float dDimScalar, float resolutionDivider);
+	void init(unsigned int dimY, unsigned int dimX, double dDimScalar, float fResolutionDivider);
 
 	/*
 	* Returns whether the optical flow calculation is initialized
@@ -57,35 +57,38 @@ public:
 	/*
 	* Warps the frames according to the calculated optical flow
 	*
-	* @param dScalar: The scalar to blend the frames with
+	* @param fScalar: The scalar to blend the frames with
 	* @param resolutionScalar: The scalar to scale the resolution with
 	* @param resolutionDivider: The scalar to divide the resolution with
 	* @param bOutput12: Whether to output the warped frame 12 or 21
-	* @param fDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
+	* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
 	*/
-	void warpFramesForOutput(float dScalar, float resolutionScalar, float resolutionDivider, bool bOutput12, float fDimScalar);
+	void warpFramesForOutput(float fScalar, float resolutionScalar, float resolutionDivider, bool bOutput12, double dDimScalar);
 
 	/*
 	* Blends warpedFrame1 to warpedFrame2
 	*
 	* @param dScalar: The scalar to blend the frames with
-	* @param fDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
+	* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
 	*/
-	void blendFrames(float fScalar, float fDimScalar);
+	void blendFrames(float fScalar, double dDimScalar);
 
 	/*
 	* Draws the flow as an RGB image
 	*
 	* @param saturation: The saturation of the flow image
 	* @param value: The value of the flow image
-	* @param fDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
+	* @param fResolutionDivider: The scalar to divide the resolution with
+	* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
 	*/
-	void drawFlowAsHSV(float saturation, float value, float fDimScalar) const;
+	void drawFlowAsHSV(float saturation, float value, float fResolutionDivider, double dDimScalar) const;
 
 	/*
 	* Translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
+	*
+	* @param fResolutionDivider: The scalar to divide the resolution with
 	*/
-	void flipFlow();
+	void flipFlow(float fResolutionDivider);
 
 	/*
 	* Blurs the offset arrays
@@ -98,9 +101,9 @@ public:
 	* Converts a frame from NV12 to P010 format (stored in the output frame)
 	*
 	* @param p010Array: Pointer to the NV12 frame
-	* @param fDimScalar: Scalar to scale the frame dimensions with depending on the renderer used
+	* @param dDimScalar: Scalar to scale the frame dimensions with depending on the renderer used
 	*/
-	void convertNV12toP010(const GPUArray<unsigned char>* nv12Array, float fDimScalar);
+	void convertNV12toP010(const GPUArray<unsigned char>* nv12Array, double dDimScalar);
 
 	// The number of cuda threads needed
 	dim3 grid;
@@ -125,7 +128,7 @@ public:
 	GPUArray<int> m_blurredOffsetArray21; // Array containing x,y offsets for each pixel of frame2
 	GPUArray<unsigned char> m_statusArray; // Array containing the calculation status of each pixel of frame1
 	GPUArray<unsigned int> m_summedUpDeltaArray; // Array containing the summed up delta values of each window
-	GPUArray<float> m_normalizedDeltaArray; // Array containing the normalized delta values of each window
+	GPUArray<double> m_normalizedDeltaArray; // Array containing the normalized delta values of each window
 	GPUArray<unsigned char> m_lowestLayerArray; // Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
 	GPUArray<unsigned char> m_warpedFrame12; // Array containing the warped frame (frame 1 to frame 2)
 	GPUArray<unsigned char> m_warpedFrame21; // Array containing the warped frame (frame 2 to frame 1)

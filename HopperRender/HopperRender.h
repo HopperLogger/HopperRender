@@ -58,7 +58,7 @@ private:
 	const long m_lBufferRequest; // The number of buffers to use
 	bool m_bBisNewest; // Which frame order are we using
 	OpticalFlowCalc m_ofcOpticalFlowCalc; // Optical flow calculator
-	int m_iFrameCounter; // Frame counter (relative! i.e. number of frames presented)
+	unsigned int m_iFrameCounter; // Frame counter (relative! i.e. number of frames presented)
 	REFERENCE_TIME m_rtCurrStartTime; // The start time of the current interpolated frame
 	REFERENCE_TIME m_rtLastStartTime; // The start time of the last interpolated frame
 	bool m_bIntNeeded; // Whether interpolation currently is needed or not
@@ -70,7 +70,7 @@ private:
 	std::chrono::time_point<std::chrono::high_resolution_clock> m_tpCurrCalcEnd; // The end time of the current calculation
 	double m_dCurrCalcDuration; // The duration of the current calculation
 	bool m_bFirstFrame; // Whether the current frame is the first frame
-	float m_fDimScalar; // The scalar to scale the frame dimensions with depending on the renderer used
+	double m_dDimScalar; // The scalar to scale the frame dimensions with depending on the renderer used
 	unsigned int m_iDimX; // The width of the frame
 	unsigned int m_iDimY; // The height of the frame
 	float m_fResolutionScalar; // The scalar to scale the resolution with

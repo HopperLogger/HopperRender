@@ -102,6 +102,11 @@ public:
 	bool isInitialized() const;
 
 	/*
+	* Sets every array entry to 0
+	*/
+	void zero() const;
+
+	/*
 	* Sets every array entry to the provided value
 	*
 	* @param value: Value to set the array entries to
