@@ -83,8 +83,8 @@ __global__ void calcImageDelta(const unsigned char* frame1, const unsigned char*
 
 	if (cz < dimZ && cy < dimY && cx < dimX) {
 		// Get the current offsets to use
-		const int offsetX = -static_cast<int>(static_cast<float>(offsetArray[cz * dimY * dimX + cy * dimX + cx]));
-		const int offsetY = -static_cast<int>(static_cast<float>(offsetArray[dimZ * dimY * dimX + cz * dimY * dimX + cy * dimX + cx]));
+		const int offsetX = -offsetArray[cz * dimY * dimX + cy * dimX + cx];
+		const int offsetY = -offsetArray[dimZ * dimY * dimX + cz * dimY * dimX + cy * dimX + cx];
 
 		// Current pixel is outside of frame
 		if ((cy + offsetY < 0) || (cx + offsetX < 0) || (cy + offsetY > dimY) || (cx + offsetX > dimX)) {
