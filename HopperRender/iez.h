@@ -17,7 +17,11 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int* piBlurKernelSize, // The size of the blur kernel
 		int* piIntActiveState, // Is the effect active
 		double* pdSourceFPS, // The source frames per second
-		int* piNumSteps // Number of steps executed to find the ideal offset (limits the maximum offset)
+		int* piNumSteps, // Number of steps executed to find the ideal offset (limits the maximum offset)
+		int* piDimX, // The width of the frame
+		int* piDimY, // The height of the frame
+		int* piLowDimX, // The width of the low resolution frame
+		int* piLowDimY // The height of the low resolution frame
 	) PURE;
 
 	STDMETHOD(put_Settings)(THIS_

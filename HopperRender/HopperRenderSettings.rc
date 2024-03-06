@@ -61,17 +61,21 @@ BEGIN
 
     GROUPBOX        "Parameters", IDS_STATIC, 125, 10, 130, 50
         EDITTEXT        IDC_NUMITS, 200, 21, 40, 13, ES_AUTOHSCROLL
-        EDITTEXT        IDC_BLURKERNEL, 200, 40, 40, 13, ES_AUTOHSCROLL
+        EDITTEXT        IDC_BLURKERNEL, 200, 39, 40, 13, ES_AUTOHSCROLL
         LTEXT           "Num Iterations", IDS_STATIC, 132, 24, 60, 9
         LTEXT           "Blur Kernel Size", IDS_STATIC, 132, 42, 60, 9
 
-    GROUPBOX        "Status", IDS_STATIC, 125, 65, 130, 63
+    GROUPBOX        "Status", IDS_STATIC, 125, 65, 130, 90
         LTEXT           "Int Active", IDS_STATIC, 132, 80, 60, 9
         LTEXT           "Source FPS", IDS_STATIC, 132, 95, 60, 9
         LTEXT           "Num Steps", IDS_STATIC, 132, 110, 60, 9
+        LTEXT           "Frame Resolution", IDS_STATIC, 132, 125, 60, 9
+        LTEXT           "Calc Resolution", IDS_STATIC, 132, 140, 60, 9
         LTEXT           "n/a", IDC_INTACTIVE, 200, 80, 50, 9
         LTEXT           "n/a", IDC_SOURCEFPS, 200, 95, 50, 9
         LTEXT           "n/a", IDC_NUMSTEPS, 200, 110, 50, 9
+        LTEXT           "n/a", IDC_FRAMERES, 200, 125, 50, 9
+        LTEXT           "n/a", IDC_CALCRES, 200, 140, 50, 9
 END
 
 STRINGTABLE DISCARDABLE

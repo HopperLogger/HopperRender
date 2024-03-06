@@ -18,15 +18,17 @@
 #include <dvdmedia.h>
 #include <numeric>
 
+#include "opticalFlowCalcSDR.cuh"
+#include "opticalFlowCalcHDR.cuh"
 #include "resource.h"
 
 
 // Debug message function
-void DebugMessage(const std::string& message) {
-#if defined(DEBUG)
-	const std::string m_debugMessage = message + "\n";
-	OutputDebugStringA(m_debugMessage.c_str());
-#endif
+void DebugMessage(const std::string& message, const bool showLog) {
+	if (showLog) {
+		const std::string m_debugMessage = message + "\n";
+		OutputDebugStringA(m_debugMessage.c_str());
+	}
 }
 
 
@@ -34,7 +36,7 @@ void DebugMessage(const std::string& message) {
 constexpr AMOVIESETUP_MEDIATYPE sudPinTypesIn =
 {
 	&MEDIATYPE_Video, // Major type
-	&MEDIASUBTYPE_NV12 // Minor type
+	&MEDIASUBTYPE_NULL // Minor type
 };
 
 
@@ -124,11 +126,13 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	CTransformFilter(tszName, punk, CLSID_HopperRender),
 	CPersistStream(punk, phr),
 	m_bActivated(true),
+	m_bP010Input(false),
 	m_iFrameOutput(2),
+	m_cNumTimesTooSlow(0),
 	m_iNumIterations(0),
 	m_iNumSteps(10),
-	m_iBlurKernelSize(4),
-	m_lBufferRequest(8),
+	m_iBlurKernelSize(14),
+	m_lBufferRequest(1),
 	m_bBisNewest(true),
 	m_iFrameCounter(0),
 	m_rtCurrStartTime(-1),
@@ -143,8 +147,8 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_dDimScalar(1.0),
 	m_iDimX(1),
 	m_iDimY(1),
-	m_fResolutionScalar(1.0),
-	m_fResolutionDivider(1.0) {
+	m_dResolutionScalar(1.0),
+	m_dResolutionDivider(1.0) {
 }
 
 
@@ -186,7 +190,7 @@ HRESULT CHopperRender::CheckInputType(const CMediaType* mtIn) {
 	}
 
 	// Can we transform this type
-	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) && IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12)) {
+	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) && (IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) || IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010))) {
 		return NOERROR;
 	}
 	return E_FAIL;
@@ -198,7 +202,7 @@ HRESULT CHopperRender::CheckTransform(const CMediaType* mtIn, const CMediaType* 
 	CheckPointer(mtIn, E_POINTER)
 	CheckPointer(mtOut, E_POINTER)
 
-	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) && IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) && IsEqualGUID(*mtOut->Subtype(), MEDIASUBTYPE_P010)) {
+	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) && (IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) || IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010)) && IsEqualGUID(*mtOut->Subtype(), MEDIASUBTYPE_P010)) {
 		return NOERROR;
 	}
 	return E_FAIL;
@@ -299,7 +303,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) const {
 	pBIH->biWidth = biWidth;
 	pBIH->biHeight = biHeight;
 	pBIH->biBitCount = 24;
-	pBIH->biPlanes = 2;
+	pBIH->biPlanes = 1;
 	pBIH->biSizeImage = (biWidth * biHeight * 12) >> 3;
 	pBIH->biCompression = guid.Data1;
 
@@ -343,20 +347,24 @@ HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
 			pFilter->Release();
 		}
 
+		// Check if the input is P010
+		m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010 ? m_bP010Input = true : m_bP010Input = false;
+
 		// Get the frame dimensions and frame rate
 		auto pvi = (VIDEOINFOHEADER2*)m_pInput->CurrentMediaType().Format();
 		m_rtAvgSourceFrameTime = pvi->AvgTimePerFrame;
 		m_iDimX = pvi->bmiHeader.biWidth;
 		m_iDimY = pvi->bmiHeader.biHeight;
 
-		// Calculate the resolution scalar
-		m_fResolutionScalar = static_cast<float>(m_iDimX) / static_cast<float>(1920);
-		m_fResolutionScalar = 2.0; // TEMPORARY
-		m_fResolutionDivider = static_cast<float>(1.0) / m_fResolutionScalar;
+		// Calculate the resolution default resolution scalar used for the optical flow calculation
+		m_dResolutionDivider = 1920.0 / static_cast<double>(m_iDimX);
+		m_dResolutionScalar = 1.0 / m_dResolutionDivider;
 
 		// Initialize the Optical Flow Calculator
-		if (!m_ofcOpticalFlowCalc.isInitialized()) {
-			m_ofcOpticalFlowCalc.init(m_iDimY, m_iDimX, m_dDimScalar, m_fResolutionScalar);
+		if (m_bP010Input) {
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, m_iDimX, m_dDimScalar, m_dResolutionScalar);
+		} else {
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, m_iDimX, m_dDimScalar, m_dResolutionScalar);
 		}
 	}
 	return __super::CompleteConnect(dir, pReceivePin);
@@ -372,7 +380,7 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 	m_iFrameCounter++;
 
 	// Copy the properties across
-	HRESULT hr = DeliverToRenderer(pIn, pOut, 166667);
+	HRESULT hr = DeliverToRenderer(pIn, pOut, FT_TARGET);
 	if (FAILED(hr)) {
 		return hr;
 	}
@@ -388,12 +396,8 @@ HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, d
 		dRate));
 
 	// Check if interpolation is necessary
-	if (m_bActivated) {
-		if (m_rtCurrPlaybackFrameTime > 166667) {
-			m_bIntNeeded = true;
-		} else {
-			m_bIntNeeded = false;
-		}
+	if (m_bActivated && m_rtCurrPlaybackFrameTime > FT_TARGET) {
+		m_bIntNeeded = true;
 	} else {
 		m_bIntNeeded = false;
 	}
@@ -402,7 +406,7 @@ HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, d
 	if (m_bIntNeeded) {
 		m_rtCurrStartTime = -1; // Tells the DeliverToRenderer function that we are at the start of a new segment
 		m_iNumSamples = static_cast<int>(ceil(
-			static_cast<double>(m_rtCurrPlaybackFrameTime) / static_cast<double>(166667)));
+			static_cast<double>(m_rtCurrPlaybackFrameTime) / static_cast<double>(FT_TARGET)));
 	} else {
 		m_iNumSamples = 1;
 	}
@@ -419,7 +423,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 	CheckPointer(pOut, E_POINTER)
 
 	// Get pointers to the sample buffer
-	BYTE* pInBuffer;
+	unsigned char* pInBuffer;
 	HRESULT hr = pIn->GetPointer(&pInBuffer);
 	if (FAILED(hr)) {
 		return hr;
@@ -452,7 +456,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 
 	// Assemble the output samples
 	IMediaSample* pOutNew;
-	BYTE* pOutNewBuffer;
+	unsigned char* pOutNewBuffer;
 
 	for (int iIntFrameNum = 0; iIntFrameNum < m_iNumSamples; ++iIntFrameNum) {
 		// Create a new output sample
@@ -605,17 +609,15 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 }
 
 
-// Copies an NV12 frame to a P010 frame
-HRESULT CHopperRender::CopyFrame(BYTE* pInBuffer, BYTE* pOutBuffer) {
-	m_ofcOpticalFlowCalc.m_frame1.fillData(pInBuffer);
-	m_ofcOpticalFlowCalc.convertNV12toP010(&m_ofcOpticalFlowCalc.m_frame1);
-	m_ofcOpticalFlowCalc.m_outputFrame.download(pOutBuffer);
+// Copies the source frame to the output frame
+HRESULT CHopperRender::CopyFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer) const {
+	m_pofcOpticalFlowCalc->copyFrame(pInBuffer, pOutBuffer);
 	return NOERROR;
 }
 
 
 // Interpolates a frame
-HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, float fScalar, int iIntFrameNum) {
+HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer, const float fScalar, const int iIntFrameNum) {
 	// Note the calculation start time at the start of a new sample
 	if (iIntFrameNum == 0) {
 		m_tpCurrCalcStart = std::chrono::high_resolution_clock::now();
@@ -625,9 +627,9 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, float
 	// we always have the current frame and the previous frame
 	if (iIntFrameNum == 0) {
 		if (m_bBisNewest) {
-			m_ofcOpticalFlowCalc.updateFrame1(pInBuffer);
+			m_pofcOpticalFlowCalc->updateFrame1(pInBuffer);
 		} else {
-			m_ofcOpticalFlowCalc.updateFrame2(pInBuffer);
+			m_pofcOpticalFlowCalc->updateFrame2(pInBuffer);
 		}
 		m_bBisNewest = !m_bBisNewest;
 	}
@@ -643,78 +645,39 @@ HRESULT CHopperRender::InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, float
 	// Calculate the optical flow in both directions and blur it
 	if (iIntFrameNum == 0) {
 		// Calculate the optical flow (frame 1 to frame 2)
-		m_ofcOpticalFlowCalc.calculateOpticalFlow(m_iNumIterations, m_iNumSteps);
+		m_pofcOpticalFlowCalc->calculateOpticalFlow(m_iNumIterations, m_iNumSteps);
 
 		// Flip the flow array to frame 2 to frame 1
 		if (m_iFrameOutput == 1 || m_iFrameOutput == 2) {
-			m_ofcOpticalFlowCalc.flipFlow();
+			m_pofcOpticalFlowCalc->flipFlow();
 		}
 
 		// Blur the flow arrays
-		m_ofcOpticalFlowCalc.blurFlowArrays(m_iBlurKernelSize);
+		m_pofcOpticalFlowCalc->blurFlowArrays(m_iBlurKernelSize);
 	}
 
 	// Warp frames
 	if (m_iFrameOutput == 0 || m_iFrameOutput == 1) {
-		m_ofcOpticalFlowCalc.warpFramesForOutput(fScalar, m_iFrameOutput == 0);
+		m_pofcOpticalFlowCalc->warpFramesForOutput(fScalar, m_iFrameOutput == 0);
 	} else if (m_iFrameOutput == 2) {
-		m_ofcOpticalFlowCalc.warpFramesForBlending(fScalar);
+		m_pofcOpticalFlowCalc->warpFramesForBlending(fScalar);
 	}
 
 	// Blend the frames together
 	if (m_iFrameOutput == 2) {
-		m_ofcOpticalFlowCalc.blendFrames(fScalar);
+		m_pofcOpticalFlowCalc->blendFrames(fScalar);
 	}
 
 	// Draw the flow as an HSV image
 	if (m_iFrameOutput == 3) {
-		m_ofcOpticalFlowCalc.drawFlowAsHSV(1.0, 1.0);
+		m_pofcOpticalFlowCalc->drawFlowAsHSV(1.0, 1.0);
 	}
 
 	// Download the result to the output buffer
-	m_ofcOpticalFlowCalc.m_outputFrame.download(pOutBuffer);
+	m_pofcOpticalFlowCalc->m_outputFrame.download(pOutBuffer);
 
 	// Adjust the settings to process everything fast enough
-	if (iIntFrameNum == (m_iNumSamples - 1)) {
-		m_tpCurrCalcEnd = std::chrono::high_resolution_clock::now();
-		m_dCurrCalcDuration = std::chrono::duration<double, std::milli>(m_tpCurrCalcEnd - m_tpCurrCalcStart).count();
-
-		// Calculation took too long
-		if ((m_dCurrCalcDuration + m_dCurrCalcDuration * 0.05) > static_cast<double>(m_rtCurrPlaybackFrameTime) / 10000.0) {
-			//DebugMessage(
-			//	"Calculation took too long     " + std::to_string(m_dCurrCalcDuration) + " ms" + " AVG SFT: " +
-			//	std::to_string(static_cast<double>(m_rtCurrPlaybackFrameTime) / 10000.0) + " NumSteps: " +
-			//	std::to_string(m_iNumSteps));
-			m_iNumSteps -= 1;
-			if (m_iNumSteps < 1) {
-				m_iNumSteps = 1;
-			}
-
-		// Calculation took too short (we have capacity)
-		} else if ((static_cast<double>(m_rtCurrPlaybackFrameTime) / 10000.0) > (m_dCurrCalcDuration + m_dCurrCalcDuration * 0.1)) {
-			//DebugMessage(
-			//	"Calculation has capacity      " + std::to_string(m_dCurrCalcDuration) + " ms" + " AVG SFT: " +
-			//	std::to_string(static_cast<double>(m_rtCurrPlaybackFrameTime) / 10000.0) + " NumSteps: " +
-			//	std::to_string(m_iNumSteps));
-			m_iNumSteps += 1;
-
-		// Calculation took as long as it should
-		} else {
-			//DebugMessage(
-			//	"Calculation took              " + std::to_string(m_dCurrCalcDuration) + " ms" + " AVG SFT: " + std::to_string(
-			//		static_cast<double>(m_rtCurrPlaybackFrameTime) / 10000.0) + " NumSteps: " + std::to_string(
-			//			m_iNumSteps));
-		}
-
-		// Disable Interpolation if we are too slow
-		if (m_iNumSteps < 2) {
-			m_bIntNeeded = false;
-			m_bIntTooSlow = true;
-		// And limit the number of steps to not waste resources
-		} else if (m_iNumSteps > 30) {
-			m_iNumSteps = 30;
-		}
-	}
+	autoAdjustSettings(iIntFrameNum);
 
 	return NOERROR;
 }
@@ -781,9 +744,10 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
 
 
 // Return the current settings selected
-STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piFrameOutput, int* piNumIterations,
-                                         int* piBlurKernelSize, int* piIntActiveState, double* pdSourceFPS,
-                                         int* piNumSteps) {
+STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piFrameOutput,
+										 int* piNumIterations, int* piBlurKernelSize, int* piIntActiveState, 
+										 double* pdSourceFPS, int* piNumSteps, int* piDimX,
+										 int* piDimY, int* piLowDimX, int* piLowDimY) {
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 	CheckPointer(pbActivated, E_POINTER)
 	CheckPointer(piFrameOutput, E_POINTER)
@@ -792,6 +756,10 @@ STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piFrameOutput, 
 	CheckPointer(piIntActiveState, E_POINTER)
 	CheckPointer(pdSourceFPS, E_POINTER)
 	CheckPointer(piNumSteps, E_POINTER)
+	CheckPointer(piDimX, E_POINTER)
+	CheckPointer(piDimY, E_POINTER)
+	CheckPointer(piLowDimX, E_POINTER)
+	CheckPointer(piLowDimY, E_POINTER)
 
 	*pbActivated = m_bActivated;
 	*piFrameOutput = m_iFrameOutput;
@@ -808,6 +776,10 @@ STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piFrameOutput, 
 	}
 	*pdSourceFPS = 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime);
 	*piNumSteps = m_iNumSteps;
+	*piDimX = m_iDimX;
+	*piDimY = m_iDimY;
+	*piLowDimX = m_pofcOpticalFlowCalc->m_iLowDimX;
+	*piLowDimY = m_pofcOpticalFlowCalc->m_iLowDimY;
 
 	return NOERROR;
 }
@@ -824,4 +796,98 @@ STDMETHODIMP CHopperRender::put_Settings(bool bActivated, int iFrameOutput, int 
 
 	SetDirty(TRUE);
 	return NOERROR;
+}
+
+// Adjusts the frame scalar
+void CHopperRender::adjustFrameScalar(const double dResolutionDivider) {
+	if (dResolutionDivider != m_dResolutionDivider && dResolutionDivider > 0.0 && dResolutionDivider <= 1.0) {
+		// Re-Calculate the resolution scalar
+		m_dResolutionDivider = dResolutionDivider;
+		m_dResolutionScalar = 1.0 / m_dResolutionDivider;
+
+		// Re-Initialize the Optical Flow Calculator
+		m_bFirstFrame = true;
+		m_iFrameCounter = 0;
+		m_bBisNewest = true;
+		m_bIntTooSlow = false;
+		m_bIntNeeded = true;
+		m_dCurrCalcDuration = 0.0;
+		m_iNumSteps = MIN_NUM_STEPS;
+		m_pofcOpticalFlowCalc->m_dResolutionScalar = m_dResolutionScalar;
+		m_pofcOpticalFlowCalc->m_dResolutionDivider = m_dResolutionDivider;
+		m_pofcOpticalFlowCalc->m_iLowDimX = static_cast<unsigned int>(static_cast<double>(m_iDimX) * m_dResolutionDivider);
+		m_pofcOpticalFlowCalc->m_iLowDimY = static_cast<unsigned int>(static_cast<double>(m_iDimY) * m_dResolutionDivider);
+		m_pofcOpticalFlowCalc->m_lowGrid.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / static_cast<double>(NUM_THREADS)), 1.0));
+		m_pofcOpticalFlowCalc->m_lowGrid.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / static_cast<double>(NUM_THREADS)), 1.0));
+	}
+}
+
+// Adjust settings for optimal performance
+void CHopperRender::autoAdjustSettings(const int iIntFrameNum) {
+	// Only adjust the settings when we are presenting the last intermediate frame (so we keep track of both the opt flow calc and the frame warping)
+	if (iIntFrameNum == (m_iNumSamples - 1)) {
+		m_tpCurrCalcEnd = std::chrono::high_resolution_clock::now();
+		m_dCurrCalcDuration = std::chrono::duration<double, std::milli>(m_tpCurrCalcEnd - m_tpCurrCalcStart).count();
+
+		// Get the time we have in between source frames (WE NEED TO STAY BELOW THIS!)
+		const double dSourceFrameTimeMS = static_cast<double>(m_rtCurrPlaybackFrameTime) / 10000.0;
+
+		/*
+		* Calculation took too long
+		*/
+		if ((m_dCurrCalcDuration + m_dCurrCalcDuration * 0.05) > dSourceFrameTimeMS) {
+			DebugMessage(
+				"Calculation took too long     " + std::to_string(m_dCurrCalcDuration) + " ms" + 
+				" AVG SFT: " + std::to_string(dSourceFrameTimeMS) + 
+				" NumSteps: " + std::to_string(m_iNumSteps), LOG_PERFORMANCE);
+
+			// Decrease the number of steps to reduce calculation time
+			if (m_iNumSteps > MIN_NUM_STEPS) {
+				m_iNumSteps -= 1;
+				return;
+			}
+
+			// We can't reduce the number of steps any further, so we reduce the resolution divider instead
+			if (m_dResolutionDivider > 0.25) {
+				// To avoid unnecessary adjustments, we only adjust the resolution divider if we have been too slow for a while
+				m_cNumTimesTooSlow += 1;
+				if (m_cNumTimesTooSlow > 10) {
+					m_cNumTimesTooSlow = 0;
+					adjustFrameScalar(m_dResolutionDivider - 0.25);
+				}
+				return;
+			}
+
+			// Disable Interpolation if we are too slow
+			m_bIntNeeded = false;
+			m_bIntTooSlow = true;
+
+		/*
+		* We have left over capacity
+		*/
+		} else if ((m_dCurrCalcDuration + m_dCurrCalcDuration * 0.1) < dSourceFrameTimeMS) {
+			DebugMessage(
+				"Calculation has capacity      " + std::to_string(m_dCurrCalcDuration) + " ms" + 
+				" AVG SFT: " + std::to_string(dSourceFrameTimeMS) + 
+				" NumSteps: " + std::to_string(m_iNumSteps), LOG_PERFORMANCE);
+
+			// Increase the frame scalar if we have enough leftover capacity
+			if (m_iNumSteps >= MIN_NUM_STEPS + 8 && m_dResolutionDivider < 1.0) {
+				m_cNumTimesTooSlow = 0;
+				adjustFrameScalar(m_dResolutionDivider + 0.25);
+				m_iNumSteps = MIN_NUM_STEPS;
+			} else {
+				m_iNumSteps = min(m_iNumSteps + 1, MAX_NUM_STEPS); // Increase the number of steps to use the leftover capacity
+			}
+
+		/*
+		* Calculation takes as long as it should
+		*/
+		} else {
+			DebugMessage(
+				"Calculation took              " + std::to_string(m_dCurrCalcDuration) + " ms" + 
+				" AVG SFT: " + std::to_string(dSourceFrameTimeMS) + 
+				" NumSteps: " + std::to_string(m_iNumSteps), LOG_PERFORMANCE);
+		}
+	}
 }

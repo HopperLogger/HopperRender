@@ -4,6 +4,11 @@
 
 #include "opticalFlowCalc.cuh"
 
+#define FT_TARGET 166667 // 60 fps in 100ns units
+#define LOG_PERFORMANCE 0
+#define MIN_NUM_STEPS 2
+#define MAX_NUM_STEPS 1000
+
 class CHopperRender : public CTransformFilter,
                       public SettingsInterface,
                       public ISpecifyPropertyPages,
@@ -30,9 +35,11 @@ public:
 	HRESULT NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) override;
 
 	// These implement the custom SettingsInterface interface
-	STDMETHODIMP get_Settings(bool* pbActivated, int* piFrameOutput, int* piNumIterations, int* piBlurKernelSize,
-	                          int* piIntActiveState, double* pdSourceFPS, int* piNumSteps) override;
-	STDMETHODIMP put_Settings(bool bActivated, int iFrameOutput, int iNumIterations, int iBlurKernelSize) override;
+	STDMETHODIMP get_Settings(bool* pbActivated, int* piFrameOutput, int* piNumIterations,
+							  int* piBlurKernelSize, int* piIntActiveState, double* pdSourceFPS, int* piNumSteps, int* piDimX,
+							  int* piDimY, int* piLowDimX, int* piLowDimY) override;
+	STDMETHODIMP put_Settings(bool bActivated, int iFrameOutput, 
+							  int iNumIterations, int iBlurKernelSize) override;
 
 	// ISpecifyPropertyPages interface
 	STDMETHODIMP GetPages(CAUUID* pPages) override;
@@ -46,18 +53,22 @@ private:
 
 	HRESULT UpdateVideoInfoHeader(CMediaType* pMediaType) const;
 	HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget);
-	HRESULT CopyFrame(BYTE* pInBuffer, BYTE* pOutBuffer);
-	HRESULT InterpolateFrame(BYTE* pInBuffer, BYTE* pOutBuffer, float dScalar, int iIntFrameNum);
+	HRESULT CopyFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer) const;
+	HRESULT InterpolateFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer, float fScalar, int iIntFrameNum);
+	void adjustFrameScalar(double dResolutionDivider);
+	void autoAdjustSettings(int iIntFrameNum);
 
 	CCritSec m_csHopperRenderLock; // Private play critical section
 	bool m_bActivated; // Whether the filter is activated
+	bool m_bP010Input; // Whether the input is P010 or not
 	int m_iFrameOutput; // What frame output to use
+	unsigned char m_cNumTimesTooSlow; // The number of times the interpolation has been too slow
 	int m_iNumIterations; // Number of iterations to use in the optical flow calculation
 	int m_iNumSteps; // Number of steps executed to find the ideal offset (limits the maximum offset)
 	int m_iBlurKernelSize; // The size of the blur kernel
-	const long m_lBufferRequest; // The number of buffers to use
+	long m_lBufferRequest; // The number of buffers to use
 	bool m_bBisNewest; // Which frame order are we using
-	OpticalFlowCalc m_ofcOpticalFlowCalc; // Optical flow calculator
+	OpticalFlowCalc* m_pofcOpticalFlowCalc; // Optical flow calculator
 	unsigned int m_iFrameCounter; // Frame counter (relative! i.e. number of frames presented)
 	REFERENCE_TIME m_rtCurrStartTime; // The start time of the current interpolated frame
 	REFERENCE_TIME m_rtLastStartTime; // The start time of the last interpolated frame
@@ -73,6 +84,6 @@ private:
 	double m_dDimScalar; // The scalar to scale the frame dimensions with depending on the renderer used
 	unsigned int m_iDimX; // The width of the frame
 	unsigned int m_iDimY; // The height of the frame
-	float m_fResolutionScalar; // The scalar to scale the resolution with
-	float m_fResolutionDivider; // The divider to scale the resolution with
+	double m_dResolutionScalar; // The scalar to scale the resolution with
+	double m_dResolutionDivider; // The divider to scale the resolution with
 };

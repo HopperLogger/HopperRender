@@ -10,12 +10,6 @@
 
 #include <amvideo.h>
 
-// Debug message function
-void GPUDebugMessage(const std::string& message) {
-	const std::string m_debugMessage = message + "\n";
-	OutputDebugStringA(m_debugMessage.c_str());
-}
-
 /*
 * -------------------- KERNELS --------------------
 */
@@ -316,9 +310,9 @@ void GPUArray<T>::fill(T value) {
 	}
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_X = static_cast<int>(fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1));
+	const int NUM_BLOCKS_Y = static_cast<int>(fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1));
+	const int NUM_BLOCKS_Z = static_cast<int>(fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1));
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -356,9 +350,9 @@ void GPUArray<T>::fill(T value, unsigned int startIdx, unsigned int endIndex) {
 	}
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1);
-	const int NUM_BLOCKS_Y = fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1);
-	const int NUM_BLOCKS_Z = fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1);
+	const int NUM_BLOCKS_X = static_cast<int>(fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1));
+	const int NUM_BLOCKS_Y = static_cast<int>(fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1));
+	const int NUM_BLOCKS_Z = static_cast<int>(fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1));
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
@@ -382,7 +376,7 @@ void GPUArray<T>::fill(T value, unsigned int startIdx, unsigned int endIndex) {
 * @param bytes: Size of the data in bytes
 */
 template <typename T>
-void GPUArray<T>::fillData(const T* memPointer) {
+void GPUArray<T>::fillData(const unsigned char* memPointer) const {
 	// Copy the data to the GPU
 	cudaMemcpy(arrayPtrGPU, memPointer, bytes, cudaMemcpyHostToDevice);
 }

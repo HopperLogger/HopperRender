@@ -26,8 +26,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -50,6 +50,9 @@
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\lib\</OutDir>
     <IntDir>$(SolutionDir)$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
+  <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <VcpkgConfiguration>Release</VcpkgConfiguration>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -68,10 +71,13 @@
       <SplitCompileCustomThreads>16</SplitCompileCustomThreads>
       <FastMath>true</FastMath>
       <PtxAsOptionV>true</PtxAsOptionV>
-      <DebugInformationFormat>None</DebugInformationFormat>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <CompileOut>$(SolutionDir)$(Platform)\$(Configuration)\$(ProjectName)\%(Filename)%(Extension).obj</CompileOut>
-      <HostDebugInfo>false</HostDebugInfo>
-      <GPUDebugInfo>false</GPUDebugInfo>
+      <HostDebugInfo>true</HostDebugInfo>
+      <GPUDebugInfo>true</GPUDebugInfo>
+      <Optimization>Od</Optimization>
+      <Runtime>MDd</Runtime>
+      <RuntimeChecks>Default</RuntimeChecks>
     </CudaCompile>
     <CudaLink>
       <LinkOut>$(SolutionDir)$(Platform)\$(Configuration)\.device-link.obj</LinkOut>
@@ -85,6 +91,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -97,25 +104,34 @@
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <CodeGeneration>compute_89,sm_89;compute_61,sm_61</CodeGeneration>
       <FastMath>true</FastMath>
-      <PtxAsOptionV>true</PtxAsOptionV>
+      <PtxAsOptionV>false</PtxAsOptionV>
       <SplitCompile>MaxThreads</SplitCompile>
       <SplitCompileCustomThreads>16</SplitCompileCustomThreads>
-      <GPUDebugInfo>true</GPUDebugInfo>
-      <HostDebugInfo>true</HostDebugInfo>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <GPUDebugInfo>false</GPUDebugInfo>
+      <HostDebugInfo>false</HostDebugInfo>
+      <DebugInformationFormat>None</DebugInformationFormat>
       <CompileOut>$(SolutionDir)$(Platform)\$(Configuration)\$(ProjectName)\%(Filename)%(Extension).obj</CompileOut>
+      <Optimization>O2</Optimization>
+      <Runtime>MD</Runtime>
+      <RuntimeChecks>Default</RuntimeChecks>
     </CudaCompile>
     <CudaLink>
       <LinkOut>$(SolutionDir)$(Platform)\$(Configuration)\.device-link.obj</LinkOut>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat>None</DebugInformationFormat>
+      <GPUDebugInfo>false</GPUDebugInfo>
+      <Optimization>O2</Optimization>
     </CudaLink>
   </ItemDefinitionGroup>
   <ItemGroup>
     <CudaCompile Include="GPUArrayLib.cu" />
     <CudaCompile Include="opticalFlowCalc.cu" />
+    <CudaCompile Include="opticalFlowCalcHDR.cu" />
+    <CudaCompile Include="opticalFlowCalcSDR.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GPUArrayLib.cuh" />
+    <ClInclude Include="opticalFlowCalcHDR.cuh" />
+    <ClInclude Include="opticalFlowCalcSDR.cuh" />
     <ClInclude Include="opticalFlowCalc.cuh" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
