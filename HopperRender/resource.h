@@ -18,6 +18,8 @@
 #define IDC_INTACTIVE				    1019
 #define IDC_SOURCEFPS				    1020
 #define IDC_NUMSTEPS				    1021
+#define IDC_FRAMERES				    1022
+#define IDC_CALCRES				        1023
 
 // Next default values for new objects
 //

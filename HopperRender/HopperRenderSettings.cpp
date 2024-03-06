@@ -8,6 +8,8 @@
 #include <cstdlib>
 #include <cstdio>
 #include <tchar.h>
+#include <iomanip>
+#include <sstream>
 #include "resource.h"
 #include "uids.h"
 #include "iEZ.h"
@@ -66,8 +68,12 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd,
 	}
 
 	// Get the current settings
+	int iDimX;
+	int iDimY;
+	int iLowDimX;
+	int iLowDimY;
 	m_pSettingsInterface->get_Settings(&m_bActivated, &m_iFrameOutput, &m_iNumIterations, &m_iBlurKernelSize,
-	                                   &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps);
+	                                   &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
 
 	// Update the filter active status
 	if (m_iIntActiveState == 3) {
@@ -89,6 +95,14 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd,
 	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNumSteps);
 	SetDlgItemText(m_Dlg, IDC_NUMSTEPS, sz);
 
+	// Update the frame resolution
+	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d x %d\0"), iDimX, iDimY);
+	SetDlgItemText(m_Dlg, IDC_FRAMERES, sz);
+
+	// Update the calculation resolution
+	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d x %d\0"), iLowDimX, iLowDimY);
+	SetDlgItemText(m_Dlg, IDC_CALCRES, sz);
+
 	return CBasePropertyPage::OnReceiveMessage(hwnd, uMsg, wParam, lParam);
 }
 
@@ -104,9 +118,13 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 	}
 
 	// Get the initial settings
+	int iDimX;
+	int iDimY;
+	int iLowDimX;
+	int iLowDimY;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
 	m_pSettingsInterface->get_Settings(&m_bActivated, &m_iFrameOutput, &m_iNumIterations, &m_iBlurKernelSize,
-	                                   &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps);
+	                                   &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
 
 	m_bIsInitialized = FALSE;
 	return NOERROR;
@@ -128,7 +146,7 @@ HRESULT CHopperRenderSettings::OnDisconnect() {
 HRESULT CHopperRenderSettings::OnActivate() {
 	TCHAR sz[60];
 
-	// Set the initial MaxOffsetDivider
+	// Set the initial BlurKernelSize
 	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iBlurKernelSize);
 	Edit_SetText(GetDlgItem(m_Dlg, IDC_BLURKERNEL), sz);
 
@@ -186,7 +204,7 @@ void CHopperRenderSettings::GetControlValues() {
 	TCHAR sz[STR_MAX_LENGTH];
 	int tmp1, tmp2;
 
-	// Get the max offset divider
+	// Get the blur kernel size
 	Edit_GetText(GetDlgItem(m_Dlg, IDC_BLURKERNEL), sz, STR_MAX_LENGTH);
 
 #ifdef UNICODE
@@ -199,7 +217,7 @@ void CHopperRenderSettings::GetControlValues() {
     tmp2 = atoi(sz);
 #endif
 
-	// Get the number of steps
+	// Get the number of iterations
 	Edit_GetText(GetDlgItem(m_Dlg, IDC_NUMITS), sz, STR_MAX_LENGTH);
 
 #ifdef UNICODE

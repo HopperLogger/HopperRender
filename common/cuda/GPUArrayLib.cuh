@@ -127,7 +127,7 @@ public:
 	*
 	* @param memPointer: Pointer to the data in system memory
 	*/
-	void fillData(const T* memPointer);
+	void fillData(const unsigned char* memPointer) const;
 
 	/*
 	* Prints a 2D array/matrix
