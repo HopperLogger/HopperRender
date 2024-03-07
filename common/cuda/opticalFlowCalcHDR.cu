@@ -294,8 +294,15 @@ __global__ void convertFlowToHSVKernelHDR(const int* flowArray, unsigned short* 
 	constexpr float scalar = 0.5;
 
 	// Get the current flow values
-	const double x = flowArray[static_cast<unsigned int>(cy * dResolutionDivider) * static_cast<unsigned int>(dimX * dResolutionDivider) + static_cast<unsigned int>(cx * dResolutionDivider)];
-	const double y = flowArray[static_cast<unsigned int>(dimY * dResolutionDivider * dimX * dResolutionDivider) + static_cast<unsigned int>(cy * dResolutionDivider) * static_cast<unsigned int>(dimX * dResolutionDivider) + static_cast<unsigned int>(cx * dResolutionDivider)];
+	double x;
+	double y;
+	if (cz == 0) {
+		x = flowArray[static_cast<unsigned int>(cy * dResolutionDivider) * static_cast<unsigned int>(dimX * dResolutionDivider) + static_cast<unsigned int>(cx * dResolutionDivider)];
+		y = flowArray[static_cast<unsigned int>(dimY * dResolutionDivider * dimX * dResolutionDivider) + static_cast<unsigned int>(cy * dResolutionDivider) * static_cast<unsigned int>(dimX * dResolutionDivider) + static_cast<unsigned int>(cx * dResolutionDivider)];
+	} else {
+		x = flowArray[static_cast<unsigned int>(cy * 2 * dResolutionDivider) * static_cast<unsigned int>(dimX * dResolutionDivider) + static_cast<unsigned int>(cx * dResolutionDivider)];
+		y = flowArray[static_cast<unsigned int>(dimY * dResolutionDivider * dimX * dResolutionDivider) + static_cast<unsigned int>(cy * 2 * dResolutionDivider) * static_cast<unsigned int>(dimX * dResolutionDivider) + static_cast<unsigned int>(cx * dResolutionDivider)];
+	}
 
 	// RGB struct
 	struct RGB {
@@ -331,13 +338,13 @@ __global__ void convertFlowToHSVKernelHDR(const int* flowArray, unsigned short* 
 
 	RGB rgb;
 	switch (h_i % 6) {
-	case 0: rgb = { static_cast<int>(value * 255), static_cast<int>(t * 255), static_cast<int>(p * 255) }; break;
-	case 1: rgb = { static_cast<int>(q * 255), static_cast<int>(value * 255), static_cast<int>(p * 255) }; break;
-	case 2: rgb = { static_cast<int>(p * 255), static_cast<int>(value * 255), static_cast<int>(t * 255) }; break;
-	case 3: rgb = { static_cast<int>(p * 255), static_cast<int>(q * 255), static_cast<int>(value * 255) }; break;
-	case 4: rgb = { static_cast<int>(t * 255), static_cast<int>(p * 255), static_cast<int>(value * 255) }; break;
-	case 5: rgb = { static_cast<int>(value * 255), static_cast<int>(p * 255), static_cast<int>(q * 255) }; break;
-	default: rgb = { 0, 0, 0 }; break;
+		case 0: rgb = { static_cast<int>(value * 255), static_cast<int>(t * 255), static_cast<int>(p * 255) }; break;
+		case 1: rgb = { static_cast<int>(q * 255), static_cast<int>(value * 255), static_cast<int>(p * 255) }; break;
+		case 2: rgb = { static_cast<int>(p * 255), static_cast<int>(value * 255), static_cast<int>(t * 255) }; break;
+		case 3: rgb = { static_cast<int>(p * 255), static_cast<int>(q * 255), static_cast<int>(value * 255) }; break;
+		case 4: rgb = { static_cast<int>(t * 255), static_cast<int>(p * 255), static_cast<int>(value * 255) }; break;
+		case 5: rgb = { static_cast<int>(value * 255), static_cast<int>(p * 255), static_cast<int>(q * 255) }; break;
+		default: rgb = { 0, 0, 0 }; break;
 	}
 
 	// Prevent random colors when there is no flow
@@ -345,16 +352,16 @@ __global__ void convertFlowToHSVKernelHDR(const int* flowArray, unsigned short* 
 		rgb = { 0, 0, 0 };
 	}
 
-	// Write the converted RGB values to the array
-	if (cz < 2 && cy < dimY && cx < dimX) {
-		// Y Channel
-		if (cz == 0) {
-			p010Array[cy * static_cast<unsigned int>(dimX * dDimScalar) + cx] = (static_cast<unsigned short>(fmaxf(fminf(static_cast<float>(0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b), 255.0), 0.0) * scalar) << 8) + static_cast<unsigned short>(frame1[cy * dimX + cx] * (1.0 - scalar));
+	// Y Channel
+	if (cz == 0 && cy < dimY && cx < dimX) {
+		p010Array[cy * static_cast<unsigned int>(dimX * dDimScalar) + cx] = (static_cast<unsigned short>(fmaxf(fminf(static_cast<float>(0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b), 255.0), 0.0) * scalar) << 8) + static_cast<unsigned short>(frame1[cy * dimX + cx] * (1.0 - scalar));
+	// U/V Channels
+	} else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
 		// U Channel
-		} else if (cz == 1 && cx % 2 == 0 && cy < dimY / 2) {
+		if (cx % 2 == 0) {
 			p010Array[static_cast<unsigned int>(dimY * dimX * dDimScalar) + cy * static_cast<unsigned int>(dimX * dDimScalar) + (cx / 2) * 2] = static_cast<unsigned short>(fmaxf(fminf(static_cast<float>(0.492 * (rgb.b - (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b)) + 128), 255.0), 0.0)) << 8;
 		// V Channel
-		} else if (cy < dimY / 2) {
+		} else {
 			p010Array[static_cast<unsigned int>(dimY * dimX * dDimScalar) + cy * static_cast<unsigned int>(dimX * dDimScalar) + (cx / 2) * 2 + 1] = static_cast<unsigned short>(fmaxf(fminf(static_cast<float>(0.877 * (rgb.r - (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b)) + 128), 255.0), 0.0)) << 8;
 		}
 	}
@@ -366,11 +373,11 @@ __global__ void convertFlowToHSVKernelHDR(const int* flowArray, unsigned short* 
 * @param dimY: The height of the frame
 * @param dimX: The width of the frame
 * @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
-* @param dResolutionScalar: The scalar to scale the resolution with
+* @param dResolutionDivider: The scalar to scale the resolution with
 */
-OpticalFlowCalcHDR::OpticalFlowCalcHDR(const unsigned int dimY, const unsigned int dimX, const double dDimScalar, const double dResolutionScalar) {
-	m_dResolutionScalar = dResolutionScalar;
-	m_dResolutionDivider = 1.0 / dResolutionScalar;
+OpticalFlowCalcHDR::OpticalFlowCalcHDR(const unsigned int dimY, const unsigned int dimX, const double dDimScalar, const double dResolutionDivider) {
+	m_dResolutionDivider = dResolutionDivider;
+	m_dResolutionScalar = 1.0 / dResolutionDivider;
 	m_iDimX = dimX;
 	m_iDimY = dimY;
 	m_iLowDimX = static_cast<unsigned int>(static_cast<double>(dimX) * m_dResolutionDivider);
@@ -393,15 +400,15 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const unsigned int dimY, const unsigned i
 	m_grid.y = static_cast<int>(fmax(ceil(dimY / static_cast<double>(NUM_THREADS)), 1.0));
 	m_frame1.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
 	m_frame2.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
-	m_imageDeltaArray.init({ 5, m_iLowDimY, m_iLowDimX });
-	m_offsetArray12.init({ 2, 5, m_iLowDimY, m_iLowDimX });
-	m_offsetArray21.init({ 2, m_iLowDimY, m_iLowDimX });
-	m_blurredOffsetArray12.init({ 2, m_iLowDimY, m_iLowDimX });
-	m_blurredOffsetArray21.init({ 2, m_iLowDimY, m_iLowDimX });
-	m_statusArray.init({ m_iLowDimY, m_iLowDimX });
-	m_summedUpDeltaArray.init({ 5, m_iLowDimY, m_iLowDimX });
-	m_normalizedDeltaArray.init({ 5, m_iLowDimY, m_iLowDimX });
-	m_lowestLayerArray.init({ m_iLowDimY, m_iLowDimX });
+	m_imageDeltaArray.init({ 5, dimY, dimX });
+	m_offsetArray12.init({ 2, 5, dimY, dimX });
+	m_offsetArray21.init({ 2, dimY, dimX });
+	m_blurredOffsetArray12.init({ 2, dimY, dimX });
+	m_blurredOffsetArray21.init({ 2, dimY, dimX });
+	m_statusArray.init({ dimY, dimX });
+	m_summedUpDeltaArray.init({ 5, dimY, dimX });
+	m_normalizedDeltaArray.init({ 5, dimY, dimX });
+	m_lowestLayerArray.init({ dimY, dimX });
 	m_warpedFrame12.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
 	m_warpedFrame21.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
 	m_outputFrame.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * dimY * dimX * dDimScalar));
@@ -487,8 +494,7 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 				calcImageDeltaHDR << <m_lowGrid, m_threads5 >> > (m_frame1.arrayPtrGPU, m_frame2.arrayPtrGPU,
 					m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
 					m_iLowDimZ, m_iLowDimY, m_iLowDimX, m_dResolutionScalar);
-			}
-			else {
+			} else {
 				calcImageDeltaHDR << <m_lowGrid, m_threads5 >> > (m_frame2.arrayPtrGPU, m_frame1.arrayPtrGPU,
 					m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
 					m_iLowDimZ, m_iLowDimY, m_iLowDimX, m_dResolutionScalar);
