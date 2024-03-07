@@ -13,6 +13,7 @@ private:
 	HRESULT OnActivate() override;
 	HRESULT OnDeactivate() override;
 	HRESULT OnApplyChanges() override;
+	HRESULT saveSettings();
 
 	void GetControlValues();
 
