@@ -11,9 +11,9 @@ public:
 	* @param dimY: The height of the frame
 	* @param dimX: The width of the frame
 	* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
-	* @param dResolutionScalar: The scalar to scale the resolution with
+	* @param dResolutionDivider: The scalar to scale the resolution with
 	*/
-	OpticalFlowCalcSDR(unsigned int dimY, unsigned int dimX, double dDimScalar, double dResolutionScalar);
+	OpticalFlowCalcSDR(unsigned int dimY, unsigned int dimX, double dDimScalar, double dResolutionDivider);
 
 	/*
 	* Updates the frame1 array

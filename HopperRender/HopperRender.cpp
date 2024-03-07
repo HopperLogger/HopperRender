@@ -127,11 +127,11 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	CPersistStream(punk, phr),
 	m_bActivated(true),
 	m_bP010Input(false),
-	m_iFrameOutput(2),
+	m_iFrameOutput(3),
 	m_cNumTimesTooSlow(0),
 	m_iNumIterations(0),
 	m_iNumSteps(10),
-	m_iBlurKernelSize(14),
+	m_iBlurKernelSize(0),
 	m_lBufferRequest(1),
 	m_bBisNewest(true),
 	m_iFrameCounter(0),
@@ -362,9 +362,9 @@ HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
 
 		// Initialize the Optical Flow Calculator
 		if (m_bP010Input) {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, m_iDimX, m_dDimScalar, m_dResolutionScalar);
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, m_iDimX, m_dDimScalar, m_dResolutionDivider);
 		} else {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, m_iDimX, m_dDimScalar, m_dResolutionScalar);
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, m_iDimX, m_dDimScalar, m_dResolutionDivider);
 		}
 	}
 	return __super::CompleteConnect(dir, pReceivePin);
