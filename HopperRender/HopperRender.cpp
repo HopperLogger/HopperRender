@@ -127,11 +127,11 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	CPersistStream(punk, phr),
 	m_bActivated(true),
 	m_bP010Input(false),
-	m_iFrameOutput(3),
+	m_iFrameOutput(2),
 	m_cNumTimesTooSlow(0),
 	m_iNumIterations(0),
 	m_iNumSteps(10),
-	m_iBlurKernelSize(0),
+	m_iBlurKernelSize(14),
 	m_lBufferRequest(1),
 	m_bBisNewest(true),
 	m_iFrameCounter(0),
@@ -149,6 +149,7 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_iDimY(1),
 	m_dResolutionScalar(1.0),
 	m_dResolutionDivider(1.0) {
+	loadSettings();
 }
 
 
@@ -890,4 +891,50 @@ void CHopperRender::autoAdjustSettings(const int iIntFrameNum) {
 				" NumSteps: " + std::to_string(m_iNumSteps), LOG_PERFORMANCE);
 		}
 	}
+}
+
+// Loads the settings from the registry
+HRESULT CHopperRender::loadSettings() {
+	HKEY hKey;
+    LPCWSTR subKey = L"SOFTWARE\\HopperRender";
+	DWORD value;
+	DWORD dataSize = sizeof(DWORD);
+	LPCWSTR valueName; 
+
+    // Open the registry key
+    LONG result0 = RegOpenKeyEx(HKEY_CURRENT_USER, subKey, 0, KEY_READ, &hKey);
+    
+    if (result0 == ERROR_SUCCESS) {
+        // Load activated state
+		valueName = L"bActivated"; 
+        LONG result1 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
+		m_bActivated = value;
+
+		// Load Frame Output
+		valueName = L"iFrameOutput"; 
+        LONG result2 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
+		m_iFrameOutput = value;
+
+		// Load the number of iterations
+		valueName = L"iNumIterations"; 
+        LONG result3 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
+		m_iNumIterations = value;
+
+		// Load the blur kernel size
+		valueName = L"iBlurKernelSize"; 
+        LONG result4 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
+		m_iBlurKernelSize = value;
+
+		RegCloseKey(hKey); // Close the registry key
+
+		// Check for errors
+        if (result1 || result2 || result3 || result4) {
+			return E_FAIL;
+        } else {
+            return S_OK;
+        }
+
+    } else {
+        return E_FAIL;
+    }
 }

@@ -41,7 +41,7 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 	m_bActivated(FALSE),
 	m_iFrameOutput(2),
 	m_iNumIterations(0),
-	m_iBlurKernelSize(4),
+	m_iBlurKernelSize(14),
 	m_iIntActiveState(0),
 	m_dSourceFPS(0.0),
 	m_iNumSteps(0),
@@ -195,6 +195,9 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 
 	CheckPointer(m_pSettingsInterface, E_POINTER)
 	m_pSettingsInterface->put_Settings(m_bActivated, m_iFrameOutput, m_iNumIterations, m_iBlurKernelSize);
+	if (saveSettings() != S_OK) {
+		return E_FAIL;
+	}
 
 	return NOERROR;
 }
@@ -248,4 +251,39 @@ void CHopperRenderSettings::GetControlValues() {
 	} else {
 		m_iFrameOutput = 3;
 	}
+}
+
+// Saves the settings to the registry
+HRESULT CHopperRenderSettings::saveSettings() {
+	HKEY hKey;
+    LPCWSTR subKey = L"SOFTWARE\\HopperRender";
+
+    // Create or open the registry key
+    LONG result0 = RegCreateKeyEx(HKEY_CURRENT_USER, subKey, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &hKey, NULL);
+    
+    if (result0 == ERROR_SUCCESS) {
+        // Save activated state
+        LONG result1 = RegSetValueEx(hKey, L"bActivated", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_bActivated), sizeof(DWORD));
+
+		// Save Frame Output
+		LONG result2 = RegSetValueEx(hKey, L"iFrameOutput", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iFrameOutput), sizeof(DWORD));
+
+		// Save the number of iterations
+		LONG result3 = RegSetValueEx(hKey, L"iNumIterations", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iNumIterations), sizeof(DWORD));
+
+		// Save the blur kernel size
+		LONG result4 = RegSetValueEx(hKey, L"iBlurKernelSize", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iBlurKernelSize), sizeof(DWORD));
+
+		RegCloseKey(hKey); // Close the registry key
+
+		// Check for errors
+        if (result1 || result2 || result3 || result4) {
+			return E_FAIL;
+        } else {
+            return S_OK;
+        }
+
+    } else {
+        return E_FAIL;
+    }
 }

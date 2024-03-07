@@ -57,6 +57,7 @@ private:
 	HRESULT InterpolateFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer, float fScalar, int iIntFrameNum);
 	void adjustFrameScalar(double dResolutionDivider);
 	void autoAdjustSettings(int iIntFrameNum);
+	HRESULT loadSettings();
 
 	CCritSec m_csHopperRenderLock; // Private play critical section
 	bool m_bActivated; // Whether the filter is activated
