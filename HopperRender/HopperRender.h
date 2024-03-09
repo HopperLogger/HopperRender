@@ -6,7 +6,7 @@
 
 #define FT_TARGET 166667 // 60 fps in 100ns units
 #define LOG_PERFORMANCE 0
-#define MIN_NUM_STEPS 2
+#define MIN_NUM_STEPS 4
 #define MAX_NUM_STEPS 1000
 
 class CHopperRender : public CTransformFilter,
