@@ -123,9 +123,8 @@ __global__ void warpFrameKernelForOutputHDR(const unsigned short* frame1, const 
 			atomicAdd(&hitCount[newCy * dimX + newCx], ones[cy * dimX + cx]);
 		}
 
-		// U/V Channels
-	}
-	else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
+	// U/V Channels
+	} else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
 		const int offsetX = static_cast<int>(static_cast<float>(offsetArray[static_cast<unsigned int>(2 * cy * dResolutionDivider) * static_cast<unsigned int>(dimX * dResolutionDivider) + static_cast<unsigned int>((cx / 2) * 2 * dResolutionDivider)]) * frameScalar);
 		const int offsetY = static_cast<int>(static_cast<float>(offsetArray[static_cast<unsigned int>(dimY * dResolutionDivider * dimX * dResolutionDivider) + static_cast<unsigned int>(2 * cy * dResolutionDivider) * static_cast<unsigned int>(dimX * dResolutionDivider) + static_cast<unsigned int>((cx / 2) * 2 * dResolutionDivider)]) * frameScalar / 2.0);
 
@@ -136,11 +135,11 @@ __global__ void warpFrameKernelForOutputHDR(const unsigned short* frame1, const 
 
 			// U Channel
 			if (cx % 2 == 0) {
-				warpedFrame[static_cast<unsigned int>(dimY * dimX * dDimScalar) + newCy * static_cast<unsigned int>(dimX * dDimScalar) + (newCx / 2) * 2] = frame1[dimY * dimX + cy * dimX + (cx / 2) * 2];
+				warpedFrame[static_cast<unsigned int>(dimY * dimX * dDimScalar) + newCy * static_cast<unsigned int>(dimX * dDimScalar) + (newCx / 2) * 2] = frame1[dimY * dimX + cy * dimX + cx];
 
 			// V Channel
 			} else {
-				warpedFrame[static_cast<unsigned int>(dimY * dimX * dDimScalar) + newCy * static_cast<unsigned int>(dimX * dDimScalar) + (newCx / 2) * 2 + 1] = frame1[dimY * dimX + cy * dimX + (cx / 2) * 2 + 1];
+				warpedFrame[static_cast<unsigned int>(dimY * dimX * dDimScalar) + newCy * static_cast<unsigned int>(dimX * dDimScalar) + (newCx / 2) * 2 + 1] = frame1[dimY * dimX + cy * dimX + cx];
 			}
 		}
 	}
@@ -182,11 +181,11 @@ __global__ void warpFrameKernelForBlendingHDR(const unsigned short* frame1, cons
 
 			// U Channel
 			if (cx % 2 == 0) {
-				warpedFrame[dimY * dimX + newCy * dimX + (newCx / 2) * 2] = frame1[dimY * dimX + cy * dimX + (cx / 2) * 2];
+				warpedFrame[dimY * dimX + newCy * dimX + (newCx / 2) * 2] = frame1[dimY * dimX + cy * dimX + cx];
 
 			// V Channel
 			} else {
-				warpedFrame[dimY * dimX + newCy * dimX + (newCx / 2) * 2 + 1] = frame1[dimY * dimX + cy * dimX + (cx / 2) * 2 + 1];
+				warpedFrame[dimY * dimX + newCy * dimX + (newCx / 2) * 2 + 1] = frame1[dimY * dimX + cy * dimX + cx];
 			}
 		}
 	}
@@ -206,18 +205,10 @@ __global__ void artifactRemovalKernelForOutputHDR(const unsigned short* frame1, 
 			warpedFrame[cy * static_cast<unsigned int>(dimX * dDimScalar) + cx] = frame1[cy * dimX + cx];
 		}
 
-		// U/V Channels
-	}
-	else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
+	// U/V Channels
+	} else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
 		if (hitCount[cy * dimX + cx] != 1) {
-			// U Channel
-			if (cx % 2 == 0) {
-				warpedFrame[static_cast<unsigned int>(dimY * dimX * dDimScalar) + cy * static_cast<unsigned int>(dimX * dDimScalar) + (cx / 2) * 2] = frame1[dimY * dimX + cy * dimX + (cx / 2) * 2];
-
-			// V Channel
-			} else {
-				warpedFrame[static_cast<unsigned int>(dimY * dimX * dDimScalar) + cy * static_cast<unsigned int>(dimX * dDimScalar) + (cx / 2) * 2 + 1] = frame1[dimY * dimX + cy * dimX + (cx / 2) * 2 + 1];
-			}
+			warpedFrame[static_cast<unsigned int>(dimY * dimX * dDimScalar) + cy * static_cast<unsigned int>(dimX * dDimScalar) + cx] = frame1[dimY * dimX + cy * dimX + cx];
 		}
 	}
 }
@@ -240,15 +231,7 @@ __global__ void artifactRemovalKernelForBlendingHDR(const unsigned short* frame1
 	}
 	else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
 		if (hitCount[cy * dimX + cx] != 1) {
-			// U Channel
-			if (cx % 2 == 0) {
-				warpedFrame[dimY * dimX + cy * dimX + (cx / 2) * 2] = frame1[dimY * dimX + cy * dimX + (cx / 2) * 2];
-
-				// V Channel
-			}
-			else {
-				warpedFrame[dimY * dimX + cy * dimX + (cx / 2) * 2 + 1] = frame1[dimY * dimX + cy * dimX + (cx / 2) * 2 + 1];
-			}
+			warpedFrame[dimY * dimX + cy * dimX + cx] = frame1[dimY * dimX + cy * dimX + cx];
 		}
 	}
 }
@@ -268,16 +251,8 @@ __global__ void blendFrameKernelHDR(const unsigned short* frame1, const unsigned
 			frame1Scalar + static_cast<float>(frame2[cy * dimX + cx]) * frame2Scalar;
 	// U/V Channels
 	} else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
-		// U Channel
-		if (cx % 2 == 0) {
-			blendedFrame[static_cast<unsigned int>(dimY * dimX * dDimScalar) + cy * static_cast<unsigned int>(dimX * dDimScalar) + (cx / 2) * 2] = static_cast<float>(frame1[dimY * dimX + cy * dimX + (cx / 2) * 2]) *
-				frame1Scalar + static_cast<float>(frame2[dimY * dimX + cy * dimX + (cx / 2) * 2]) * frame2Scalar;
-
-		// V Channel
-		} else {
-			blendedFrame[static_cast<unsigned int>(dimY * dimX * dDimScalar) + cy * static_cast<unsigned int>(dimX * dDimScalar) + (cx / 2) * 2 + 1] = static_cast<float>(frame1[dimY * dimX + cy * dimX + (cx / 2) * 2 + 1]) *
-				frame1Scalar + static_cast<float>(frame2[dimY * dimX + cy * dimX + (cx / 2) * 2 + 1]) * frame2Scalar;
-		}
+		blendedFrame[static_cast<unsigned int>(dimY * dimX * dDimScalar) + cy * static_cast<unsigned int>(dimX * dDimScalar) + cx] = static_cast<float>(frame1[dimY * dimX + cy * dimX + cx]) *
+			frame1Scalar + static_cast<float>(frame2[dimY * dimX + cy * dimX + cx]) * frame2Scalar;
 	}
 }
 
@@ -382,7 +357,7 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const unsigned int dimY, const unsigned i
 	m_iDimY = dimY;
 	m_iLowDimX = static_cast<unsigned int>(static_cast<double>(dimX) * m_dResolutionDivider);
 	m_iLowDimY = static_cast<unsigned int>(static_cast<double>(dimY) * m_dResolutionDivider);
-	m_iLowDimZ = 5;
+	m_iNumLayers = 5;
 	m_dDimScalar = dDimScalar;
 	m_lowGrid.x = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimX) / static_cast<double>(NUM_THREADS)), 1.0));
 	m_lowGrid.y = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimY) / static_cast<double>(NUM_THREADS)), 1.0));
@@ -480,7 +455,7 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 	}
 
 	// Set the starting offset for the current window size
-	setInitialOffset << <m_lowGrid, m_threads5 >> > (m_offsetArray12.arrayPtrGPU, m_iLowDimZ, m_iLowDimY, m_iLowDimX);
+	setInitialOffset << <m_lowGrid, m_threads5 >> > (m_offsetArray12.arrayPtrGPU, m_iNumLayers, m_iLowDimY, m_iLowDimX);
 
 	// We calculate the ideal offset array for each window size (entire frame, ..., individual pixels)
 	for (unsigned int iter = 0; iter < iNumIterations; iter++) {
@@ -493,26 +468,26 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 			if (m_bBisNewest) {
 				calcImageDeltaHDR << <m_lowGrid, m_threads5 >> > (m_frame1.arrayPtrGPU, m_frame2.arrayPtrGPU,
 					m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
-					m_iLowDimZ, m_iLowDimY, m_iLowDimX, m_dResolutionScalar);
+					m_iNumLayers, m_iLowDimY, m_iLowDimX, m_dResolutionScalar);
 			} else {
 				calcImageDeltaHDR << <m_lowGrid, m_threads5 >> > (m_frame2.arrayPtrGPU, m_frame1.arrayPtrGPU,
 					m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
-					m_iLowDimZ, m_iLowDimY, m_iLowDimX, m_dResolutionScalar);
+					m_iNumLayers, m_iLowDimY, m_iLowDimX, m_dResolutionScalar);
 			}
 
 			// 2. Sum up the deltas of each window
 			calcDeltaSumsHDR << <m_lowGrid, m_threads5 >> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU,
-				windowDimY, windowDimX, m_iLowDimZ, m_iLowDimY, m_iLowDimX);
+				windowDimY, windowDimX, m_iNumLayers, m_iLowDimY, m_iLowDimX);
 
 			// 3. Normalize the summed up delta array and find the best layer
 			normalizeDeltaSums << <m_lowGrid, m_threads5 >> > (m_summedUpDeltaArray.arrayPtrGPU, m_lowestLayerArray.arrayPtrGPU,
 				m_offsetArray12.arrayPtrGPU, windowDimY, windowDimX,
-				m_iLowDimZ, m_iLowDimY, m_iLowDimX);
+				m_iNumLayers, m_iLowDimY, m_iLowDimX);
 
 			// 4. Adjust the offset array based on the comparison results
 			adjustOffsetArray << <m_lowGrid, m_threads1 >> > (m_offsetArray12.arrayPtrGPU, m_lowestLayerArray.arrayPtrGPU,
 				m_statusArray.arrayPtrGPU, windowDimY, windowDimX,
-				m_iLowDimZ, m_iLowDimY, m_iLowDimX);
+				m_iNumLayers, m_iLowDimY, m_iLowDimX);
 		}
 
 		// 5. Adjust window size

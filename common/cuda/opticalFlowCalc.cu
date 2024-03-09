@@ -436,7 +436,7 @@ void OpticalFlowCalc::flipFlow() const {
 
 	// Launch kernel
 	flipFlowKernel << <m_lowGrid, m_threads2 >> > (m_offsetArray12.arrayPtrGPU, m_offsetArray21.arrayPtrGPU,
-												   m_iLowDimZ, m_iLowDimY, m_iLowDimX, m_dResolutionDivider);
+												   m_iNumLayers, m_iLowDimY, m_iLowDimX, m_dResolutionDivider);
 
 	// Check for CUDA errors
 	const cudaError_t cudaError = cudaGetLastError();
@@ -462,7 +462,7 @@ void OpticalFlowCalc::blurFlowArrays(const int kernelSize) const {
 	cudaStreamCreate(&blurStream2);
 
 	// Launch kernels
-	blurKernel << <m_lowGrid, m_threads2, 0, blurStream1 >> > (m_offsetArray12.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU, kernelSize, m_iLowDimZ, m_iLowDimY, m_iLowDimX, true);
+	blurKernel << <m_lowGrid, m_threads2, 0, blurStream1 >> > (m_offsetArray12.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU, kernelSize, m_iNumLayers, m_iLowDimY, m_iLowDimX, true);
 	blurKernel << <m_lowGrid, m_threads2, 0, blurStream2 >> > (m_offsetArray21.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU, kernelSize, 1, m_iLowDimY, m_iLowDimX, false);
 
 	// Synchronize streams to ensure completion

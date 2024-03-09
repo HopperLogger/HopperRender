@@ -105,6 +105,7 @@ public:
 	// The number of cuda threads needed
 	dim3 m_lowGrid;
 	dim3 m_grid;
+	dim3 m_threads10;
 	dim3 m_threads5;
 	dim3 m_threads2;
 	dim3 m_threads1;
@@ -117,7 +118,7 @@ public:
 	unsigned int m_iDimY; // Height of the frame
 	unsigned int m_iLowDimX; // Width of the frame used by the optical flow calculation
 	unsigned int m_iLowDimY; // Height of the frame used by the optical flow calculation
-	unsigned int m_iLowDimZ; // Number of layers used by the optical flow calculation
+	unsigned int m_iNumLayers; // Number of layers used by the optical flow calculation
 	double m_dDimScalar; // Scalar to scale the frame dimensions with depending on the renderer used
 
 	// GPU Arrays

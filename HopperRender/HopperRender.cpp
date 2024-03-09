@@ -358,7 +358,7 @@ HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
 		m_iDimY = pvi->bmiHeader.biHeight;
 
 		// Calculate the resolution default resolution scalar used for the optical flow calculation
-		m_dResolutionDivider = 1920.0 / static_cast<double>(m_iDimX);
+		m_dResolutionDivider = 0.25;
 		m_dResolutionScalar = 1.0 / m_dResolutionDivider;
 
 		// Initialize the Optical Flow Calculator
