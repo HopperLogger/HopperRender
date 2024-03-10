@@ -147,8 +147,8 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_dDimScalar(1.0),
 	m_iDimX(1),
 	m_iDimY(1),
-	m_dResolutionScalar(1.0),
-	m_dResolutionDivider(1.0) {
+	m_dResolutionScalar(4.0),
+	m_dResolutionDivider(0.25) {
 	loadSettings();
 }
 
@@ -356,10 +356,6 @@ HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
 		m_rtAvgSourceFrameTime = pvi->AvgTimePerFrame;
 		m_iDimX = pvi->bmiHeader.biWidth;
 		m_iDimY = pvi->bmiHeader.biHeight;
-
-		// Calculate the resolution default resolution scalar used for the optical flow calculation
-		m_dResolutionDivider = 0.25;
-		m_dResolutionScalar = 1.0 / m_dResolutionDivider;
 
 		// Initialize the Optical Flow Calculator
 		if (m_bP010Input) {
