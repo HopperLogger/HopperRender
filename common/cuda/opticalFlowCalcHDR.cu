@@ -4,142 +4,130 @@
 #include <cuda_runtime.h>
 #include "opticalFlowCalcHDR.cuh"
 
-// Kernel that scales a P010 array to a P010 array for madVR
-__global__ void scaleFrameKernelHDR(const unsigned short* sourceArray, unsigned short* outputArray, const unsigned int dimY,
-	const unsigned int dimX, const double dDimScalar) {
+// Kernel that scales a P010 frame to a P010 frame for madVR
+__global__ void scaleFrameKernelHDR(const unsigned short* sourceFrame, unsigned short* outputFrame, const unsigned int dimY,
+	const unsigned int dimX, const double dimScalar) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = threadIdx.z;
 
-	if (cz < 2 && cy < static_cast<unsigned int>(dimY * dDimScalar) && cx < static_cast<unsigned int>(dimX * dDimScalar)) {
-		if ((cz == 0 && cy < static_cast<unsigned int>(dimY * dDimScalar) && cx < static_cast<unsigned int>(dimX * dDimScalar)) ||
-			(cz == 1 && cy < ((static_cast<unsigned int>(dimY * dDimScalar)) / 2) && cx < static_cast<unsigned int>(dimX * dDimScalar))) {
-			outputArray[static_cast<unsigned int>(cz * dimY * dimX * dDimScalar) + cy * static_cast<unsigned int>(dimX * dDimScalar) + cx] = sourceArray[cz * dimY * dimX + cy * dimX + cx];
-		}
-	}
-}
+	// Dimensions of the frame scaled for the renderer
+	const unsigned int scaledDimX = static_cast<unsigned int>(dimX * dimScalar);
+	const unsigned int scaledDimY = static_cast<unsigned int>(dimY * dimScalar);
 
-// Kernel that sets the initial offset array
-__global__ void setInitialOffsetHDR(int* offsetArray, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
-	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = threadIdx.z;
-
-	if (cz < dimZ && cy < dimY && cx < dimX) {
-		// Set the Y direction to no offset
-		offsetArray[dimZ * dimY * dimX + cz * dimY * dimX + cy * dimX + cx] = 0;
-
-		// Set the X direction layer 0 to no offset
-		if (cz == 0) {
-			offsetArray[cy * dimX + cx] = 0;
-			// Set the X direction layer 1 to a -2 offset
-		}
-		else if (cz == 1) {
-			offsetArray[dimY * dimX + cy * dimX + cx] = -2;
-			// Set the X direction layer 2 to a -1 offset
-		}
-		else if (cz == 2) {
-			offsetArray[2 * dimY * dimX + cy * dimX + cx] = -1;
-			// Set the X direction layer 3 to a +1 offset
-		}
-		else if (cz == 3) {
-			offsetArray[3 * dimY * dimX + cy * dimX + cx] = 1;
-			// Set the X direction layer 4 to a +2 offset
-		}
-		else if (cz == 4) {
-			offsetArray[4 * dimY * dimX + cy * dimX + cx] = 2;
-		}
+	// Check if the current thread is inside the Y-Channel or the U/V-Channel
+	if ((cz == 0 && cy < scaledDimY && cx < scaledDimX) || (cz == 1 && cy < (scaledDimY / 2) && cx < scaledDimX)) {
+		outputFrame[cz * dimY * scaledDimX + cy * scaledDimX + cx] = sourceFrame[cz * dimY * dimX + cy * dimX + cx];
 	}
 }
 
 // Kernel that calculates the absolute difference between two frames using the offset array
 __global__ void calcImageDeltaHDR(const unsigned short* frame1, const unsigned short* frame2, unsigned short* imageDeltaArray,
-	const int* offsetArray, const int dimZ, const int dimY, const int dimX, const double dResolutionScalar) {
+								  const int* offsetArray, const int numLayers, const int lowDimY, const int lowDimX, 
+								  const int dimY, const int dimX, const double resolutionScalar, const int directionIdxOffset, 
+								  const int channelIdxOffset) {
 	// Current entry to be computed by the thread
 	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const int cz = threadIdx.z;
+	const int channel = cz % 2; // YUV channel of the current thread
 
-	if (cz < dimZ && cy < dimY && cx < dimX) {
-		// Get the current offsets to use
-		const int absIndex = cz * dimY * dimX + cy * dimX + cx;
-		const int offsetX = -offsetArray[absIndex];
-		const int offsetY = -offsetArray[dimZ * dimY * dimX + absIndex];
+	// Is the current thread supposed to perform calculations
+	if (cz < numLayers * 2 && cy < lowDimY && cx < lowDimX) {
+		const int layer = cz / 2; // Layer of the current thread
+		const int layerOffset = layer * lowDimY * lowDimX; // Offset to index the layer of the current thread
+		const int scaledCx = static_cast<int>(cx * resolutionScalar); // The X-Index of the current thread in the input frames
+		const int scaledCy = static_cast<int>(cy * resolutionScalar); // The Y-Index of the current thread in the input frames
+		const int evenCx = (cx / 2) * 2; // The X-Index of the current thread rounded to be even
 
-		// Current pixel is outside of frame
-		if ((cy * dResolutionScalar + offsetY < 0) || (cx * dResolutionScalar + offsetX < 0) ||
-			(cy * dResolutionScalar + offsetY >= dimY * dResolutionScalar) ||
-			(cx * dResolutionScalar + offsetX >= dimX * dResolutionScalar)) {
-			imageDeltaArray[absIndex] = 0;
-		// Current pixel is inside of frame
+		const int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
+		const int threadIndex3D = cz * lowDimY * lowDimX + threadIndex2D; // Standard thread index
+
+		// Y-Channel
+		if (channel == 0) {
+			const int offsetX = -offsetArray[layerOffset + threadIndex2D];
+			const int offsetY = -offsetArray[directionIdxOffset + layerOffset + threadIndex2D];
+			const int newCx = scaledCx + offsetX;
+			const int newCy = scaledCy + offsetY;
+
+			imageDeltaArray[threadIndex3D] = (newCy < 0 || newCx < 0 || newCy >= dimY || newCx >= dimX) ? 0 : 
+				abs(frame1[newCy * dimX + newCx] - frame2[scaledCy * dimX + scaledCx]);
+
+		// U/V-Channel
 		} else {
-			const int newCx = static_cast<int>(fmin(fmax(cx * dResolutionScalar + offsetX, 0.0), static_cast<double>(dimX) * dResolutionScalar - 1.0));
-			const int newCy = static_cast<int>(fmin(fmax(cy * dResolutionScalar + offsetY, 0.0), static_cast<double>(dimY) * dResolutionScalar - 1.0));
-			imageDeltaArray[absIndex] = abs(frame1[newCy * static_cast<unsigned int>(dimX * dResolutionScalar) + newCx] -
-				frame2[static_cast<unsigned int>(cy * dResolutionScalar) * static_cast<unsigned int>(dimX * dResolutionScalar) + static_cast<unsigned int>(cx * dResolutionScalar)]);
+			const int offsetX = -offsetArray[layerOffset + cy * lowDimX + evenCx];
+			const int offsetY = -offsetArray[directionIdxOffset + layerOffset + cy * lowDimX + evenCx];
+			const int newCx = scaledCx + (offsetX / 2) * 2;
+			const int newCy = scaledCy * 0.5 + offsetY * 0.5;
+
+			imageDeltaArray[threadIndex3D] = (newCy < 0 || newCx < 0 || newCy >= dimY / 2 || newCx >= dimX) ? 0 : 
+				2 * abs(frame1[channelIdxOffset + newCy * dimX + newCx] - frame2[channelIdxOffset + static_cast<int>(scaledCy * 0.5) * dimX + scaledCx]);
 		}
 	}
 }
 
 // Kernel that sums up all the pixel deltas of each window
 __global__ void calcDeltaSumsHDR(unsigned short* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int windowDimY,
-	const unsigned int windowDimX, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+								 const unsigned int windowDimX, const unsigned int numLayers, const unsigned int lowDimY, const unsigned int lowDimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = threadIdx.z;
 	const unsigned int windowIndexX = cx / windowDimX;
 	const unsigned int windowIndexY = cy / windowDimY;
+	const int layer = cz / 2; // Layer of the current thread
 
 	// Check if the thread is inside the frame
-	if (cz < dimZ && cy < dimY && cx < dimX) {
-		atomicAdd(&summedUpDeltaArray[cz * dimY * dimX + (windowIndexY * windowDimY) * dimX + (windowIndexX * windowDimX)],
-			imageDeltaArray[cz * dimY * dimX + cy * dimX + cx]);
+	if (cz < numLayers * 2 && cy < lowDimY && cx < lowDimX) {
+		atomicAdd(&summedUpDeltaArray[layer * lowDimY * lowDimX + (windowIndexY * windowDimY) * lowDimX + (windowIndexX * windowDimX)],
+			imageDeltaArray[cz * lowDimY * lowDimX + cy * lowDimX + cx]);
 	}
 }
 
 // Kernel that warps a frame according to the offset array
 __global__ void warpFrameKernelForOutputHDR(const unsigned short* frame1, const int* offsetArray, int* hitCount, int* ones,
-	unsigned short* warpedFrame, const float frameScalar, const int dimY, const int dimX,
-	const double dResolutionDivider, const double dDimScalar) {
+											unsigned short* warpedFrame, const float frameScalar, const int lowDimY, const int lowDimX,
+											const int dimY, const int dimX, const double resolutionDivider,
+											const int directionIdxOffset, const int scaledDimX, const int channelIdxOffset) {
 	// Current entry to be computed by the thread
 	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const int cz = threadIdx.z;
 
-	// Y Channel
+	const int scaledCx = static_cast<int>(cx * resolutionDivider); // The X-Index of the current thread in the offset array
+	const int scaledCy = static_cast<int>(cy * resolutionDivider); // The Y-Index of the current thread in the offset array
+
+	// Y-Channel
 	if (cz == 0 && cy < dimY && cx < dimX) {
 		// Get the current offsets to use
-		const int offsetX = static_cast<int>(static_cast<float>(offsetArray[static_cast<unsigned int>(cy * dResolutionDivider) * static_cast<unsigned int>(dimX * dResolutionDivider) + static_cast<unsigned int>(cx * dResolutionDivider)]) * frameScalar);
-		const int offsetY = static_cast<int>(static_cast<float>(offsetArray[static_cast<unsigned int>(dimY * dResolutionDivider * dimX * dResolutionDivider) + static_cast<unsigned int>(cy * dResolutionDivider) * static_cast<unsigned int>(dimX * dResolutionDivider) + static_cast<unsigned int>(cx * dResolutionDivider)]) * frameScalar);
+		const int offsetX = static_cast<int>(static_cast<float>(offsetArray[scaledCy * lowDimX + scaledCx]) * frameScalar);
+		const int offsetY = static_cast<int>(static_cast<float>(offsetArray[directionIdxOffset + scaledCy * lowDimX + scaledCx]) * frameScalar);
+		const int newCx = cx + offsetX;
+		const int newCy = cy + offsetY;
 
 		// Check if the current pixel is inside the frame
-		if ((cy + offsetY >= 0) && (cy + offsetY < dimY) && (cx + offsetX >= 0) && (cx + offsetX < dimX)) {
-			const int newCx = fminf(fmaxf(cx + offsetX, 0), dimX - 1);
-			const int newCy = fminf(fmaxf(cy + offsetY, 0), dimY - 1);
-			warpedFrame[newCy * static_cast<unsigned int>(dimX * dDimScalar) + newCx] = frame1[cy * dimX + cx];
+		if (newCy >= 0 && newCy < dimY && newCx >= 0 && newCx < dimX) {
+			warpedFrame[newCy * scaledDimX + newCx] = frame1[cy * dimX + cx];
 			atomicAdd(&hitCount[newCy * dimX + newCx], ones[cy * dimX + cx]);
 		}
 
-	// U/V Channels
+	// U/V-Channel
 	} else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
-		const int offsetX = static_cast<int>(static_cast<float>(offsetArray[static_cast<unsigned int>(2 * cy * dResolutionDivider) * static_cast<unsigned int>(dimX * dResolutionDivider) + static_cast<unsigned int>((cx / 2) * 2 * dResolutionDivider)]) * frameScalar);
-		const int offsetY = static_cast<int>(static_cast<float>(offsetArray[static_cast<unsigned int>(dimY * dResolutionDivider * dimX * dResolutionDivider) + static_cast<unsigned int>(2 * cy * dResolutionDivider) * static_cast<unsigned int>(dimX * dResolutionDivider) + static_cast<unsigned int>((cx / 2) * 2 * dResolutionDivider)]) * frameScalar / 2.0);
+		const int offsetX = static_cast<int>(static_cast<float>(offsetArray[2 * scaledCy * lowDimX + (scaledCx / 2) * 2]) * frameScalar);
+		const int offsetY = static_cast<int>(static_cast<float>(offsetArray[directionIdxOffset + 2 * scaledCy * lowDimX + (scaledCx / 2) * 2]) * frameScalar / 2.0);
+		const int newCx = cx + offsetX;
+		const int newCy = cy + offsetY;
 
 		// Check if the current pixel is inside the frame
-		if ((cy + offsetY >= 0) && (cy + offsetY < dimY / 2) && (cx + offsetX >= 0) && (cx + offsetX < dimX)) {
-			const int newCx = fminf(fmaxf(cx + offsetX, 0), static_cast<float>(dimX - 1));
-			const int newCy = fminf(fmaxf(cy + offsetY, 0), (static_cast<float>(dimY) / 2) - 1);
-
-			// U Channel
+		if (newCy >= 0 && newCy < dimY / 2 && newCx >= 0 && newCx < dimX) {
+			// U-Channel
 			if (cx % 2 == 0) {
-				warpedFrame[static_cast<unsigned int>(dimY * dimX * dDimScalar) + newCy * static_cast<unsigned int>(dimX * dDimScalar) + (newCx / 2) * 2] = frame1[dimY * dimX + cy * dimX + cx];
+				warpedFrame[channelIdxOffset + newCy * scaledDimX + (newCx / 2) * 2] = frame1[dimY * dimX + cy * dimX + cx];
 
-			// V Channel
+			// V-Channel
 			} else {
-				warpedFrame[static_cast<unsigned int>(dimY * dimX * dDimScalar) + newCy * static_cast<unsigned int>(dimX * dDimScalar) + (newCx / 2) * 2 + 1] = frame1[dimY * dimX + cy * dimX + cx];
+				warpedFrame[channelIdxOffset + newCy * scaledDimX + (newCx / 2) * 2 + 1] = frame1[dimY * dimX + cy * dimX + cx];
 			}
 		}
 	}
@@ -362,6 +350,9 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const unsigned int dimY, const unsigned i
 	m_lowGrid.x = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimX) / static_cast<double>(NUM_THREADS)), 1.0));
 	m_lowGrid.y = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimY) / static_cast<double>(NUM_THREADS)), 1.0));
 	m_lowGrid.z = 1;
+	m_threads10.x = NUM_THREADS;
+	m_threads10.y = NUM_THREADS;
+	m_threads10.z = 10;
 	m_threads5.x = NUM_THREADS;
 	m_threads5.y = NUM_THREADS;
 	m_threads5.z = 5;
@@ -375,7 +366,7 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const unsigned int dimY, const unsigned i
 	m_grid.y = static_cast<int>(fmax(ceil(dimY / static_cast<double>(NUM_THREADS)), 1.0));
 	m_frame1.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
 	m_frame2.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
-	m_imageDeltaArray.init({ 5, dimY, dimX });
+	m_imageDeltaArray.init({ 5, 2, dimY, dimX });
 	m_offsetArray12.init({ 2, 5, dimY, dimX });
 	m_offsetArray21.init({ 2, dimY, dimX });
 	m_blurredOffsetArray12.init({ 2, dimY, dimX });
@@ -448,6 +439,8 @@ void OpticalFlowCalcHDR::copyFrame(const unsigned char* pInBuffer, unsigned char
 */
 void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsigned int iNumSteps) {
 	// Reset variables
+	const int directionIdxOffset = m_iNumLayers * m_iLowDimY * m_iLowDimX; // Offset to index the Y-Offset-Layer
+	const int channelIdxOffset = m_iDimY * m_iDimX; // Offset to index the color channel of the current thread
 	unsigned int windowDimX = m_iLowDimX;
 	unsigned int windowDimY = m_iLowDimY;
 	if (iNumIterations == 0 || static_cast<float>(iNumIterations) > ceil(log2f(static_cast<float>(m_iLowDimX)))) {
@@ -466,17 +459,19 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 
 			// 1. Calculate the image deltas with the current offset array
 			if (m_bBisNewest) {
-				calcImageDeltaHDR << <m_lowGrid, m_threads5 >> > (m_frame1.arrayPtrGPU, m_frame2.arrayPtrGPU,
-					m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
-					m_iNumLayers, m_iLowDimY, m_iLowDimX, m_dResolutionScalar);
+				calcImageDeltaHDR << <m_lowGrid, m_threads10 >> > (m_frame1.arrayPtrGPU, m_frame2.arrayPtrGPU,
+															      m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
+															      m_iNumLayers, m_iLowDimY, m_iLowDimX, m_iDimY, m_iDimX,
+															      m_dResolutionScalar, directionIdxOffset, channelIdxOffset);
 			} else {
-				calcImageDeltaHDR << <m_lowGrid, m_threads5 >> > (m_frame2.arrayPtrGPU, m_frame1.arrayPtrGPU,
-					m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
-					m_iNumLayers, m_iLowDimY, m_iLowDimX, m_dResolutionScalar);
+				calcImageDeltaHDR << <m_lowGrid, m_threads10 >> > (m_frame2.arrayPtrGPU, m_frame1.arrayPtrGPU,
+															      m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
+															      m_iNumLayers, m_iLowDimY, m_iLowDimX, m_iDimY, m_iDimX,
+															      m_dResolutionScalar, directionIdxOffset, channelIdxOffset);
 			}
 
 			// 2. Sum up the deltas of each window
-			calcDeltaSumsHDR << <m_lowGrid, m_threads5 >> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU,
+			calcDeltaSumsHDR << <m_lowGrid, m_threads10 >> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU,
 				windowDimY, windowDimX, m_iNumLayers, m_iLowDimY, m_iLowDimX);
 
 			// 3. Normalize the summed up delta array and find the best layer
@@ -517,6 +512,11 @@ void OpticalFlowCalcHDR::warpFramesForOutput(float fScalar, const bool bOutput12
 	const float frameScalar12 = fScalar;
 	const float frameScalar21 = static_cast<float>(1.0) - fScalar;
 
+	// Calculate variables so the threds don't have to do it
+	const int directionIdxOffset = m_iDimY * m_dResolutionDivider * m_iDimX * m_dResolutionDivider;
+	const int scaledDimX = static_cast<unsigned int>(m_iDimX * m_dDimScalar);
+	const int channelIdxOffset = static_cast<unsigned int>(m_iDimY * m_iDimX * m_dDimScalar);
+
 	// Reset the hit count array
 	if (bOutput12) {
 		m_hitCount12.zero();
@@ -531,8 +531,8 @@ void OpticalFlowCalcHDR::warpFramesForOutput(float fScalar, const bool bOutput12
 		if (bOutput12) {
 			warpFrameKernelForOutputHDR << <m_grid, m_threads2 >> > (m_frame1.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU,
 				m_hitCount12.arrayPtrGPU, m_ones.arrayPtrGPU,
-				m_outputFrame.arrayPtrGPU, frameScalar12, m_iDimY,
-				m_iDimX, m_dResolutionDivider, m_dDimScalar);
+				m_outputFrame.arrayPtrGPU, frameScalar12, m_iLowDimY, m_iLowDimX,
+				m_iDimY, m_iDimX, m_dResolutionDivider, directionIdxOffset, scaledDimX, channelIdxOffset);
 			artifactRemovalKernelForOutputHDR << <m_grid, m_threads2 >> > (m_frame1.arrayPtrGPU, m_hitCount12.arrayPtrGPU,
 				m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_dDimScalar);
 			// Frame 2 to Frame 1
@@ -540,8 +540,8 @@ void OpticalFlowCalcHDR::warpFramesForOutput(float fScalar, const bool bOutput12
 		else {
 			warpFrameKernelForOutputHDR << <m_grid, m_threads2 >> > (m_frame2.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU,
 				m_hitCount21.arrayPtrGPU, m_ones.arrayPtrGPU,
-				m_outputFrame.arrayPtrGPU, frameScalar21, m_iDimY,
-				m_iDimX, m_dResolutionDivider, m_dDimScalar);
+				m_outputFrame.arrayPtrGPU, frameScalar21, m_iLowDimY, m_iLowDimX,
+				m_iDimY, m_iDimX, m_dResolutionDivider, directionIdxOffset, scaledDimX, channelIdxOffset);
 			artifactRemovalKernelForOutputHDR << <m_grid, m_threads2 >> > (m_frame2.arrayPtrGPU, m_hitCount21.arrayPtrGPU,
 				m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_dDimScalar);
 		}
@@ -551,8 +551,8 @@ void OpticalFlowCalcHDR::warpFramesForOutput(float fScalar, const bool bOutput12
 		if (bOutput12) {
 			warpFrameKernelForOutputHDR << <m_grid, m_threads2 >> > (m_frame2.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU,
 				m_hitCount12.arrayPtrGPU, m_ones.arrayPtrGPU,
-				m_outputFrame.arrayPtrGPU, frameScalar12, m_iDimY,
-				m_iDimX, m_dResolutionDivider, m_dDimScalar);
+				m_outputFrame.arrayPtrGPU, frameScalar12, m_iLowDimY, m_iLowDimX,
+				m_iDimY, m_iDimX, m_dResolutionDivider, directionIdxOffset, scaledDimX, channelIdxOffset);
 			artifactRemovalKernelForOutputHDR << <m_grid, m_threads2 >> > (m_frame2.arrayPtrGPU, m_hitCount12.arrayPtrGPU,
 				m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_dDimScalar);
 			// Frame 2 to Frame 1
@@ -560,8 +560,8 @@ void OpticalFlowCalcHDR::warpFramesForOutput(float fScalar, const bool bOutput12
 		else {
 			warpFrameKernelForOutputHDR << <m_grid, m_threads2 >> > (m_frame1.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU,
 				m_hitCount21.arrayPtrGPU, m_ones.arrayPtrGPU,
-				m_outputFrame.arrayPtrGPU, frameScalar21, m_iDimY,
-				m_iDimX, m_dResolutionDivider, m_dDimScalar);
+				m_outputFrame.arrayPtrGPU, frameScalar21, m_iLowDimY, m_iLowDimX,
+				m_iDimY, m_iDimX, m_dResolutionDivider, directionIdxOffset, scaledDimX, channelIdxOffset);
 			artifactRemovalKernelForOutputHDR << <m_grid, m_threads2 >> > (m_frame1.arrayPtrGPU, m_hitCount21.arrayPtrGPU,
 				m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_dDimScalar);
 		}
