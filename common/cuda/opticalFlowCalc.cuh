@@ -18,11 +18,11 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 	unsigned int dimY, unsigned int dimX);
 
 // Kernel that translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
-__global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, unsigned int dimZ,
-	int dimY, int dimX, float fResolutionDivider);
+__global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const unsigned int dimZ,
+							   const int dimY, const int dimX, const double dResolutionDivider);
 
 // Kernel that blurs a flow array
-__global__ void blurKernel(const int* flowArray, int* blurredFlowArray, int kernelSize, int dimZ, int dimY,
+__global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, int kernelSize, int dimZ, int dimY,
 	int dimX, bool offset12);
 
 class OpticalFlowCalc {
@@ -51,6 +51,14 @@ public:
 	* @param pOutBuffer: Pointer to the output frame
 	*/
 	virtual void copyFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer) = 0;
+
+	/*
+	* Blurs a frame
+	*
+	* @param kernelSize: Size of the kernel to use for the blur
+	* @param directOutput: Whether to output the blurred frame directly
+	*/
+	virtual void blurFrameArray(const int kernelSize, const bool directOutput) = 0;
 
 	/*
 	* Calculates the optical flow between frame1 and frame2

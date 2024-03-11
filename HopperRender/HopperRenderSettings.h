@@ -23,7 +23,8 @@ private:
 	bool m_bActivated; // Whether the filter is activated
 	int m_iFrameOutput; // What frame output to use
 	int m_iNumIterations; // Number of iterations to use in the optical flow calculation
-	int m_iBlurKernelSize; // The size of the blur kernel
+	int m_iFrameBlurKernelSize; // The size of the blur kernel for the frames
+	int m_iFlowBlurKernelSize; // The size of the blur kernel for the optical flow
 	int m_iIntActiveState; // The state of the filter
 	double m_dSourceFPS; // The source frames per second
 	int m_iNumSteps; // The number of steps to use in the optical flow calculation

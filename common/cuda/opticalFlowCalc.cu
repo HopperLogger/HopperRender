@@ -393,7 +393,7 @@ __global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const u
 }
 
 // Kernel that blurs a flow array
-__global__ void blurKernel(const int* flowArray, int* blurredFlowArray, const int kernelSize, const int dimZ, const int dimY,
+__global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, const int kernelSize, const int dimZ, const int dimY,
 						   const int dimX, const bool offset12) {
 	// Current entry to be computed by the thread
 	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -404,17 +404,19 @@ __global__ void blurKernel(const int* flowArray, int* blurredFlowArray, const in
 		// Calculate the x and y boundaries of the kernel
 		const int start = -(kernelSize / 2);
 		const int end = (kernelSize / 2);
+		long blurredOffset = 0;
 
 		// Collect the sum of the surrounding pixels
 		if (cz < 2 && cy < dimY && cx < dimX) {
 			for (int y = start; y < end; y++) {
 				for (int x = start; x < end; x++) {
 					if ((cy + y) < dimY && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
-						atomicAdd(&blurredFlowArray[cz * dimY * dimX + cy * dimX + cx], flowArray[cz * dimZ * dimY * dimX + (cy + y) * dimX + cx + x]);
+						blurredOffset += flowArray[cz * dimZ * dimY * dimX + (cy + y) * dimX + cx + x];
 					}
 				}
 			}
-			blurredFlowArray[cz * dimY * dimX + cy * dimX + cx] /= (end - start) * (end - start);
+			blurredOffset /= (end - start) * (end - start);
+			blurredFlowArray[cz * dimY * dimX + cy * dimX + cx] = blurredOffset;
 		}
 	} else {
 		if (cz < 2 && cy < dimY && cx < dimX) {
@@ -452,18 +454,14 @@ void OpticalFlowCalc::flipFlow() const {
 * @param kernelSize: Size of the kernel to use for the blur
 */
 void OpticalFlowCalc::blurFlowArrays(const int kernelSize) const {
-	// Reset the blurred arrays
-	m_blurredOffsetArray12.zero();
-	m_blurredOffsetArray21.zero();
-
 	// Create CUDA streams
 	cudaStream_t blurStream1, blurStream2;
 	cudaStreamCreate(&blurStream1);
 	cudaStreamCreate(&blurStream2);
 
 	// Launch kernels
-	blurKernel << <m_lowGrid, m_threads2, 0, blurStream1 >> > (m_offsetArray12.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU, kernelSize, m_iNumLayers, m_iLowDimY, m_iLowDimX, true);
-	blurKernel << <m_lowGrid, m_threads2, 0, blurStream2 >> > (m_offsetArray21.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU, kernelSize, 1, m_iLowDimY, m_iLowDimX, false);
+	blurFlowKernel << <m_lowGrid, m_threads2, 0, blurStream1 >> > (m_offsetArray12.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU, kernelSize, m_iNumLayers, m_iLowDimY, m_iLowDimX, true);
+	blurFlowKernel << <m_lowGrid, m_threads2, 0, blurStream2 >> > (m_offsetArray21.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU, kernelSize, 1, m_iLowDimY, m_iLowDimX, false);
 
 	// Synchronize streams to ensure completion
 	cudaStreamSynchronize(blurStream1);

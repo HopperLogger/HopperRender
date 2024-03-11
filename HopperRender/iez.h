@@ -14,7 +14,8 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		bool* pbActivated, // Is the filter activated
 		int* piFrameOutput, // What frame output to use
 		int* piNumIterations, // Number of iterations to find the ideal offset
-		int* piBlurKernelSize, // The size of the blur kernel
+		int* piFrameBlurKernelSize, // The size of the blur kernel for the frames
+		int* piFlowBlurKernelSize, // The size of the blur kernel for the optical flow
 		int* piIntActiveState, // Is the effect active
 		double* pdSourceFPS, // The source frames per second
 		int* piNumSteps, // Number of steps executed to find the ideal offset (limits the maximum offset)
@@ -28,7 +29,8 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		bool bActivated, // Is the filter activated
 		int iFrameOutput, // What frame output to use
 		int iNumSteps, // Number of steps executed to find the ideal offset (limits the maximum offset)
-		int iBlurKernelSize // The size of the blur kernel
+		int iFrameBlurKernelSize, // The size of the blur kernel for the frames
+		int iFlowBlurKernelSize // The size of the blur kernel for the optical flow
 	) PURE;
 };
 

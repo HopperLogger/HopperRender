@@ -38,6 +38,14 @@ public:
 	void copyFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer) override;
 
 	/*
+	* Blurs a frame
+	*
+	* @param kernelSize: Size of the kernel to use for the blur
+	* @param directOutput: Whether to output the blurred frame directly
+	*/
+	void blurFrameArray(const int kernelSize, const bool directOutput) override;
+
+	/*
 	* Calculates the optical flow between frame1 and frame2
 	*
 	* @param iNumIterations: Number of iterations to calculate the optical flow
@@ -78,6 +86,8 @@ public:
 	// GPU Arrays
 	GPUArray<unsigned short> m_frame1; // Array containing the first frame
 	GPUArray<unsigned short> m_frame2; // Array containing the second frame
+	GPUArray<unsigned short> m_blurredFrame1; // Array containing the first frame after blurring
+	GPUArray<unsigned short> m_blurredFrame2; // Array containing the second frame after blurring
 	GPUArray<unsigned short> m_imageDeltaArray; // Array containing the absolute difference between the two frames
 	GPUArray<unsigned short> m_warpedFrame12; // Array containing the warped frame (frame 1 to frame 2)
 	GPUArray<unsigned short> m_warpedFrame21; // Array containing the warped frame (frame 2 to frame 1)
