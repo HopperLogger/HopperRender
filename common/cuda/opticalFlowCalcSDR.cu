@@ -1,7 +1,7 @@
 #include <amvideo.h>
 #include <iomanip>
 #include <vector>
-#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
 #include "opticalFlowCalcSDR.cuh"
 
 // Kernel that converts an NV12 array to a P010 array
@@ -19,6 +19,57 @@ __global__ void convertNV12toP010KernelSDR(const unsigned char* nv12Array, unsig
 	// Check if the current thread is inside the Y-Channel or the U/V-Channel
 	if ((cz == 0 && cy < scaledDimY && cx < scaledDimX) || (cz == 1 && cy < (scaledDimY / 2) && cx < scaledDimX)) {
 		p010Array[cz * dimY * scaledDimX + cy * scaledDimX + cx] = static_cast<unsigned short>(nv12Array[cz * dimY * dimX + cy * dimX + cx]) << 8;
+	}
+}
+
+// Kernel that blurs a frame
+__global__ void blurFrameKernel(const unsigned char* frameArray, unsigned char* blurredFrameArray, const int kernelSize, const int dimY,
+						        const int dimX) {
+	// Current entry to be computed by the thread
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = threadIdx.z;
+
+	if (kernelSize > 3) {
+		// Calculate the x and y boundaries of the kernel
+		int start = -(kernelSize / 2);
+		int end = (kernelSize / 2);
+		unsigned int blurredPixel = 0;
+
+		// Collect the sum of the surrounding pixels
+		// Y-Channel
+		if (cz == 0 && cy < dimY && cx < dimX) {
+			for (int y = start; y < end; y++) {
+				for (int x = start; x < end; x++) {
+					if ((cy + y) < dimY && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
+						blurredPixel += frameArray[cz * dimY * dimX + (cy + y) * dimX + cx + x];
+					} else {
+						blurredPixel += frameArray[cz * dimY * dimX + cy * dimX + cx];
+					}
+				}
+			}
+			blurredPixel /= (end - start) * (end - start);
+			blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = blurredPixel;
+		// U/V-Channel
+		} else if (cz == 1 && cy < dimY / 2 && cx < dimX) {
+			start = -(kernelSize / 4);
+			end = (kernelSize / 4);
+			for (int y = start; y < end; y++) {
+				for (int x = start; x < end; x++) {
+					if ((cy + y) < dimY / 2 && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
+						blurredPixel += frameArray[cz * dimY * dimX + (cy + y) * dimX + cx + x * 2];
+					} else {
+						blurredPixel += frameArray[cz * dimY * dimX + cy * dimX + cx];
+					}
+				}
+			}
+			blurredPixel /= (end - start) * (end - start);
+			blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = blurredPixel;
+		}
+	} else {
+		if ((cz == 0 && cy < dimY && cx < dimX) || (cz == 1 && cy < dimY / 2 && cx < dimX)) {
+			blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = frameArray[cz * dimY * dimX + cy * dimX + cx];
+		}
 	}
 }
 
@@ -364,6 +415,8 @@ OpticalFlowCalcSDR::OpticalFlowCalcSDR(const unsigned int dimY, const unsigned i
 	m_grid.y = static_cast<int>(fmax(ceil(dimY / static_cast<double>(NUM_THREADS)), 1.0));
 	m_frame1.init({1, dimY, dimX}, 0, static_cast<size_t>(1.5 * static_cast<double>(dimY * dimX)));
 	m_frame2.init({1, dimY, dimX}, 0, static_cast<size_t>(1.5 * static_cast<double>(dimY * dimX)));
+	m_blurredFrame1.init({1, dimY, dimX}, 0, static_cast<size_t>(1.5 * static_cast<double>(dimY * dimX)));
+	m_blurredFrame2.init({1, dimY, dimX}, 0, static_cast<size_t>(1.5 * static_cast<double>(dimY * dimX)));
 	m_imageDeltaArray.init({5, 2, dimY, dimX});
 	m_offsetArray12.init({2, 5, dimY, dimX});
 	m_offsetArray21.init({2, dimY, dimX});
@@ -426,6 +479,39 @@ void OpticalFlowCalcSDR::copyFrame(const unsigned char* pInBuffer, unsigned char
 }
 
 /*
+* Blurs a frame
+*
+* @param kernelSize: Size of the kernel to use for the blur
+* @param directOutput: Whether to output the blurred frame directly
+*/
+void OpticalFlowCalcSDR::blurFrameArray(const int kernelSize, const bool directOutput) {
+	if (!m_bBisNewest) {
+		// Launch kernel
+		blurFrameKernel << <m_grid, m_threads2 >> > (m_frame1.arrayPtrGPU, m_blurredFrame1.arrayPtrGPU, kernelSize, m_iDimY, m_iDimX);
+
+		// Convert the NV12 frame to P010 if we are doing direct output
+		if (directOutput) {
+			convertNV12toP010KernelSDR << <m_grid, m_threads2 >> > (m_blurredFrame1.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_dDimScalar);
+		}
+	} else {
+		// Launch kernel
+		blurFrameKernel << <m_grid, m_threads2 >> > (m_frame2.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU, kernelSize, m_iDimY, m_iDimX);
+
+		// Convert the NV12 frame to P010 if we are doing direct output
+		if (directOutput) {
+			convertNV12toP010KernelSDR << <m_grid, m_threads2 >> > (m_blurredFrame2.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_dDimScalar);
+		}
+	}
+
+	// Check for CUDA errors
+	const cudaError_t cudaError = cudaGetLastError();
+	if (cudaError != cudaSuccess) {
+		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
+		exit(-1);
+	}
+}
+
+/*
 * Calculates the optical flow between frame1 and frame2
 *
 * @param iNumIterations: Number of iterations to calculate the optical flow
@@ -453,12 +539,12 @@ void OpticalFlowCalcSDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 
 			// 1. Calculate the image deltas with the current offset array
 			if (m_bBisNewest) {
-				calcImageDeltaSDR << <m_lowGrid, m_threads10 >> > (m_frame1.arrayPtrGPU, m_frame2.arrayPtrGPU,
+				calcImageDeltaSDR << <m_lowGrid, m_threads10 >> > (m_blurredFrame1.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU,
 															   m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
 															   m_iNumLayers, m_iLowDimY, m_iLowDimX, m_iDimY, m_iDimX,
 															   m_dResolutionScalar, directionIdxOffset, channelIdxOffset);
 			} else {
-				calcImageDeltaSDR << <m_lowGrid, m_threads10 >> > (m_frame2.arrayPtrGPU, m_frame1.arrayPtrGPU,
+				calcImageDeltaSDR << <m_lowGrid, m_threads10 >> > (m_blurredFrame2.arrayPtrGPU, m_blurredFrame1.arrayPtrGPU,
 															   m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
 															   m_iNumLayers, m_iLowDimY, m_iLowDimX, m_iDimY, m_iDimX,
 															   m_dResolutionScalar, directionIdxOffset, channelIdxOffset);

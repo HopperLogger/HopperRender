@@ -22,6 +22,57 @@ __global__ void scaleFrameKernelHDR(const unsigned short* sourceFrame, unsigned 
 	}
 }
 
+// Kernel that blurs a frame
+__global__ void blurFrameKernel(const unsigned short* frameArray, unsigned short* blurredFrameArray, const int kernelSize, const int dimY,
+						        const int dimX) {
+	// Current entry to be computed by the thread
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = threadIdx.z;
+
+	if (kernelSize > 3) {
+		// Calculate the x and y boundaries of the kernel
+		int start = -(kernelSize / 2);
+		int end = (kernelSize / 2);
+		unsigned int blurredPixel = 0;
+
+		// Collect the sum of the surrounding pixels
+		// Y-Channel
+		if (cz == 0 && cy < dimY && cx < dimX) {
+			for (int y = start; y < end; y++) {
+				for (int x = start; x < end; x++) {
+					if ((cy + y) < dimY && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
+						blurredPixel += frameArray[cz * dimY * dimX + (cy + y) * dimX + cx + x];
+					} else {
+						blurredPixel += frameArray[cz * dimY * dimX + cy * dimX + cx];
+					}
+				}
+			}
+			blurredPixel /= (end - start) * (end - start);
+			blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = blurredPixel;
+		// U/V-Channel
+		} else if (cz == 1 && cy < dimY / 2 && cx < dimX) {
+			start = -(kernelSize / 4);
+			end = (kernelSize / 4);
+			for (int y = start; y < end; y++) {
+				for (int x = start; x < end; x++) {
+					if ((cy + y) < dimY / 2 && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
+						blurredPixel += frameArray[cz * dimY * dimX + (cy + y) * dimX + cx + x * 2];
+					} else {
+						blurredPixel += frameArray[cz * dimY * dimX + cy * dimX + cx];
+					}
+				}
+			}
+			blurredPixel /= (end - start) * (end - start);
+			blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = blurredPixel;
+		}
+	} else {
+		if ((cz == 0 && cy < dimY && cx < dimX) || (cz == 1 && cy < dimY / 2 && cx < dimX)) {
+			blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = frameArray[cz * dimY * dimX + cy * dimX + cx];
+		}
+	}
+}
+
 // Kernel that calculates the absolute difference between two frames using the offset array
 __global__ void calcImageDeltaHDR(const unsigned short* frame1, const unsigned short* frame2, unsigned short* imageDeltaArray,
 								  const int* offsetArray, const int numLayers, const int lowDimY, const int lowDimX, 
@@ -366,6 +417,8 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const unsigned int dimY, const unsigned i
 	m_grid.y = static_cast<int>(fmax(ceil(dimY / static_cast<double>(NUM_THREADS)), 1.0));
 	m_frame1.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
 	m_frame2.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
+	m_blurredFrame1.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
+	m_blurredFrame2.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
 	m_imageDeltaArray.init({ 5, 2, dimY, dimX });
 	m_offsetArray12.init({ 2, 5, dimY, dimX });
 	m_offsetArray21.init({ 2, dimY, dimX });
@@ -432,6 +485,39 @@ void OpticalFlowCalcHDR::copyFrame(const unsigned char* pInBuffer, unsigned char
 }
 
 /*
+* Blurs a frame
+*
+* @param kernelSize: Size of the kernel to use for the blur
+* @param directOutput: Whether to output the blurred frame directly
+*/
+void OpticalFlowCalcHDR::blurFrameArray(const int kernelSize, const bool directOutput) {
+	if (!m_bBisNewest) {
+		// Launch kernel
+		blurFrameKernel << <m_grid, m_threads2 >> > (m_frame1.arrayPtrGPU, m_blurredFrame1.arrayPtrGPU, kernelSize, m_iDimY, m_iDimX);
+
+		// Scale the frame for the renderer
+		if (directOutput) {
+			scaleFrameKernelHDR << <m_grid, m_threads2 >> > (m_blurredFrame1.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_dDimScalar);
+		}
+	} else {
+		// Launch kernel
+		blurFrameKernel << <m_grid, m_threads2 >> > (m_frame2.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU, kernelSize, m_iDimY, m_iDimX);
+	
+		// Scale the frame for the renderer
+		if (directOutput) {
+			scaleFrameKernelHDR << <m_grid, m_threads2 >> > (m_blurredFrame2.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_dDimScalar);
+		}
+	}
+
+	// Check for CUDA errors
+	const cudaError_t cudaError = cudaGetLastError();
+	if (cudaError != cudaSuccess) {
+		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
+		exit(-1);
+	}
+}
+
+/*
 * Calculates the optical flow between frame1 and frame2
 *
 * @param iNumIterations: Number of iterations to calculate the optical flow
@@ -459,12 +545,12 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 
 			// 1. Calculate the image deltas with the current offset array
 			if (m_bBisNewest) {
-				calcImageDeltaHDR << <m_lowGrid, m_threads10 >> > (m_frame1.arrayPtrGPU, m_frame2.arrayPtrGPU,
+				calcImageDeltaHDR << <m_lowGrid, m_threads10 >> > (m_blurredFrame1.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU,
 															      m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
 															      m_iNumLayers, m_iLowDimY, m_iLowDimX, m_iDimY, m_iDimX,
 															      m_dResolutionScalar, directionIdxOffset, channelIdxOffset);
 			} else {
-				calcImageDeltaHDR << <m_lowGrid, m_threads10 >> > (m_frame2.arrayPtrGPU, m_frame1.arrayPtrGPU,
+				calcImageDeltaHDR << <m_lowGrid, m_threads10 >> > (m_blurredFrame2.arrayPtrGPU, m_blurredFrame1.arrayPtrGPU,
 															      m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
 															      m_iNumLayers, m_iLowDimY, m_iLowDimX, m_iDimY, m_iDimX,
 															      m_dResolutionScalar, directionIdxOffset, channelIdxOffset);

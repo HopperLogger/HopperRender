@@ -36,10 +36,10 @@ public:
 
 	// These implement the custom SettingsInterface interface
 	STDMETHODIMP get_Settings(bool* pbActivated, int* piFrameOutput, int* piNumIterations,
-							  int* piBlurKernelSize, int* piIntActiveState, double* pdSourceFPS, int* piNumSteps, int* piDimX,
+							  int* piFrameBlurKernelSize, int* piFlowBlurKernelSize, int* piIntActiveState, double* pdSourceFPS, int* piNumSteps, int* piDimX,
 							  int* piDimY, int* piLowDimX, int* piLowDimY) override;
 	STDMETHODIMP put_Settings(bool bActivated, int iFrameOutput, 
-							  int iNumIterations, int iBlurKernelSize) override;
+							  int iNumIterations, int iFrameBlurKernelSize, int iFlowBlurKernelSize) override;
 
 	// ISpecifyPropertyPages interface
 	STDMETHODIMP GetPages(CAUUID* pPages) override;
@@ -56,7 +56,7 @@ private:
 	HRESULT CopyFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer) const;
 	HRESULT InterpolateFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer, float fScalar, int iIntFrameNum);
 	void adjustFrameScalar(double dResolutionDivider);
-	void autoAdjustSettings(int iIntFrameNum);
+	void autoAdjustSettings();
 	HRESULT loadSettings();
 
 	CCritSec m_csHopperRenderLock; // Private play critical section
@@ -66,7 +66,8 @@ private:
 	unsigned char m_cNumTimesTooSlow; // The number of times the interpolation has been too slow
 	int m_iNumIterations; // Number of iterations to use in the optical flow calculation
 	int m_iNumSteps; // Number of steps executed to find the ideal offset (limits the maximum offset)
-	int m_iBlurKernelSize; // The size of the blur kernel
+	int m_iFrameBlurKernelSize; // The size of the blur kernel for the frames
+	int m_iFlowBlurKernelSize; // The size of the blur kernel for the optical flow
 	long m_lBufferRequest; // The number of buffers to use
 	bool m_bBisNewest; // Which frame order are we using
 	OpticalFlowCalc* m_pofcOpticalFlowCalc; // Optical flow calculator

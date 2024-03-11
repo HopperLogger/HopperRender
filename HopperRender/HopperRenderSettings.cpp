@@ -41,7 +41,8 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 	m_bActivated(FALSE),
 	m_iFrameOutput(2),
 	m_iNumIterations(0),
-	m_iBlurKernelSize(14),
+	m_iFrameBlurKernelSize(20),
+	m_iFlowBlurKernelSize(14),
 	m_iIntActiveState(0),
 	m_dSourceFPS(0.0),
 	m_iNumSteps(0),
@@ -72,7 +73,7 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd,
 	int iDimY;
 	int iLowDimX;
 	int iLowDimY;
-	m_pSettingsInterface->get_Settings(&m_bActivated, &m_iFrameOutput, &m_iNumIterations, &m_iBlurKernelSize,
+	m_pSettingsInterface->get_Settings(&m_bActivated, &m_iFrameOutput, &m_iNumIterations, &m_iFrameBlurKernelSize, &m_iFlowBlurKernelSize,
 	                                   &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
 
 	// Update the filter active status
@@ -123,7 +124,7 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 	int iLowDimX;
 	int iLowDimY;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
-	m_pSettingsInterface->get_Settings(&m_bActivated, &m_iFrameOutput, &m_iNumIterations, &m_iBlurKernelSize,
+	m_pSettingsInterface->get_Settings(&m_bActivated, &m_iFrameOutput, &m_iNumIterations, &m_iFrameBlurKernelSize, &m_iFlowBlurKernelSize,
 	                                   &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
 
 	m_bIsInitialized = FALSE;
@@ -146,9 +147,13 @@ HRESULT CHopperRenderSettings::OnDisconnect() {
 HRESULT CHopperRenderSettings::OnActivate() {
 	TCHAR sz[60];
 
-	// Set the initial BlurKernelSize
-	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iBlurKernelSize);
-	Edit_SetText(GetDlgItem(m_Dlg, IDC_BLURKERNEL), sz);
+	// Set the initial FrameBlurKernelSize
+	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iFrameBlurKernelSize);
+	Edit_SetText(GetDlgItem(m_Dlg, IDC_FRAMEBLURKERNEL), sz);
+
+	// Set the initial FlowBlurKernelSize
+	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iFlowBlurKernelSize);
+	Edit_SetText(GetDlgItem(m_Dlg, IDC_FLOWBLURKERNEL), sz);
 
 	// Set the initial NumIterations
 	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNumIterations);
@@ -163,13 +168,15 @@ HRESULT CHopperRenderSettings::OnActivate() {
 
 	// Update the selected frame output
 	if (m_iFrameOutput == 0) {
-		CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_HSVFLOW, IDC_WARPEDFRAME12);
+		CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLURREDFRAMES, IDC_WARPEDFRAME12);
 	} else if (m_iFrameOutput == 1) {
-		CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_HSVFLOW, IDC_WARPEDFRAME21);
+		CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLURREDFRAMES, IDC_WARPEDFRAME21);
 	} else if (m_iFrameOutput == 2) {
-		CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_HSVFLOW, IDC_BLENDEDFRAME);
+		CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLURREDFRAMES, IDC_BLENDEDFRAME);
+	} else if (m_iFrameOutput == 3) {
+		CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLURREDFRAMES, IDC_HSVFLOW);
 	} else {
-		CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_HSVFLOW, IDC_HSVFLOW);
+		CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLURREDFRAMES, IDC_BLURREDFRAMES);
 	}
 
 	m_bIsInitialized = TRUE;
@@ -194,7 +201,7 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 	GetControlValues();
 
 	CheckPointer(m_pSettingsInterface, E_POINTER)
-	m_pSettingsInterface->put_Settings(m_bActivated, m_iFrameOutput, m_iNumIterations, m_iBlurKernelSize);
+	m_pSettingsInterface->put_Settings(m_bActivated, m_iFrameOutput, m_iNumIterations, m_iFrameBlurKernelSize, m_iFlowBlurKernelSize);
 	if (saveSettings() != S_OK) {
 		return E_FAIL;
 	}
@@ -205,34 +212,45 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 // Get the values from the controls
 void CHopperRenderSettings::GetControlValues() {
 	TCHAR sz[STR_MAX_LENGTH];
-	int tmp1, tmp2;
-
-	// Get the blur kernel size
-	Edit_GetText(GetDlgItem(m_Dlg, IDC_BLURKERNEL), sz, STR_MAX_LENGTH);
-
-#ifdef UNICODE
-	// Convert Multibyte string to ANSI
-	char szANSI[STR_MAX_LENGTH];
-
-	int rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
-	tmp2 = atoi(szANSI);
-#else
-    tmp2 = atoi(sz);
-#endif
+	int tmp1, tmp2, tmp3;
 
 	// Get the number of iterations
 	Edit_GetText(GetDlgItem(m_Dlg, IDC_NUMITS), sz, STR_MAX_LENGTH);
 
 #ifdef UNICODE
 	// Convert Multibyte string to ANSI
-	rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
+	char szANSI[STR_MAX_LENGTH];
+	int rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
 	tmp1 = atoi(szANSI);
 #else
     tmp1 = atoi(sz);
 #endif
 
+	// Get the frame blur kernel size
+	Edit_GetText(GetDlgItem(m_Dlg, IDC_FRAMEBLURKERNEL), sz, STR_MAX_LENGTH);
+
+#ifdef UNICODE
+	// Convert Multibyte string to ANSI
+	rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
+	tmp2 = atoi(szANSI);
+#else
+    tmp2 = atoi(sz);
+#endif
+
+	// Get the flow blur kernel size
+	Edit_GetText(GetDlgItem(m_Dlg, IDC_FLOWBLURKERNEL), sz, STR_MAX_LENGTH);
+
+#ifdef UNICODE
+	// Convert Multibyte string to ANSI
+	rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
+	tmp3 = atoi(szANSI);
+#else
+    tmp3 = atoi(sz);
+#endif
+
 	m_iNumIterations = tmp1;
-	m_iBlurKernelSize = tmp2;
+	m_iFrameBlurKernelSize = tmp2;
+	m_iFlowBlurKernelSize = tmp3;
 
 	// Find whether the filter is activated or not
 	if (IsDlgButtonChecked(m_Dlg, IDC_ON)) {
@@ -248,8 +266,10 @@ void CHopperRenderSettings::GetControlValues() {
 		m_iFrameOutput = 1;
 	} else if (IsDlgButtonChecked(m_Dlg, IDC_BLENDEDFRAME)) {
 		m_iFrameOutput = 2;
-	} else {
+	} else if (IsDlgButtonChecked(m_Dlg, IDC_HSVFLOW)) {
 		m_iFrameOutput = 3;
+	} else {
+		m_iFrameOutput = 4;
 	}
 }
 
@@ -263,21 +283,24 @@ HRESULT CHopperRenderSettings::saveSettings() {
     
     if (result0 == ERROR_SUCCESS) {
         // Save activated state
-        LONG result1 = RegSetValueEx(hKey, L"bActivated", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_bActivated), sizeof(DWORD));
+        LONG result1 = RegSetValueEx(hKey, L"Activated", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_bActivated), sizeof(DWORD));
 
 		// Save Frame Output
-		LONG result2 = RegSetValueEx(hKey, L"iFrameOutput", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iFrameOutput), sizeof(DWORD));
+		LONG result2 = RegSetValueEx(hKey, L"FrameOutput", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iFrameOutput), sizeof(DWORD));
 
 		// Save the number of iterations
-		LONG result3 = RegSetValueEx(hKey, L"iNumIterations", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iNumIterations), sizeof(DWORD));
+		LONG result3 = RegSetValueEx(hKey, L"NumIterations", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iNumIterations), sizeof(DWORD));
 
-		// Save the blur kernel size
-		LONG result4 = RegSetValueEx(hKey, L"iBlurKernelSize", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iBlurKernelSize), sizeof(DWORD));
+		// Save the flow blur kernel size
+		LONG result4 = RegSetValueEx(hKey, L"FrameBlurKernelSize", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iFrameBlurKernelSize), sizeof(DWORD));
+
+		// Save the flow blur kernel size
+		LONG result5 = RegSetValueEx(hKey, L"FlowBlurKernelSize", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iFlowBlurKernelSize), sizeof(DWORD));
 
 		RegCloseKey(hKey); // Close the registry key
 
 		// Check for errors
-        if (result1 || result2 || result3 || result4) {
+        if (result1 || result2 || result3 || result4 || result5) {
 			return E_FAIL;
         } else {
             return S_OK;
