@@ -1,4 +1,4 @@
-#include <cuda_runtime_api.h>
+#include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include "opticalFlowCalc.cuh"
 
@@ -34,37 +34,39 @@ __global__ void setInitialOffset(int* offsetArray, const unsigned int dimZ, cons
 
 // Kernel that normalizes all the pixel deltas of each window
 __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsigned char* globalLowestLayerArray,
-                                   const int* offsetArray, const unsigned int windowDimY, const unsigned int windowDimX,
+                                   const int* offsetArray, const unsigned int windowDim,
 								   const int dimZ, const int dimY, const int dimX) {
 	// Allocate shared memory to share values across layers
-	__shared__ double normalizedDeltaArray[5 * NUM_THREADS * NUM_THREADS];
+	__shared__ double normalizedDeltaArray[5 * NUM_THREADS * NUM_THREADS * 8];
 	
 	// Current entry to be computed by the thread
 	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const int cz = threadIdx.z;
+	bool isWindowRepresent = false;
 
 	// Check if the thread is a window represent
-	if (cy % windowDimY == 0 && cx % windowDimX == 0) {
+	if (cy % windowDim == 0 && cx % windowDim == 0) {
+		isWindowRepresent = true;
 		// Get the current window information
 		const int offsetX = offsetArray[cz * dimY * dimX + cy * dimX + cx];
 		const int offsetY = offsetArray[dimZ * dimY * dimX + cz * dimY * dimX + cy * dimX + cx];
 
 		// Calculate the number of pixels in the window
-		unsigned int numPixels = windowDimY * windowDimX;
+		unsigned int numPixels = windowDim * windowDim;
 
 		// Calculate the not overlapping pixels
 		int overlapX;
 		int overlapY;
 
 		// Calculate the number of not overlapping pixels
-		if ((cx + windowDimX + fabsf(offsetX) > dimX) || (cx - offsetX < 0)) {
+		if ((cx + windowDim + fabsf(offsetX) > dimX) || (cx - offsetX < 0)) {
 			overlapX = fabsf(offsetX);
 		} else {
 			overlapX = 0;
 		}
 
-		if ((cy + windowDimY + fabsf(offsetY) > dimY) || (cy - offsetY < 0)) {
+		if ((cy + windowDim + fabsf(offsetY) > dimY) || (cy - offsetY < 0)) {
 			overlapY = fabsf(offsetY);
 		} else {
 			overlapY = 0;
@@ -81,7 +83,7 @@ __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsig
 	__syncthreads();
 
 	// Find the layer with the lowest value
-	if (cz == 0 && cy % windowDimY == 0 && cx % windowDimX == 0) {
+	if (cz == 0 && isWindowRepresent) {
 		unsigned char lowestLayer = 0;
 
 		for (unsigned char z = 1; z < dimZ; ++z) {
@@ -97,7 +99,7 @@ __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsig
 
 // Kernel that adjusts the offset array based on the comparison results
 __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalLowestLayerArray, unsigned char* statusArray,
-								  const unsigned int windowDimY, const unsigned int windowDimX, const unsigned int dimZ, 
+								  const unsigned int windowDim, const unsigned int dimZ, 
 								  const unsigned int dimY, const unsigned int dimX) {
 
 	// Allocate shared memory to cache the lowest layer
@@ -119,10 +121,10 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 	*/
 
 	if (cy < dimY && cx < dimX) {
-		const unsigned int trwx = (((cx / blockDim.x) * blockDim.x) / windowDimX) * windowDimX;
-		const unsigned int trwy = (((cy / blockDim.y) * blockDim.y) / windowDimY) * windowDimY;
-		const unsigned int wx = (cx / windowDimX) * windowDimX;
-		const unsigned int wy = (cy / windowDimY) * windowDimY;
+		const unsigned int trwx = (((cx / blockDim.x) * blockDim.x) / windowDim) * windowDim;
+		const unsigned int trwy = (((cy / blockDim.y) * blockDim.y) / windowDim) * windowDim;
+		const unsigned int wx = (cx / windowDim) * windowDim;
+		const unsigned int wy = (cy / windowDim) * windowDim;
 		unsigned char lowestLayer;
 
 		// We are the block representative

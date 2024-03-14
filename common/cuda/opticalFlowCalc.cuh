@@ -9,12 +9,12 @@ __global__ void setInitialOffset(int* offsetArray, unsigned int dimZ, unsigned i
 
 // Kernel that normalizes all the pixel deltas of each window
 __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsigned char* globalLowestLayerArray,
-	const int* offsetArray, unsigned int windowDimY, unsigned int windowDimX,
+	const int* offsetArray, unsigned int windowDim,
 	int dimZ, int dimY, int dimX);
 
 // Kernel that adjusts the offset array based on the comparison results
 __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalLowestLayerArray, unsigned char* statusArray,
-	unsigned int windowDimY, unsigned int windowDimX, unsigned int dimZ,
+	unsigned int windowDim, unsigned int dimZ,
 	unsigned int dimY, unsigned int dimX);
 
 // Kernel that translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
