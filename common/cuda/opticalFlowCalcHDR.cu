@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <vector>
 #include <cuda_runtime.h>
+#include <cooperative_groups.h>
 #include "opticalFlowCalcHDR.cuh"
 
 // Kernel that scales a P010 frame to a P010 frame for madVR
@@ -82,11 +83,10 @@ __global__ void calcImageDeltaHDR(const unsigned short* frame1, const unsigned s
 	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const int cz = threadIdx.z;
-	const int channel = cz % 2; // YUV channel of the current thread
 
 	// Is the current thread supposed to perform calculations
 	if (cz < numLayers * 2 && cy < lowDimY && cx < lowDimX) {
-		const int layer = cz / 2; // Layer of the current thread
+		const int layer = cz >> 1; // Layer of the current thread
 		const int layerOffset = layer * lowDimY * lowDimX; // Offset to index the layer of the current thread
 		const int scaledCx = static_cast<int>(cx * resolutionScalar); // The X-Index of the current thread in the input frames
 		const int scaledCy = static_cast<int>(cy * resolutionScalar); // The Y-Index of the current thread in the input frames
@@ -96,7 +96,7 @@ __global__ void calcImageDeltaHDR(const unsigned short* frame1, const unsigned s
 		const int threadIndex3D = cz * lowDimY * lowDimX + threadIndex2D; // Standard thread index
 
 		// Y-Channel
-		if (channel == 0) {
+		if ((cz & 1) == 0) {
 			const int offsetX = -offsetArray[layerOffset + threadIndex2D];
 			const int offsetY = -offsetArray[directionIdxOffset + layerOffset + threadIndex2D];
 			const int newCx = scaledCx + offsetX;
@@ -118,21 +118,56 @@ __global__ void calcImageDeltaHDR(const unsigned short* frame1, const unsigned s
 	}
 }
 
+// Helper kernel for the calcDeltaSums kernel
+__device__ void warpReduceHDR(volatile unsigned int* partial_sums, int tIdx) {
+	partial_sums[tIdx] += partial_sums[tIdx + 32];
+	partial_sums[tIdx] += partial_sums[tIdx + 16];
+	partial_sums[tIdx] += partial_sums[tIdx + 8];
+	partial_sums[tIdx] += partial_sums[tIdx + 4];
+	partial_sums[tIdx] += partial_sums[tIdx + 2];
+	partial_sums[tIdx] += partial_sums[tIdx + 1];
+}
+
 // Kernel that sums up all the pixel deltas of each window
-__global__ void calcDeltaSumsHDR(unsigned short* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int windowDimY,
-								 const unsigned int windowDimX, const unsigned int numLayers, const unsigned int lowDimY, const unsigned int lowDimX) {
+__global__ void calcDeltaSumsHDR(const unsigned short* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
+						const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim) {
+	// Handle used to synchronize all threads
+	auto g = cooperative_groups::this_thread_block();
+
+	// Shared memory for the partial sums of the current block
+	extern __shared__ unsigned int partial_sums[];
+
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = threadIdx.z;
-	const unsigned int windowIndexX = cx / windowDimX;
-	const unsigned int windowIndexY = cy / windowDimY;
-	const int layer = cz / 2; // Layer of the current thread
+	const unsigned int cz = blockIdx.z;
+	const unsigned int tIdx = threadIdx.y * blockDim.x + threadIdx.x;
+	const unsigned int windowIndexX = cx / windowDim;
+	const unsigned int windowIndexY = cy / windowDim;
 
-	// Check if the thread is inside the frame
-	if (cz < numLayers * 2 && cy < lowDimY && cx < lowDimX) {
-		atomicAdd(&summedUpDeltaArray[layer * lowDimY * lowDimX + (windowIndexY * windowDimY) * lowDimX + (windowIndexX * windowDimX)],
-			imageDeltaArray[cz * lowDimY * lowDimX + cy * lowDimX + cx]);
+	// Add the luminace and color channel together
+	partial_sums[tIdx] = imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + cy * lowDimX + cx];
+	__syncthreads();
+
+	// Sum up the remaining pixels for the current window
+	for (int s = (blockDim.y * blockDim.x) >> 1; s > 32; s >>= 1) {
+		if (tIdx < s) {
+			partial_sums[tIdx] += partial_sums[tIdx + s];
+		}
+		__syncthreads();
+	}
+
+	// Loop over the remaining values
+	if (tIdx < 32) {
+		warpReduceHDR(partial_sums, tIdx);
+	}
+
+	// Sync all threads
+	g.sync();
+
+	// Sum up the results of all blocks
+	if (tIdx == 0) {
+		atomicAdd(&summedUpDeltaArray[cz * channelIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)], partial_sums[0]);
 	}
 }
 
@@ -173,7 +208,7 @@ __global__ void warpFrameKernelForOutputHDR(const unsigned short* frame1, const 
 		// Check if the current pixel is inside the frame
 		if (newCy >= 0 && newCy < dimY / 2 && newCx >= 0 && newCx < dimX) {
 			// U-Channel
-			if (cx % 2 == 0) {
+			if ((cx & 1) == 0) {
 				warpedFrame[channelIdxOffset + newCy * scaledDimX + (newCx / 2) * 2] = frame1[dimY * dimX + cy * dimX + cx];
 
 			// V-Channel
@@ -219,7 +254,7 @@ __global__ void warpFrameKernelForBlendingHDR(const unsigned short* frame1, cons
 			const int newCy = fminf(fmaxf(cy + offsetY, 0), (dimY / 2) - 1);
 
 			// U Channel
-			if (cx % 2 == 0) {
+			if ((cx & 1) == 0) {
 				warpedFrame[dimY * dimX + newCy * dimX + (newCx / 2) * 2] = frame1[dimY * dimX + cy * dimX + cx];
 
 			// V Channel
@@ -372,7 +407,7 @@ __global__ void convertFlowToHSVKernelHDR(const int* flowArray, unsigned short* 
 	// U/V Channels
 	} else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
 		// U Channel
-		if (cx % 2 == 0) {
+		if ((cx & 1) == 0) {
 			p010Array[static_cast<unsigned int>(dimY * dimX * dDimScalar) + cy * static_cast<unsigned int>(dimX * dDimScalar) + (cx / 2) * 2] = static_cast<unsigned short>(fmaxf(fminf(static_cast<float>(0.492 * (rgb.b - (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b)) + 128), 255.0), 0.0)) << 8;
 		// V Channel
 		} else {
@@ -527,11 +562,43 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 	// Reset variables
 	const int directionIdxOffset = m_iNumLayers * m_iLowDimY * m_iLowDimX; // Offset to index the Y-Offset-Layer
 	const int channelIdxOffset = m_iDimY * m_iDimX; // Offset to index the color channel of the current thread
-	unsigned int windowDimX = m_iLowDimX;
-	unsigned int windowDimY = m_iLowDimY;
-	if (iNumIterations == 0 || static_cast<float>(iNumIterations) > ceil(log2f(static_cast<float>(m_iLowDimX)))) {
-		iNumIterations = static_cast<unsigned int>(ceil(log2f(static_cast<float>(m_iLowDimX))));
+
+	// We set the initial window size to the next larger power of 2
+	unsigned int windowDim = 1;
+	unsigned int maxDim = max(m_iLowDimX, m_iLowDimY);
+    if (maxDim && !(maxDim & (maxDim - 1))) {
+		windowDim = maxDim;
+	} else {
+		while (maxDim & (maxDim - 1)) {
+			maxDim &= (maxDim - 1);
+		}
+		windowDim = maxDim << 1;
 	}
+
+	if (iNumIterations == 0 || static_cast<double>(iNumIterations) > ceil(log2(windowDim))) {
+		iNumIterations = static_cast<unsigned int>(ceil(log2(windowDim)));
+	}
+
+
+
+
+	const unsigned int num_threads = min(windowDim, 16);
+	const size_t sharedMemSize = num_threads * num_threads * sizeof(unsigned int);
+
+	// Calculate the number of blocks needed
+	const unsigned int NUM_BLOCKS_X = max(static_cast<int>(ceil(static_cast<float>(m_imageDeltaArray.dimX) / num_threads)), 1);
+	const unsigned int NUM_BLOCKS_Y = max(static_cast<int>(ceil(static_cast<float>(m_imageDeltaArray.dimY) / num_threads)), 1);
+	constexpr unsigned int NUM_BLOCKS_Z = 5;
+
+	// Use dim3 structs for block and grid size
+	dim3 gridCDS(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
+	dim3 threadsCDS(num_threads, num_threads, 1);
+
+
+
+
+
+
 
 	// Set the starting offset for the current window size
 	setInitialOffset << <m_lowGrid, m_threads5 >> > (m_offsetArray12.arrayPtrGPU, m_iNumLayers, m_iLowDimY, m_iLowDimX);
@@ -557,23 +624,23 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 			}
 
 			// 2. Sum up the deltas of each window
-			calcDeltaSumsHDR << <m_lowGrid, m_threads10 >> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU,
-				windowDimY, windowDimX, m_iNumLayers, m_iLowDimY, m_iLowDimX);
+			calcDeltaSumsHDR << <gridCDS, threadsCDS, sharedMemSize>> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU, 
+																2 * m_iLowDimY * m_iLowDimX, m_iLowDimY * m_iLowDimX, 
+																m_iLowDimY, m_iLowDimX, windowDim);
 
 			// 3. Normalize the summed up delta array and find the best layer
 			normalizeDeltaSums << <m_lowGrid, m_threads5 >> > (m_summedUpDeltaArray.arrayPtrGPU, m_lowestLayerArray.arrayPtrGPU,
-				m_offsetArray12.arrayPtrGPU, windowDimY, windowDimX,
+				m_offsetArray12.arrayPtrGPU, windowDim,
 				m_iNumLayers, m_iLowDimY, m_iLowDimX);
 
 			// 4. Adjust the offset array based on the comparison results
 			adjustOffsetArray << <m_lowGrid, m_threads1 >> > (m_offsetArray12.arrayPtrGPU, m_lowestLayerArray.arrayPtrGPU,
-				m_statusArray.arrayPtrGPU, windowDimY, windowDimX,
+				m_statusArray.arrayPtrGPU, windowDim,
 				m_iNumLayers, m_iLowDimY, m_iLowDimX);
 		}
 
 		// 5. Adjust window size
-		windowDimX = max(windowDimX / 2, 1);
-		windowDimY = max(windowDimY / 2, 1);
+		windowDim = max(windowDim >> 1, 1);
 
 		// Reset the status array
 		m_statusArray.zero();
