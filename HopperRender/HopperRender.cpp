@@ -665,7 +665,7 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 
 		// Draw the flow as an HSV image
 		if (m_iFrameOutput == 3) {
-			m_pofcOpticalFlowCalc->drawFlowAsHSV(1.0, 1.0);
+			m_pofcOpticalFlowCalc->drawFlowAsHSV(0.5);
 		}
 	}
 
@@ -687,6 +687,13 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 	// Adjust the settings to process everything fast enough
 	if (m_iFrameOutput != 4 && iIntFrameNum == (m_iNumSamples - 1)) {
 		autoAdjustSettings();
+	}
+
+	// Check for CUDA errors
+	const cudaError_t cudaError = cudaGetLastError();
+	if (cudaError != cudaSuccess) {
+		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
+		exit(-1);
 	}
 
 	return NOERROR;

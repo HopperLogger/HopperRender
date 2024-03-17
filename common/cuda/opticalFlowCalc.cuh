@@ -4,8 +4,43 @@
 
 #include "GPUArrayLib.cuh"
 
+// Kernel that blurs a frame
+template <typename T>
+__global__ void blurFrameKernel(const T* frameArray, T* blurredFrameArray,
+	const unsigned char kernelSize, const unsigned char chacheSize, const unsigned char boundsOffset,
+	const unsigned char avgEntriesPerThread, const unsigned short remainder, const char lumStart,
+	const unsigned char lumEnd, const unsigned short lumPixelCount, const char chromStart,
+	const unsigned char chromEnd, const unsigned short chromPixelCount, const unsigned short dimY, const unsigned short dimX);
+
 // Kernel that sets the initial offset array
 __global__ void setInitialOffset(int* offsetArray, unsigned int dimZ, unsigned int dimY, unsigned int dimX);
+
+// Kernel that calculates the absolute difference between two frames using the offset array
+template <typename T>
+__global__ void calcImageDelta(const T* frame1, const T* frame2, T* imageDeltaArray,
+	const int* offsetArray, const int numLayers, const int lowDimY, const int lowDimX,
+	const int dimY, const int dimX, const double resolutionScalar, const int directionIdxOffset,
+	const int channelIdxOffset);
+
+// Kernel that sums up all the pixel deltas of each window for window sizes of at least 8x8
+template <typename T>
+__global__ void calcDeltaSums8x8(const T* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
+	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
+
+// Kernel that sums up all the pixel deltas of each window for window sizes of 4x4
+template <typename T>
+__global__ void calcDeltaSums4x4(const T* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
+	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
+
+// Kernel that sums up all the pixel deltas of each window for window sizes of 2x2
+template <typename T>
+__global__ void calcDeltaSums2x2(const T* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
+	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
+
+// Kernel that sums up all the pixel deltas of each window for window sizes of 1x1
+template <typename T>
+__global__ void calcDeltaSums1x1(const T* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
+	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
 
 // Kernel that normalizes all the pixel deltas of each window
 __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsigned char* globalLowestLayerArray,
@@ -24,6 +59,11 @@ __global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const u
 // Kernel that blurs a flow array
 __global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, int kernelSize, int dimZ, int dimY,
 	int dimX, bool offset12);
+
+// Kernel that removes artifacts from the warped frame
+template <typename T>
+__global__ void artifactRemovalKernelForBlending(const T* frame1, const int* hitCount, T* warpedFrame,
+	const unsigned int dimY, const unsigned int dimX);
 
 class OpticalFlowCalc {
 public:
@@ -105,10 +145,9 @@ public:
 	/*
 	* Draws the flow as an RGB image
 	*
-	* @param saturation: The saturation of the flow image
-	* @param value: The value of the flow image
+	* @param blendScalar: The scalar that determines how much of the source frame is blended with the flow
 	*/
-	virtual void drawFlowAsHSV(float saturation, float value) const = 0;
+	virtual void drawFlowAsHSV(const double blendScalar) const = 0;
 
 	// The number of cuda threads needed
 	dim3 m_lowGrid;
