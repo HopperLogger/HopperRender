@@ -15,7 +15,7 @@ __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsig
 // Kernel that adjusts the offset array based on the comparison results
 __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalLowestLayerArray, unsigned char* statusArray,
 	unsigned int windowDim, unsigned int dimZ,
-	unsigned int dimY, unsigned int dimX);
+	unsigned int dimY, unsigned int dimX, const bool lastRun);
 
 // Kernel that translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
 __global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const unsigned int dimZ,
