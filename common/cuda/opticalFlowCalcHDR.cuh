@@ -78,10 +78,9 @@ public:
 	/*
 	* Draws the flow as an RGB image
 	*
-	* @param saturation: The saturation of the flow image
-	* @param value: The value of the flow image
+	* @param blendScalar: The scalar that determines how much of the source frame is blended with the flow
 	*/
-	void drawFlowAsHSV(float saturation, float value) const override;
+	void drawFlowAsHSV(double blendScalar) const override;
 
 	// GPU Arrays
 	GPUArray<unsigned short> m_frame1; // Array containing the first frame
