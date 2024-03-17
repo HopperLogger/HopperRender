@@ -148,8 +148,8 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_dDimScalar(1.0),
 	m_iDimX(1),
 	m_iDimY(1),
-	m_dResolutionScalar(4.0),
-	m_dResolutionDivider(0.25) {
+	m_dResolutionScalar(1.0),
+	m_dResolutionDivider(1.0) {
 	loadSettings();
 }
 
@@ -616,6 +616,10 @@ HRESULT CHopperRender::CopyFrame(const unsigned char* pInBuffer, unsigned char* 
 
 // Interpolates a frame
 HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer, const float fScalar, const int iIntFrameNum) {
+	//m_iNumSteps = 1;
+
+
+
 	// Note the calculation start time at the start of a new sample
 	if (iIntFrameNum == 0) {
 		m_tpCurrCalcStart = std::chrono::high_resolution_clock::now();

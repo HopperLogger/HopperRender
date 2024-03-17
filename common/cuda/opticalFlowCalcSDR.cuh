@@ -43,7 +43,7 @@ public:
 	* @param kernelSize: Size of the kernel to use for the blur
 	* @param directOutput: Whether to output the blurred frame directly
 	*/
-	void blurFrameArray(const int kernelSize, const bool directOutput) override;
+	void blurFrameArray(const unsigned char kernelSize, const bool directOutput) override;
 
 	/*
 	* Calculates the optical flow between frame1 and frame2
