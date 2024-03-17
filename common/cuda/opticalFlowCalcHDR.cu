@@ -149,7 +149,7 @@ __global__ void calcImageDeltaHDR(const unsigned short* frame1, const unsigned s
 }
 
 // Helper kernel for the calcDeltaSums kernel
-__device__ void warpReduce32HDR(volatile unsigned int* partial_sums, int tIdx) {
+__device__ void warpReduce8x8HDR(volatile unsigned int* partial_sums, int tIdx) {
 	partial_sums[tIdx] += partial_sums[tIdx + 32];
 	partial_sums[tIdx] += partial_sums[tIdx + 16];
 	partial_sums[tIdx] += partial_sums[tIdx + 8];
@@ -159,21 +159,21 @@ __device__ void warpReduce32HDR(volatile unsigned int* partial_sums, int tIdx) {
 }
 
 // Helper kernel for the calcDeltaSums kernel
-__device__ void warpReduce8HDR(volatile unsigned int* partial_sums, int tIdx) {
+__device__ void warpReduce4x4HDR(volatile unsigned int* partial_sums, int tIdx) {
+	partial_sums[tIdx] += partial_sums[tIdx + 16];
 	partial_sums[tIdx] += partial_sums[tIdx + 8];
-	partial_sums[tIdx] += partial_sums[tIdx + 4];
 	partial_sums[tIdx] += partial_sums[tIdx + 2];
 	partial_sums[tIdx] += partial_sums[tIdx + 1];
 }
 
 // Helper kernel for the calcDeltaSums kernel
-__device__ void warpReduce2HDR(volatile unsigned int* partial_sums, int tIdx) {
-	partial_sums[tIdx] += partial_sums[tIdx + 2];
+__device__ void warpReduce2x2HDR(volatile unsigned int* partial_sums, int tIdx) {
+	partial_sums[tIdx] += partial_sums[tIdx + 8];
 	partial_sums[tIdx] += partial_sums[tIdx + 1];
 }
 
-// Kernel that sums up all the pixel deltas of each window
-__global__ void calcDeltaSumsHDR(const unsigned short* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
+// Kernel that sums up all the pixel deltas of each window for window sizes of at least 8x8
+__global__ void calcDeltaSums8x8HDR(const unsigned short* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
 						const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim) {
 	// Handle used to synchronize all threads
 	auto g = cooperative_groups::this_thread_block();
@@ -202,18 +202,8 @@ __global__ void calcDeltaSumsHDR(const unsigned short* imageDeltaArray, unsigned
 		}
 
 		// Loop over the remaining values
-		if (blockDim.x >= 8) {
-			if (tIdx < 32) {
-				warpReduce32HDR(partial_sums, tIdx);
-			}
-		} else if (blockDim.x == 4) {
-			if (tIdx < 8) {
-				warpReduce8HDR(partial_sums, tIdx);
-			}
-		} else if (blockDim.x == 2) {
-			if (tIdx < 2) {
-				warpReduce2HDR(partial_sums, tIdx);
-			}
+		if (tIdx < 32) {
+			warpReduce8x8HDR(partial_sums, tIdx);
 		}
 
 		// Sync all threads
@@ -228,19 +218,95 @@ __global__ void calcDeltaSumsHDR(const unsigned short* imageDeltaArray, unsigned
 	}
 }
 
-// Kernel that sums up all the pixel deltas of each window
-__global__ void calcDeltaSumsSingleHDR(const unsigned short* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
+// Kernel that sums up all the pixel deltas of each window for window sizes of 4x4
+__global__ void calcDeltaSums4x4HDR(const unsigned short* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
+						const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim) {
+	// Handle used to synchronize all threads
+	auto g = cooperative_groups::this_thread_block();
+
+	// Shared memory for the partial sums of the current block
+	extern __shared__ unsigned int partial_sums[];
+
+	// Current entry to be computed by the thread
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int tIdx = threadIdx.y * blockDim.x + threadIdx.x;
+	partial_sums[tIdx] = 0;
+
+	if (cy < lowDimY && cx < lowDimX) {
+		// Add the luminace and color channel together
+		partial_sums[tIdx] = imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + cy * lowDimX + cx];
+		__syncthreads();
+
+		// Top 4x4 Blocks
+		if (threadIdx.y < 2) {
+			warpReduce4x4HDR(partial_sums, tIdx);
+		// Bottom 4x4 Blocks
+		} else if (threadIdx.y >= 4 && threadIdx.y < 6) {
+			warpReduce4x4HDR(partial_sums, tIdx);
+		}
+
+		// Sync all threads
+		g.sync();
+
+		// Sum up the results of all blocks
+		if (tIdx == 0 || tIdx == 4 || tIdx == 32 || tIdx == 36) {
+			const unsigned int windowIndexX = cx / windowDim;
+			const unsigned int windowIndexY = cy / windowDim;
+			atomicAdd(&summedUpDeltaArray[cz * channelIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)], partial_sums[tIdx]);
+		}
+	}
+}
+
+// Kernel that sums up all the pixel deltas of each window for window sizes of 2x2
+__global__ void calcDeltaSums2x2HDR(const unsigned short* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
+						const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim) {
+	// Handle used to synchronize all threads
+	auto g = cooperative_groups::this_thread_block();
+
+	// Shared memory for the partial sums of the current block
+	extern __shared__ unsigned int partial_sums[];
+
+	// Current entry to be computed by the thread
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int tIdx = threadIdx.y * blockDim.x + threadIdx.x;
+	partial_sums[tIdx] = 0;
+
+	if (cy < lowDimY && cx < lowDimX) {
+		// Add the luminace and color channel together
+		partial_sums[tIdx] = imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + cy * lowDimX + cx];
+		__syncthreads();
+
+		if ((threadIdx.y & 1) == 0) {
+			warpReduce2x2HDR(partial_sums, tIdx);
+		}
+
+		// Sync all threads
+		g.sync();
+
+		// Sum up the results of all blocks
+		if ((tIdx & 1) == 0 && (threadIdx.y & 1) == 0) {
+			const unsigned int windowIndexX = cx / windowDim;
+			const unsigned int windowIndexY = cy / windowDim;
+			atomicAdd(&summedUpDeltaArray[cz * channelIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)], partial_sums[tIdx]);
+		}
+	}
+}
+
+// Kernel that sums up all the pixel deltas of each window for window sizes of 1x1
+__global__ void calcDeltaSums1x1HDR(const unsigned short* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
 						const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = blockIdx.z;
-	const unsigned int windowIndexX = cx / windowDim;
-	const unsigned int windowIndexY = cy / windowDim;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 
 	if (cy < lowDimY && cx < lowDimX) {
 		// Add the luminace and color channel together
-		summedUpDeltaArray[cz * channelIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)] = imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + cy * lowDimX + cx];
+		summedUpDeltaArray[cz * channelIdxOffset + cy * lowDimX + cx] = imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + cy * lowDimX + cx];
 	}
 }
 
@@ -602,7 +668,7 @@ void OpticalFlowCalcHDR::blurFrameArray(const unsigned char kernelSize, const bo
 	const unsigned char boundsOffset = kernelSize >> 1;
 	const unsigned char chacheSize = kernelSize + (boundsOffset << 1);
 	const size_t sharedMemSize = chacheSize * chacheSize * sizeof(unsigned short);
-	const unsigned short totalThreads = kernelSize * kernelSize;
+	const unsigned short totalThreads = max(kernelSize * kernelSize, 1);
     const unsigned short totalEntries = chacheSize * chacheSize;
     const unsigned char avgEntriesPerThread = totalEntries / totalThreads;
 	const unsigned short remainder = totalEntries % totalThreads;
@@ -637,7 +703,7 @@ void OpticalFlowCalcHDR::blurFrameArray(const unsigned char kernelSize, const bo
 	} else {
 		// No need to blur the frame if the kernel size is less than 4
 		if (kernelSize < 4) {
-			cudaMemcpy(m_blurredFrame1.arrayPtrGPU, m_frame1.arrayPtrGPU, m_frame1.bytes, cudaMemcpyDeviceToDevice);
+			cudaMemcpy(m_blurredFrame2.arrayPtrGPU, m_frame2.arrayPtrGPU, m_frame1.bytes, cudaMemcpyDeviceToDevice);
 		} else {
 			// Launch kernel
 			blurFrameKernelHDR << <gridBF, threadsBF, sharedMemSize >> > (m_frame2.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, lumStart, lumEnd, lumPixelCount, chromStart, chromEnd, chromPixelCount, m_iDimY, m_iDimX);
@@ -719,12 +785,20 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 			}
 
 			// 2. Sum up the deltas of each window
-			if (windowDim > 1) {
-				calcDeltaSumsHDR << <gridCDS, threadsCDS, sharedMemSize>> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU, 
+			if (windowDim >= 8) {
+				calcDeltaSums8x8HDR << <gridCDS, threadsCDS, sharedMemSize>> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU, 
 																	2 * m_iLowDimY * m_iLowDimX, m_iLowDimY * m_iLowDimX, 
 																	m_iLowDimY, m_iLowDimX, windowDim);
-			} else {
-				calcDeltaSumsSingleHDR << <m_lowGrid, m_threads5, sharedMemSize>> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU, 
+			} else if (windowDim == 4) {
+				calcDeltaSums4x4HDR << <gridCDS, threadsCDS, sharedMemSize>> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU, 
+																	2 * m_iLowDimY * m_iLowDimX, m_iLowDimY * m_iLowDimX, 
+																	m_iLowDimY, m_iLowDimX, windowDim);
+			} else if (windowDim == 2) {
+				calcDeltaSums2x2HDR << <gridCDS, threadsCDS, sharedMemSize>> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU, 
+																	2 * m_iLowDimY * m_iLowDimX, m_iLowDimY * m_iLowDimX, 
+																	m_iLowDimY, m_iLowDimX, windowDim);
+			} else if (windowDim == 1) {
+				calcDeltaSums1x1HDR << <m_lowGrid, m_threads5, sharedMemSize>> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU, 
 																	2 * m_iLowDimY * m_iLowDimX, m_iLowDimY * m_iLowDimX, 
 																	m_iLowDimY, m_iLowDimX, windowDim);
 			}
@@ -737,7 +811,7 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 			// 4. Adjust the offset array based on the comparison results
 			adjustOffsetArray << <m_lowGrid, m_threads1 >> > (m_offsetArray12.arrayPtrGPU, m_lowestLayerArray.arrayPtrGPU,
 				m_statusArray.arrayPtrGPU, windowDim,
-				m_iNumLayers, m_iLowDimY, m_iLowDimX);
+				m_iNumLayers, m_iLowDimY, m_iLowDimX, step == iNumSteps - 1);
 		}
 
 		// 5. Adjust window size

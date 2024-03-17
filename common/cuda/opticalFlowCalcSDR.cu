@@ -1,9 +1,18 @@
 #include <amvideo.h>
 #include <iomanip>
 #include <vector>
+#include <string>
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
 #include "opticalFlowCalcSDR.cuh"
+
+// Debug message function
+void CudaDebugMessage(const std::string& message, const bool showLog) {
+	if (showLog) {
+		const std::string m_debugMessage = message + "\n";
+		OutputDebugStringA(m_debugMessage.c_str());
+	}
+}
 
 // Kernel that converts an NV12 array to a P010 array
 __global__ void convertNV12toP010KernelSDR(const unsigned char* nv12Array, unsigned short* p010Array, const unsigned int dimY,
@@ -230,7 +239,7 @@ __global__ void calcDeltaSums4x4SDR(const unsigned char* imageDeltaArray, unsign
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = blockIdx.z;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 	const unsigned int tIdx = threadIdx.y * blockDim.x + threadIdx.x;
 	partial_sums[tIdx] = 0;
 
@@ -271,7 +280,7 @@ __global__ void calcDeltaSums2x2SDR(const unsigned char* imageDeltaArray, unsign
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = blockIdx.z;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 	const unsigned int tIdx = threadIdx.y * blockDim.x + threadIdx.x;
 	partial_sums[tIdx] = 0;
 
@@ -288,7 +297,7 @@ __global__ void calcDeltaSums2x2SDR(const unsigned char* imageDeltaArray, unsign
 		g.sync();
 
 		// Sum up the results of all blocks
-		if ((tIdx & 1) == 0) {
+		if ((tIdx & 1) == 0 && (threadIdx.y & 1) == 0) {
 			const unsigned int windowIndexX = cx / windowDim;
 			const unsigned int windowIndexY = cy / windowDim;
 			atomicAdd(&summedUpDeltaArray[cz * channelIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)], partial_sums[tIdx]);
@@ -302,7 +311,7 @@ __global__ void calcDeltaSums1x1SDR(const unsigned char* imageDeltaArray, unsign
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = blockIdx.z;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 
 	if (cy < lowDimY && cx < lowDimX) {
 		// Add the luminace and color channel together
@@ -662,7 +671,7 @@ void OpticalFlowCalcSDR::blurFrameArray(const unsigned char kernelSize, const bo
 	const unsigned char boundsOffset = kernelSize >> 1;
 	const unsigned char chacheSize = kernelSize + (boundsOffset << 1);
 	const size_t sharedMemSize = chacheSize * chacheSize * sizeof(unsigned char);
-	const unsigned short totalThreads = kernelSize * kernelSize;
+	const unsigned short totalThreads = max(kernelSize * kernelSize, 1);
     const unsigned short totalEntries = chacheSize * chacheSize;
     const unsigned char avgEntriesPerThread = totalEntries / totalThreads;
 	const unsigned short remainder = totalEntries % totalThreads;
@@ -697,7 +706,7 @@ void OpticalFlowCalcSDR::blurFrameArray(const unsigned char kernelSize, const bo
 	} else {
 		// No need to blur the frame if the kernel size is less than 4
 		if (kernelSize < 4) {
-			cudaMemcpy(m_blurredFrame1.arrayPtrGPU, m_frame1.arrayPtrGPU, m_frame1.bytes, cudaMemcpyDeviceToDevice);
+			cudaMemcpy(m_blurredFrame2.arrayPtrGPU, m_frame2.arrayPtrGPU, m_frame1.bytes, cudaMemcpyDeviceToDevice);
 		} else {
 			// Launch kernel
 			blurFrameKernelSDR << <gridBF, threadsBF, sharedMemSize >> > (m_frame2.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, lumStart, lumEnd, lumPixelCount, chromStart, chromEnd, chromPixelCount, m_iDimY, m_iDimX);
@@ -805,7 +814,7 @@ void OpticalFlowCalcSDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 			// 4. Adjust the offset array based on the comparison results
 			adjustOffsetArray << <m_lowGrid, m_threads1 >> > (m_offsetArray12.arrayPtrGPU, m_lowestLayerArray.arrayPtrGPU,
 															  m_statusArray.arrayPtrGPU, windowDim,
-															  m_iNumLayers, m_iLowDimY, m_iLowDimX);
+															  m_iNumLayers, m_iLowDimY, m_iLowDimX, step == iNumSteps - 1);
 		}
 
 		// 5. Adjust variables for the next iteration

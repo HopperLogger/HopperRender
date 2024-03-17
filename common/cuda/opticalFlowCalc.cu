@@ -100,7 +100,7 @@ __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsig
 // Kernel that adjusts the offset array based on the comparison results
 __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalLowestLayerArray, unsigned char* statusArray,
 								  const unsigned int windowDim, const unsigned int dimZ, 
-								  const unsigned int dimY, const unsigned int dimX) {
+								  const unsigned int dimY, const unsigned int dimX, const bool lastRun) {
 
 	// Allocate shared memory to cache the lowest layer
 	__shared__ unsigned char lowestLayerArray[NUM_THREADS * NUM_THREADS];
@@ -147,6 +147,70 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 		int currX;
 		int currY;
 
+		// If this is the last run, we need to adjust the offset array accordingly
+		switch (currentStatus) {
+			// We are still trying to find the perfect x direction
+			case 0:
+			case 1:
+			case 2:
+				currX = offsetArray[lowestLayer * dimY * dimX + cy * dimX + cx];
+
+				// Shift the X direction layer 0 to the ideal X direction
+				offsetArray[dimY * dimX + cy * dimX + cx] = currX;
+				// Shift the X direction layer 1 by -2
+				offsetArray[dimY * dimX + cy * dimX + cx] = currX - 2;
+				// Shift the X direction layer 2 by -1
+				offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX - 1;
+				// Shift the X direction layer 3 by +1
+				offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX + 1;
+				// Shift the X direction layer 4 by +2
+				offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX + 2;
+				break;
+
+			// We are still trying to find the perfect y direction
+			case 3:
+			case 4:
+			case 5:
+				currX = offsetArray[cy * dimX + cx];
+				currY = offsetArray[dimZ * dimY * dimX + lowestLayer * dimY * dimX + cy * dimX + cx];
+
+				// Set all Y direction layers to the ideal Y direction
+				for (unsigned int z = 0; z < dimZ; z++) {
+					offsetArray[dimZ * dimY * dimX + z * dimY * dimX + cy * dimX + cx] = currY;
+				}
+
+				// Shift the X direction layer 1 by -2
+				offsetArray[dimY * dimX + cy * dimX + cx] = currX - 2;
+				// Shift the X direction layer 2 by -1
+				offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX - 1;
+				// Shift the X direction layer 3 by +1
+				offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX + 1;
+				// Shift the X direction layer 4 by +2
+				offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX + 2;
+				break;
+
+			// Search completed, so we adjust the offset array for the next run
+			default:
+				currX = offsetArray[cy * dimX + cx];
+				currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
+
+				// Set all Y direction layers to the ideal Y direction
+				for (unsigned int z = 1; z < dimZ; z++) {
+					offsetArray[dimZ * dimY * dimX + z * dimY * dimX + cy * dimX + cx] = currY;
+				}
+
+				// Shift the X direction layer 1 by -2
+				offsetArray[dimY * dimX + cy * dimX + cx] = currX - 2;
+				// Shift the X direction layer 2 by -1
+				offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX - 1;
+				// Shift the X direction layer 3 by +1
+				offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX + 1;
+				// Shift the X direction layer 4 by +2
+				offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX + 2;
+				break;
+		}
+
+		// If we are still calculating, adjust the offset array based on the current status and lowest layer
 		switch (currentStatus) {
 			/*
 			* X - DIRECTION
@@ -337,27 +401,6 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY - 3;
 					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY - 4;
 				}
-				break;
-				
-			// Adjust offset for next iteration
-			case 6:
-				statusArray[cy * dimX + cx] = 7;
-				currX = offsetArray[cy * dimX + cx];
-				currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
-
-				// Set all Y direction layers to the previous Y direction
-				for (unsigned int z = 1; z < dimZ; z++) {
-					offsetArray[dimZ * dimY * dimX + z * dimY * dimX + cy * dimX + cx] = currY;
-				}
-
-				// Shift the X direction layer 1 by -2
-				offsetArray[dimY * dimX + cy * dimX + cx] = currX - 2;
-				// Shift the X direction layer 2 by -1
-				offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX - 1;
-				// Shift the X direction layer 3 by +1
-				offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX + 1;
-				// Shift the X direction layer 4 by +2
-				offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX + 2;
 				break;
 
 			// Search is complete

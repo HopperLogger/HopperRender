@@ -201,6 +201,12 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 	GetControlValues();
 
 	CheckPointer(m_pSettingsInterface, E_POINTER)
+	if (m_iFrameBlurKernelSize > 32) {
+		m_iFrameBlurKernelSize = 32;
+		TCHAR sz[60];
+		(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iFrameBlurKernelSize);
+		Edit_SetText(GetDlgItem(m_Dlg, IDC_FRAMEBLURKERNEL), sz);
+	}
 	m_pSettingsInterface->put_Settings(m_bActivated, m_iFrameOutput, m_iNumIterations, m_iFrameBlurKernelSize, m_iFlowBlurKernelSize);
 	if (saveSettings() != S_OK) {
 		return E_FAIL;
