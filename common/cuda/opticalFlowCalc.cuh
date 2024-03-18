@@ -18,9 +18,9 @@ __global__ void setInitialOffset(int* offsetArray, unsigned int dimZ, unsigned i
 // Kernel that calculates the absolute difference between two frames using the offset array
 template <typename T>
 __global__ void calcImageDelta(const T* frame1, const T* frame2, T* imageDeltaArray,
-	const int* offsetArray, const int numLayers, const int lowDimY, const int lowDimX,
-	const int dimY, const int dimX, const double resolutionScalar, const int directionIdxOffset,
-	const int channelIdxOffset);
+	const int* offsetArray, const unsigned int lowDimY, const unsigned int lowDimX,
+	const unsigned int dimY, const unsigned int dimX, const float resolutionScalar, const unsigned int directionIdxOffset,
+	const unsigned int channelIdxOffset);
 
 // Kernel that sums up all the pixel deltas of each window for window sizes of at least 8x8
 template <typename T>
@@ -152,6 +152,8 @@ public:
 	// The number of cuda threads needed
 	dim3 m_lowGrid;
 	dim3 m_grid;
+	dim3 m_gridCID;
+	dim3 m_threadsCID;
 	dim3 m_threads10;
 	dim3 m_threads5;
 	dim3 m_threads2;

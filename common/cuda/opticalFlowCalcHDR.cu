@@ -275,6 +275,12 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const unsigned int dimY, const unsigned i
 	m_lowGrid.x = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimX) / static_cast<double>(NUM_THREADS)), 1.0));
 	m_lowGrid.y = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimY) / static_cast<double>(NUM_THREADS)), 1.0));
 	m_lowGrid.z = 1;
+	m_gridCID.x = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimX) / static_cast<double>(16)), 1.0));
+	m_gridCID.y = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimY) / static_cast<double>(16)), 1.0));
+	m_gridCID.z = m_iNumLayers;
+	m_threadsCID.x = 16;
+	m_threadsCID.y = 16;
+	m_threadsCID.z = 2;
 	m_threads10.x = NUM_THREADS;
 	m_threads10.y = NUM_THREADS;
 	m_threads10.z = 10;
@@ -459,15 +465,15 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 
 			// 1. Calculate the image deltas with the current offset array
 			if (m_bBisNewest) {
-				calcImageDelta << <m_lowGrid, m_threads10 >> > (m_blurredFrame1.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU,
+				calcImageDelta << <m_gridCID, m_threadsCID >> > (m_blurredFrame1.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU,
 															      m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
-															      m_iNumLayers, m_iLowDimY, m_iLowDimX, m_iDimY, m_iDimX,
-															      m_dResolutionScalar, directionIdxOffset, channelIdxOffset);
+															      m_iLowDimY, m_iLowDimX, m_iDimY, m_iDimX,
+															      static_cast<float>(m_dResolutionScalar), directionIdxOffset, channelIdxOffset);
 			} else {
-				calcImageDelta << <m_lowGrid, m_threads10 >> > (m_blurredFrame2.arrayPtrGPU, m_blurredFrame1.arrayPtrGPU,
+				calcImageDelta << <m_gridCID, m_threadsCID >> > (m_blurredFrame2.arrayPtrGPU, m_blurredFrame1.arrayPtrGPU,
 															      m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
-															      m_iNumLayers, m_iLowDimY, m_iLowDimX, m_iDimY, m_iDimX,
-															      m_dResolutionScalar, directionIdxOffset, channelIdxOffset);
+															      m_iLowDimY, m_iLowDimX, m_iDimY, m_iDimX,
+															      static_cast<float>(m_dResolutionScalar), directionIdxOffset, channelIdxOffset);
 			}
 
 			// 2. Sum up the deltas of each window

@@ -616,10 +616,10 @@ HRESULT CHopperRender::CopyFrame(const unsigned char* pInBuffer, unsigned char* 
 
 // Interpolates a frame
 HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer, const float fScalar, const int iIntFrameNum) {
-	//m_iNumSteps = 1;
-
-
-
+	if (TEST_MODE) {
+		m_iNumSteps = 1;
+	}
+	
 	// Note the calculation start time at the start of a new sample
 	if (iIntFrameNum == 0) {
 		m_tpCurrCalcStart = std::chrono::high_resolution_clock::now();
@@ -685,7 +685,7 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 	m_pofcOpticalFlowCalc->m_outputFrame.download(pOutBuffer);
 
 	// Adjust the settings to process everything fast enough
-	if (m_iFrameOutput != 4 && iIntFrameNum == (m_iNumSamples - 1)) {
+	if (m_iFrameOutput != 4 && iIntFrameNum == (m_iNumSamples - 1) && !TEST_MODE) {
 		autoAdjustSettings();
 	}
 
