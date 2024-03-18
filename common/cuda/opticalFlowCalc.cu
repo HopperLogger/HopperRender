@@ -118,27 +118,26 @@ __global__ void setInitialOffset(int* offsetArray, const unsigned int dimZ, cons
 // Kernel that calculates the absolute difference between two frames using the offset array
 template <typename T>
 __global__ void calcImageDelta(const T* frame1, const T* frame2, T* imageDeltaArray,
-							   const int* offsetArray, const int numLayers, const int lowDimY, const int lowDimX, 
-							   const int dimY, const int dimX, const double resolutionScalar, const int directionIdxOffset, 
-							   const int channelIdxOffset) {
+							   const int* offsetArray, const unsigned int lowDimY, const unsigned int lowDimX, 
+							   const unsigned int dimY, const unsigned int dimX, const float resolutionScalar, const unsigned int directionIdxOffset, 
+							   const unsigned int channelIdxOffset) {
 	// Current entry to be computed by the thread
-	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const int cz = threadIdx.z;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 
 	// Is the current thread supposed to perform calculations
-	if (cz < numLayers * 2 && cy < lowDimY && cx < lowDimX) {
-		const int layer = cz >> 1; // Layer of the current thread
-		const int layerOffset = layer * lowDimY * lowDimX; // Offset to index the layer of the current thread
-		const int scaledCx = static_cast<int>(cx * resolutionScalar); // The X-Index of the current thread in the input frames
-		const int scaledCy = static_cast<int>(cy * resolutionScalar); // The Y-Index of the current thread in the input frames
-		const int evenCx = (cx / 2) * 2; // The X-Index of the current thread rounded to be even
+	if (cy < lowDimY && cx < lowDimX) {
+		const unsigned int layerOffset = blockIdx.z * lowDimY * lowDimX; // Offset to index the layer of the current thread
+		const unsigned int scaledCx = static_cast<unsigned int>(static_cast<float>(cx) * resolutionScalar); // The X-Index of the current thread in the input frames
+		const unsigned int scaledCy = static_cast<unsigned int>(static_cast<float>(cy) * resolutionScalar); // The Y-Index of the current thread in the input frames
+		const unsigned int evenCx = cx & ~1; // The X-Index of the current thread rounded to be even
 
-		const int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
-		const int threadIndex3D = cz * lowDimY * lowDimX + threadIndex2D; // Standard thread index
+		const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
+		const unsigned int threadIndex3D = cz * lowDimY * lowDimX + threadIndex2D; // Standard thread index
 
 		// Y-Channel
-		if ((cz & 1) == 0) {
+		if (threadIdx.z == 0) {
 			const int offsetX = -offsetArray[layerOffset + threadIndex2D];
 			const int offsetY = -offsetArray[directionIdxOffset + layerOffset + threadIndex2D];
 			const int newCx = scaledCx + offsetX;
@@ -147,15 +146,16 @@ __global__ void calcImageDelta(const T* frame1, const T* frame2, T* imageDeltaAr
 			imageDeltaArray[threadIndex3D] = (newCy < 0 || newCx < 0 || newCy >= dimY || newCx >= dimX) ? 0 : 
 				abs(frame1[newCy * dimX + newCx] - frame2[scaledCy * dimX + scaledCx]);
 
+
 		// U/V-Channel
 		} else {
 			const int offsetX = -offsetArray[layerOffset + cy * lowDimX + evenCx];
 			const int offsetY = -offsetArray[directionIdxOffset + layerOffset + cy * lowDimX + evenCx];
-			const int newCx = scaledCx + (offsetX / 2) * 2;
-			const int newCy = scaledCy * 0.5 + offsetY * 0.5;
+			const int newCx = scaledCx + (offsetX & ~1);
+			const int newCy = (scaledCy >> 1) + (offsetY >> 1);
 
-			imageDeltaArray[threadIndex3D] = (newCy < 0 || newCx < 0 || newCy >= dimY / 2 || newCx >= dimX) ? 0 : 
-				2 * abs(frame1[channelIdxOffset + newCy * dimX + newCx] - frame2[channelIdxOffset + static_cast<int>(scaledCy * 0.5) * dimX + scaledCx]);
+			imageDeltaArray[threadIndex3D] = (newCy < 0 || newCx < 0 || newCy >= (dimY >> 1) || newCx >= dimX) ? 0 : 
+				abs(frame1[channelIdxOffset + newCy * dimX + newCx] - frame2[channelIdxOffset + (scaledCy >> 1) * dimX + scaledCx]) << 1;
 		}
 	}
 }
@@ -842,13 +842,13 @@ template __global__ void blurFrameKernel<unsigned short>(const unsigned short* f
 								const unsigned char chromEnd, const unsigned short chromPixelCount, const unsigned short dimY, const unsigned short dimX);
 
 template __global__ void calcImageDelta<unsigned char>(const unsigned char* frame1, const unsigned char* frame2, unsigned char* imageDeltaArray,
-	const int* offsetArray, const int numLayers, const int lowDimY, const int lowDimX,
-	const int dimY, const int dimX, const double resolutionScalar, const int directionIdxOffset,
-	const int channelIdxOffset);
+	const int* offsetArray, const unsigned int lowDimY, const unsigned int lowDimX,
+	const unsigned int dimY, const unsigned int dimX, const float resolutionScalar, const unsigned int directionIdxOffset,
+	const unsigned int channelIdxOffset);
 template __global__ void calcImageDelta<unsigned short>(const unsigned short* frame1, const unsigned short* frame2, unsigned short* imageDeltaArray,
-	const int* offsetArray, const int numLayers, const int lowDimY, const int lowDimX,
-	const int dimY, const int dimX, const double resolutionScalar, const int directionIdxOffset,
-	const int channelIdxOffset);
+	const int* offsetArray, const unsigned int lowDimY, const unsigned int lowDimX,
+	const unsigned int dimY, const unsigned int dimX, const float resolutionScalar, const unsigned int directionIdxOffset,
+	const unsigned int channelIdxOffset);
 
 template __global__ void calcDeltaSums8x8<unsigned char>(const unsigned char* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
 	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
