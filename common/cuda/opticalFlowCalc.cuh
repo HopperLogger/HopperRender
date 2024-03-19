@@ -4,16 +4,8 @@
 
 #include "GPUArrayLib.cuh"
 
-// Kernel that blurs a frame
-template <typename T>
-__global__ void blurFrameKernel(const T* frameArray, T* blurredFrameArray,
-	const unsigned char kernelSize, const unsigned char chacheSize, const unsigned char boundsOffset,
-	const unsigned char avgEntriesPerThread, const unsigned short remainder, const char lumStart,
-	const unsigned char lumEnd, const unsigned short lumPixelCount, const char chromStart,
-	const unsigned char chromEnd, const unsigned short chromPixelCount, const unsigned short dimY, const unsigned short dimX);
-
 // Kernel that sets the initial offset array
-__global__ void setInitialOffset(int* offsetArray, unsigned int dimZ, unsigned int dimY, unsigned int dimX);
+__global__ void setInitialOffset(int* offsetArray, unsigned int numLayers, unsigned int lowDimY, unsigned int lowDimX);
 
 // Kernel that calculates the absolute difference between two frames using the offset array
 template <typename T>
@@ -44,21 +36,22 @@ __global__ void calcDeltaSums1x1(const T* imageDeltaArray, unsigned int* summedU
 
 // Kernel that normalizes all the pixel deltas of each window
 __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsigned char* globalLowestLayerArray,
-	const int* offsetArray, unsigned int windowDim,
-	int dimZ, int dimY, int dimX);
+	const int* offsetArray, const unsigned int windowDim, int numPixels,
+	const unsigned int directionIdxOffset, const unsigned int layerIdxOffset,
+	const unsigned int numLayers, const unsigned int lowDimY, const unsigned int lowDimX);
 
 // Kernel that adjusts the offset array based on the comparison results
 __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalLowestLayerArray, unsigned char* statusArray,
-	unsigned int windowDim, unsigned int dimZ,
-	unsigned int dimY, unsigned int dimX, const bool lastRun);
+	unsigned int windowDim, const unsigned int directionIdxOffset, const unsigned int layerIdxOffset, unsigned int numLayers, 
+	unsigned int lowDimY, unsigned int lowDimX, const bool lastRun);
 
 // Kernel that translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
-__global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const unsigned int dimZ,
-							   const int dimY, const int dimX, const double dResolutionDivider);
+__global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const unsigned int numLayers,
+							   const int lowDimY, const int lowDimX, const double dResolutionDivider);
 
 // Kernel that blurs a flow array
-__global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, int kernelSize, int dimZ, int dimY,
-	int dimX, bool offset12);
+__global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, int kernelSize, int numLayers, int lowDimY,
+	int lowDimX, bool offset12);
 
 // Kernel that removes artifacts from the warped frame
 template <typename T>
@@ -154,6 +147,8 @@ public:
 	dim3 m_grid;
 	dim3 m_gridCID;
 	dim3 m_threadsCID;
+	dim3 m_gridAOA;
+	dim3 m_threadsAOA;
 	dim3 m_threads10;
 	dim3 m_threads5;
 	dim3 m_threads2;

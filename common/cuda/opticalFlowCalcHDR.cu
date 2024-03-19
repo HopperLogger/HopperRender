@@ -22,6 +22,87 @@ __global__ void scaleFrameKernelHDR(const unsigned short* sourceFrame, unsigned 
 	}
 }
 
+// Kernel that blurs a frame
+__global__ void blurFrameKernelHDR(const unsigned short* frameArray, unsigned short* blurredFrameArray, 
+								const unsigned char kernelSize, const unsigned char chacheSize, const unsigned char boundsOffset, 
+								const unsigned char avgEntriesPerThread, const unsigned short remainder, const char lumStart,
+								const unsigned char lumEnd, const unsigned short lumPixelCount, const char chromStart, 
+								const unsigned char chromEnd, const unsigned short chromPixelCount, const unsigned short dimY, const unsigned short dimX) {
+	// Shared memory for the frame to prevent multiple global memory accesses
+	extern __shared__ unsigned short sharedFrameArray[];
+
+	// Current entry to be computed by the thread
+	const unsigned short cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned short cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned char cz = blockIdx.z;
+
+	// Check if the current thread is supposed to perform calculations
+	if (cz == 1 && (cy >= dimY / 2 || cx >= dimX)) {
+		return;
+	}
+
+	const unsigned short trX = blockIdx.x * blockDim.x;
+	const unsigned short trY = blockIdx.y * blockDim.y;
+	unsigned char offsetX;
+	unsigned char offsetY;
+
+    // Calculate the number of entries to fill for this thread
+    const unsigned short threadIndex = threadIdx.y * blockDim.x + threadIdx.x;
+    const unsigned char entriesToFill = avgEntriesPerThread + (threadIndex < remainder ? 1 : 0);
+
+    // Calculate the starting index for this thread
+    unsigned short startIndex = 0;
+    for (unsigned short i = 0; i < threadIndex; ++i) {
+        startIndex += avgEntriesPerThread + (i < remainder ? 1 : 0);
+    }
+
+    // Fill the shared memory for this thread
+    for (unsigned short i = 0; i < entriesToFill; ++i) {
+		offsetX = (startIndex + i) % chacheSize;
+		offsetY = (startIndex + i) / chacheSize;
+		if ((trY - boundsOffset + offsetY) < dimY && (trX - boundsOffset + offsetX) < dimX) {
+			sharedFrameArray[startIndex + i] = frameArray[cz * dimY * dimX + (trY - boundsOffset + offsetY) * dimX + (trX - boundsOffset + offsetX)];
+		} else {
+			sharedFrameArray[startIndex + i] = 0;
+		}
+	}
+
+    // Ensure all threads have finished loading before continuing
+    __syncthreads();
+
+	// Calculate the x and y boundaries of the kernel
+	unsigned int blurredPixel = 0;
+
+	// Collect the sum of the surrounding pixels
+	// Y-Channel
+	if (cz == 0 && cy < dimY && cx < dimX) {
+		for (char y = lumStart; y < lumEnd; y++) {
+			for (char x = lumStart; x < lumEnd; x++) {
+				if ((cy + y) < dimY && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
+					blurredPixel += sharedFrameArray[(threadIdx.y + boundsOffset + y) * chacheSize + threadIdx.x + boundsOffset + x];
+				} else {
+					blurredPixel += sharedFrameArray[(threadIdx.y + boundsOffset) * chacheSize + threadIdx.x + boundsOffset];
+				}
+			}
+		}
+		blurredPixel /= lumPixelCount;
+		blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = blurredPixel;
+	// U/V-Channel
+	} else if (cz == 1 && cy < dimY / 2 && cx < dimX) {
+		for (char y = chromStart; y < chromEnd; y++) {
+			for (char x = chromStart; x < chromEnd; x++) {
+				if ((cy + y) < dimY / 2 && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
+					blurredPixel += sharedFrameArray[(threadIdx.y + boundsOffset + y) * chacheSize + threadIdx.x + boundsOffset + x * 2];
+				} else {
+					blurredPixel += sharedFrameArray[(threadIdx.y + boundsOffset) * chacheSize + threadIdx.x + boundsOffset];
+				}
+			}
+		}
+		blurredPixel /= chromPixelCount;
+		blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = blurredPixel;
+	}
+}
+
 // Kernel that warps a frame according to the offset array
 __global__ void warpFrameKernelForOutputHDR(const unsigned short* frame1, const int* offsetArray, int* hitCount, int* ones,
 											unsigned short* warpedFrame, const float frameScalar, const int lowDimY, const int lowDimX,
@@ -125,17 +206,18 @@ __global__ void artifactRemovalKernelForOutputHDR(const unsigned short* frame1, 
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = threadIdx.z;
+	const unsigned int threadIndex2D = cy * dimX + cx; // Standard thread index without Z-Dim
 
 	// Y Channel
 	if (cz == 0 && cy < dimY && cx < dimX) {
-		if (hitCount[cy * dimX + cx] != 1) {
-			warpedFrame[cy * scaledDimX + cx] = frame1[cy * dimX + cx];
+		if (hitCount[threadIndex2D] != 1) {
+			warpedFrame[cy * scaledDimX + cx] = frame1[threadIndex2D];
 		}
 
 	// U/V Channels
-	} else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
-		if (hitCount[cy * dimX + cx] != 1) {
-			warpedFrame[dimY * scaledDimX + cy * scaledDimX + cx] = frame1[dimY * dimX + cy * dimX + cx];
+	} else if (cz == 1 && cy < (dimY >> 1) && cx < dimX) {
+		if (hitCount[threadIndex2D] != 1) {
+			warpedFrame[dimY * scaledDimX + cy * scaledDimX + cx] = frame1[dimY * dimX + threadIndex2D];
 		}
 	}
 }
@@ -181,7 +263,7 @@ __global__ void convertFlowToHSVKernelHDR(const int* flowArray, unsigned short* 
 		x = flowArray[scaledCy * lowDimX + scaledCx];
 		y = flowArray[directionIdxOffset + scaledCy * lowDimX + scaledCx];
 	} else {
-		x = flowArray[scaledCy * lowDimX + scaledCx];
+		x = flowArray[scaledCy * 2 * lowDimX + scaledCx];
 		y = flowArray[directionIdxOffset + scaledCy * 2 * lowDimX + scaledCx];
 	}
 
@@ -278,9 +360,15 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const unsigned int dimY, const unsigned i
 	m_gridCID.x = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimX) / static_cast<double>(16)), 1.0));
 	m_gridCID.y = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimY) / static_cast<double>(16)), 1.0));
 	m_gridCID.z = m_iNumLayers;
+	m_gridAOA.x = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimX) / static_cast<double>(32)), 1.0));
+	m_gridAOA.y = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimY) / static_cast<double>(32)), 1.0));
+	m_gridAOA.z = 1;
 	m_threadsCID.x = 16;
 	m_threadsCID.y = 16;
 	m_threadsCID.z = 2;
+	m_threadsAOA.x = 32;
+	m_threadsAOA.y = 32;
+	m_threadsAOA.z = 1;
 	m_threads10.x = NUM_THREADS;
 	m_threads10.y = NUM_THREADS;
 	m_threads10.z = 10;
@@ -392,7 +480,7 @@ void OpticalFlowCalcHDR::blurFrameArray(const unsigned char kernelSize, const bo
 			cudaMemcpy(m_blurredFrame1.arrayPtrGPU, m_frame1.arrayPtrGPU, m_frame1.bytes, cudaMemcpyDeviceToDevice);
 		} else {
 			// Launch kernel
-			blurFrameKernel << <gridBF, threadsBF, sharedMemSize >> > (m_frame1.arrayPtrGPU, m_blurredFrame1.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, lumStart, lumEnd, lumPixelCount, chromStart, chromEnd, chromPixelCount, m_iDimY, m_iDimX);
+			blurFrameKernelHDR << <gridBF, threadsBF, sharedMemSize >> > (m_frame1.arrayPtrGPU, m_blurredFrame1.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, lumStart, lumEnd, lumPixelCount, chromStart, chromEnd, chromPixelCount, m_iDimY, m_iDimX);
 		}
 
 		// Convert the NV12 frame to P010 if we are doing direct output
@@ -402,10 +490,10 @@ void OpticalFlowCalcHDR::blurFrameArray(const unsigned char kernelSize, const bo
 	} else {
 		// No need to blur the frame if the kernel size is less than 4
 		if (kernelSize < 4) {
-			cudaMemcpy(m_blurredFrame2.arrayPtrGPU, m_frame2.arrayPtrGPU, m_frame1.bytes, cudaMemcpyDeviceToDevice);
+			cudaMemcpy(m_blurredFrame2.arrayPtrGPU, m_frame2.arrayPtrGPU, m_frame2.bytes, cudaMemcpyDeviceToDevice);
 		} else {
 			// Launch kernel
-			blurFrameKernel << <gridBF, threadsBF, sharedMemSize >> > (m_frame2.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, lumStart, lumEnd, lumPixelCount, chromStart, chromEnd, chromPixelCount, m_iDimY, m_iDimX);
+			blurFrameKernelHDR << <gridBF, threadsBF, sharedMemSize >> > (m_frame2.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, lumStart, lumEnd, lumPixelCount, chromStart, chromEnd, chromPixelCount, m_iDimY, m_iDimX);
 		}
 
 		// Convert the NV12 frame to P010 if we are doing direct output
@@ -423,8 +511,9 @@ void OpticalFlowCalcHDR::blurFrameArray(const unsigned char kernelSize, const bo
 */
 void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsigned int iNumSteps) {
 	// Reset variables
-	const int directionIdxOffset = m_iNumLayers * m_iLowDimY * m_iLowDimX; // Offset to index the Y-Offset-Layer
-	const int channelIdxOffset = m_iDimY * m_iDimX; // Offset to index the color channel of the current thread
+	const unsigned int directionIdxOffset = m_iNumLayers * m_iLowDimY * m_iLowDimX; // Offset to index the Y-Offset-Layer
+	const unsigned int channelIdxOffset = m_iDimY * m_iDimX; // Offset to index the color channel of the current thread
+	const unsigned int layerIdxOffset = m_iLowDimY * m_iLowDimX; // Offset to index the layer of the current thread
 
 	// We set the initial window size to the next larger power of 2
 	unsigned int windowDim = 1;
@@ -497,12 +586,12 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 
 			// 3. Normalize the summed up delta array and find the best layer
 			normalizeDeltaSums << <m_lowGrid, m_threads5 >> > (m_summedUpDeltaArray.arrayPtrGPU, m_lowestLayerArray.arrayPtrGPU,
-				m_offsetArray12.arrayPtrGPU, windowDim,
-				m_iNumLayers, m_iLowDimY, m_iLowDimX);
+				m_offsetArray12.arrayPtrGPU, windowDim, windowDim * windowDim,
+				directionIdxOffset, layerIdxOffset, m_iNumLayers, m_iLowDimY, m_iLowDimX);
 
 			// 4. Adjust the offset array based on the comparison results
-			adjustOffsetArray << <m_lowGrid, m_threads1 >> > (m_offsetArray12.arrayPtrGPU, m_lowestLayerArray.arrayPtrGPU,
-				m_statusArray.arrayPtrGPU, windowDim,
+			adjustOffsetArray << <m_gridAOA, m_threadsAOA >> > (m_offsetArray12.arrayPtrGPU, m_lowestLayerArray.arrayPtrGPU,
+				m_statusArray.arrayPtrGPU, windowDim, directionIdxOffset, layerIdxOffset,
 				m_iNumLayers, m_iLowDimY, m_iLowDimX, step == iNumSteps - 1);
 		}
 
