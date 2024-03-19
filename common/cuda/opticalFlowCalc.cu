@@ -3,114 +3,32 @@
 #include <cooperative_groups.h>
 #include "opticalFlowCalc.cuh"
 
-// Kernel that blurs a frame
-template <typename T>
-__global__ void blurFrameKernel(const T* frameArray, T* blurredFrameArray, 
-								const unsigned char kernelSize, const unsigned char chacheSize, const unsigned char boundsOffset, 
-								const unsigned char avgEntriesPerThread, const unsigned short remainder, const char lumStart,
-								const unsigned char lumEnd, const unsigned short lumPixelCount, const char chromStart, 
-								const unsigned char chromEnd, const unsigned short chromPixelCount, const unsigned short dimY, const unsigned short dimX) {
-	// Shared memory for the frame to prevent multiple global memory accesses
-	extern __shared__ unsigned char sharedFrameArray[];
-
-	// Current entry to be computed by the thread
-	const unsigned short cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned short cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned char cz = blockIdx.z;
-
-	// Check if the current thread is supposed to perform calculations
-	if (cz == 1 && (cy >= dimY / 2 || cx >= dimX)) {
-		return;
-	}
-
-	const unsigned short trX = blockIdx.x * blockDim.x;
-	const unsigned short trY = blockIdx.y * blockDim.y;
-	unsigned char offsetX;
-	unsigned char offsetY;
-
-    // Calculate the number of entries to fill for this thread
-    const unsigned short threadIndex = threadIdx.y * blockDim.x + threadIdx.x;
-    const unsigned char entriesToFill = avgEntriesPerThread + (threadIndex < remainder ? 1 : 0); // 4 (first 6 threads) / 3 (remaining threads) 
-
-    // Calculate the starting index for this thread
-    unsigned short startIndex = 0;
-    for (unsigned short i = 0; i < threadIndex; ++i) {
-        startIndex += avgEntriesPerThread + (i < remainder ? 1 : 0);
-    }
-
-    // Fill the shared memory for this thread
-    for (unsigned short i = 0; i < entriesToFill; ++i) {
-		offsetX = (startIndex + i) % chacheSize;
-		offsetY = (startIndex + i) / chacheSize;
-		if ((trY - boundsOffset + offsetY) < dimY && (trX - boundsOffset + offsetX) < dimX) {
-			sharedFrameArray[startIndex + i] = frameArray[cz * dimY * dimX + (trY - boundsOffset + offsetY) * dimX + (trX - boundsOffset + offsetX)];
-		} else {
-			sharedFrameArray[startIndex + i] = 0;
-		}
-	}
-
-    // Ensure all threads have finished loading before continuing
-    __syncthreads();
-
-	// Calculate the x and y boundaries of the kernel
-	unsigned int blurredPixel = 0;
-
-	// Collect the sum of the surrounding pixels
-	// Y-Channel
-	if (cz == 0 && cy < dimY && cx < dimX) {
-		for (char y = lumStart; y < lumEnd; y++) {
-			for (char x = lumStart; x < lumEnd; x++) {
-				if ((cy + y) < dimY && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
-					blurredPixel += sharedFrameArray[(threadIdx.y + boundsOffset + y) * chacheSize + threadIdx.x + boundsOffset + x];
-				} else {
-					blurredPixel += sharedFrameArray[(threadIdx.y + boundsOffset) * chacheSize + threadIdx.x + boundsOffset];
-				}
-			}
-		}
-		blurredPixel /= lumPixelCount;
-		blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = blurredPixel;
-	// U/V-Channel
-	} else if (cz == 1 && cy < dimY / 2 && cx < dimX) {
-		for (char y = chromStart; y < chromEnd; y++) {
-			for (char x = chromStart; x < chromEnd; x++) {
-				if ((cy + y) < dimY / 2 && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
-					blurredPixel += sharedFrameArray[(threadIdx.y + boundsOffset + y) * chacheSize + threadIdx.x + boundsOffset + x * 2];
-				} else {
-					blurredPixel += sharedFrameArray[(threadIdx.y + boundsOffset) * chacheSize + threadIdx.x + boundsOffset];
-				}
-			}
-		}
-		blurredPixel /= chromPixelCount;
-		blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = blurredPixel;
-	}
-}
-
 // Kernel that sets the initial offset array
-__global__ void setInitialOffset(int* offsetArray, const unsigned int dimZ, const unsigned int dimY, const unsigned int dimX) {
+__global__ void setInitialOffset(int* offsetArray, const unsigned int numLayers, const unsigned int lowDimY, const unsigned int lowDimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = threadIdx.z;
 
-	if (cz < dimZ && cy < dimY && cx < dimX) {
+	if (cz < numLayers && cy < lowDimY && cx < lowDimX) {
 		// Set the Y direction to no offset
-		offsetArray[dimZ * dimY * dimX + cz * dimY * dimX + cy * dimX + cx] = 0;
+		offsetArray[numLayers * lowDimY * lowDimX + cz * lowDimY * lowDimX + cy * lowDimX + cx] = 0;
 
 		// Set the X direction layer 0 to no offset
 		if (cz == 0) {
-			offsetArray[cy * dimX + cx] = 0;
+			offsetArray[cy * lowDimX + cx] = 0;
 		// Set the X direction layer 1 to a -2 offset
 		} else if (cz == 1) {
-			offsetArray[dimY * dimX + cy * dimX + cx] = -2;
+			offsetArray[lowDimY * lowDimX + cy * lowDimX + cx] = -2;
 		// Set the X direction layer 2 to a -1 offset
 		} else if (cz == 2) {
-			offsetArray[2 * dimY * dimX + cy * dimX + cx] = -1;
+			offsetArray[2 * lowDimY * lowDimX + cy * lowDimX + cx] = -1;
 		// Set the X direction layer 3 to a +1 offset
 		} else if (cz == 3) {
-			offsetArray[3 * dimY * dimX + cy * dimX + cx] = 1;
+			offsetArray[3 * lowDimY * lowDimX + cy * lowDimX + cx] = 1;
 		// Set the X direction layer 4 to a +2 offset
 		} else if (cz == 4) {
-			offsetArray[4 * dimY * dimX + cy * dimX + cx] = 2;
+			offsetArray[4 * lowDimY * lowDimX + cy * lowDimX + cx] = 2;
 		}
 	}
 }
@@ -126,18 +44,20 @@ __global__ void calcImageDelta(const T* frame1, const T* frame2, T* imageDeltaAr
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 
+	const bool isYChannel = threadIdx.z == 0 && cy < lowDimY && cx < lowDimX;
+	const bool isUVChannel = cy < (lowDimY >> 1) && cx < lowDimX;
+
 	// Is the current thread supposed to perform calculations
-	if (cy < lowDimY && cx < lowDimX) {
+	if (isYChannel || isUVChannel) {
 		const unsigned int layerOffset = blockIdx.z * lowDimY * lowDimX; // Offset to index the layer of the current thread
 		const unsigned int scaledCx = static_cast<unsigned int>(static_cast<float>(cx) * resolutionScalar); // The X-Index of the current thread in the input frames
 		const unsigned int scaledCy = static_cast<unsigned int>(static_cast<float>(cy) * resolutionScalar); // The Y-Index of the current thread in the input frames
-		const unsigned int evenCx = cx & ~1; // The X-Index of the current thread rounded to be even
 
 		const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
 		const unsigned int threadIndex3D = cz * lowDimY * lowDimX + threadIndex2D; // Standard thread index
 
 		// Y-Channel
-		if (threadIdx.z == 0) {
+		if (isYChannel) {
 			const int offsetX = -offsetArray[layerOffset + threadIndex2D];
 			const int offsetY = -offsetArray[directionIdxOffset + layerOffset + threadIndex2D];
 			const int newCx = scaledCx + offsetX;
@@ -148,14 +68,15 @@ __global__ void calcImageDelta(const T* frame1, const T* frame2, T* imageDeltaAr
 
 
 		// U/V-Channel
-		} else {
-			const int offsetX = -offsetArray[layerOffset + cy * lowDimX + evenCx];
-			const int offsetY = -offsetArray[directionIdxOffset + layerOffset + cy * lowDimX + evenCx];
+		} else if (isUVChannel) {
+			const unsigned int evenCx = cx & ~1; // The X-Index of the current thread rounded to be even
+			const int offsetX = -offsetArray[layerOffset + (cy << 1) * lowDimX + evenCx];
+			const int offsetY = -offsetArray[directionIdxOffset + layerOffset + (cy << 1) * lowDimX + evenCx];
 			const int newCx = scaledCx + (offsetX & ~1);
-			const int newCy = (scaledCy >> 1) + (offsetY >> 1);
+			const int newCy = scaledCy + (offsetY >> 1);
 
 			imageDeltaArray[threadIndex3D] = (newCy < 0 || newCx < 0 || newCy >= (dimY >> 1) || newCx >= dimX) ? 0 : 
-				abs(frame1[channelIdxOffset + newCy * dimX + newCx] - frame2[channelIdxOffset + (scaledCy >> 1) * dimX + scaledCx]) << 1;
+				abs(frame1[channelIdxOffset + newCy * dimX + newCx] - frame2[channelIdxOffset + scaledCy * dimX + scaledCx]) << 1;
 		}
 	}
 }
@@ -199,11 +120,16 @@ __global__ void calcDeltaSums8x8(const T* imageDeltaArray, unsigned int* summedU
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = blockIdx.z;
 	const unsigned int tIdx = threadIdx.y * blockDim.x + threadIdx.x;
+	const unsigned int chromX = cx & ~1;
+	const unsigned int chromY = cy >> 1;
 	partial_sums[tIdx] = 0;
 
 	if (cy < lowDimY && cx < lowDimX) {
-		// Add the luminace and color channel together
-		partial_sums[tIdx] = imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + cy * lowDimX + cx];
+		// Add the luminace and color channels together
+		partial_sums[tIdx] = 
+			imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + 
+			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX] +
+			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX + 1];
 		__syncthreads();
 
 		// Sum up the remaining pixels for the current window
@@ -246,11 +172,16 @@ __global__ void calcDeltaSums4x4(const T* imageDeltaArray, unsigned int* summedU
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 	const unsigned int tIdx = threadIdx.y * blockDim.x + threadIdx.x;
+	const unsigned int chromX = cx & ~1;
+	const unsigned int chromY = cy >> 1;
 	partial_sums[tIdx] = 0;
 
 	if (cy < lowDimY && cx < lowDimX) {
-		// Add the luminace and color channel together
-		partial_sums[tIdx] = imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + cy * lowDimX + cx];
+		// Add the luminace and color channels together
+		partial_sums[tIdx] = 
+			imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + 
+			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX] +
+			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX + 1];
 		__syncthreads();
 
 		// Top 4x4 Blocks
@@ -288,11 +219,16 @@ __global__ void calcDeltaSums2x2(const T* imageDeltaArray, unsigned int* summedU
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 	const unsigned int tIdx = threadIdx.y * blockDim.x + threadIdx.x;
+	const unsigned int chromX = cx & ~1;
+	const unsigned int chromY = cy >> 1;
 	partial_sums[tIdx] = 0;
 
 	if (cy < lowDimY && cx < lowDimX) {
-		// Add the luminace and color channel together
-		partial_sums[tIdx] = imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + cy * lowDimX + cx];
+		// Add the luminace and color channels together
+		partial_sums[tIdx] = 
+			imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + 
+			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX] +
+			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX + 1];
 		__syncthreads();
 
 		if ((threadIdx.y & 1) == 0) {
@@ -319,58 +255,62 @@ __global__ void calcDeltaSums1x1(const T* imageDeltaArray, unsigned int* summedU
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const unsigned int chromX = cx & ~1;
+	const unsigned int chromY = cy >> 1;
 
 	if (cy < lowDimY && cx < lowDimX) {
-		// Add the luminace and color channel together
-		summedUpDeltaArray[cz * channelIdxOffset + cy * lowDimX + cx] = imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + cy * lowDimX + cx];
+		// Add the luminace and color channels together
+		summedUpDeltaArray[cz * channelIdxOffset + cy * lowDimX + cx] = 
+			imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + 
+			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX] +
+			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX + 1];
 	}
 }
 
 // Kernel that normalizes all the pixel deltas of each window
 __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsigned char* globalLowestLayerArray,
-                                   const int* offsetArray, const unsigned int windowDim,
-								   const int dimZ, const int dimY, const int dimX) {
+                                   const int* offsetArray, const unsigned int windowDim, int numPixels,
+								   const unsigned int directionIdxOffset, const unsigned int layerIdxOffset, 
+								   const unsigned int numLayers, const unsigned int lowDimY, const unsigned int lowDimX) {
 	// Allocate shared memory to share values across layers
-	__shared__ double normalizedDeltaArray[5 * NUM_THREADS * NUM_THREADS * 8];
+	__shared__ float normalizedDeltaArray[5 * NUM_THREADS * NUM_THREADS * 4];
 	
 	// Current entry to be computed by the thread
-	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const int cz = threadIdx.z;
-	bool isWindowRepresent = false;
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = threadIdx.z;
+	const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
+	bool isWindowRepresent = cy % windowDim == 0 && cx % windowDim == 0;
 
 	// Check if the thread is a window represent
-	if (cy % windowDim == 0 && cx % windowDim == 0) {
-		isWindowRepresent = true;
+	if (isWindowRepresent) {
 		// Get the current window information
-		const int offsetX = offsetArray[cz * dimY * dimX + cy * dimX + cx];
-		const int offsetY = offsetArray[dimZ * dimY * dimX + cz * dimY * dimX + cy * dimX + cx];
-
-		// Calculate the number of pixels in the window
-		unsigned int numPixels = windowDim * windowDim;
+		const int offsetX = offsetArray[cz * layerIdxOffset + threadIndex2D];
+		const int offsetY = offsetArray[directionIdxOffset + cz * layerIdxOffset + threadIndex2D];
 
 		// Calculate the not overlapping pixels
 		int overlapX;
 		int overlapY;
 
 		// Calculate the number of not overlapping pixels
-		if ((cx + windowDim + fabsf(offsetX) > dimX) || (cx - offsetX < 0)) {
-			overlapX = fabsf(offsetX);
+		if ((cx + windowDim + abs(offsetX) > lowDimX) || (cx - offsetX < 0)) {
+			overlapX = abs(offsetX);
 		} else {
 			overlapX = 0;
 		}
 
-		if ((cy + windowDim + fabsf(offsetY) > dimY) || (cy - offsetY < 0)) {
-			overlapY = fabsf(offsetY);
+		if ((cy + windowDim + abs(offsetY) > lowDimY) || (cy - offsetY < 0)) {
+			overlapY = abs(offsetY);
 		} else {
 			overlapY = 0;
 		}
 
 		const int numNotOverlappingPixels = overlapY * overlapX;
 		numPixels -= numNotOverlappingPixels;
+		numPixels = max(numPixels, 1);
 
 		// Normalize the summed up delta
-		normalizedDeltaArray[cz * NUM_THREADS * NUM_THREADS + threadIdx.y * NUM_THREADS + threadIdx.x] = static_cast<double>(summedUpDeltaArray[cz * dimY * dimX + cy * dimX + cx]) / static_cast<double>(numPixels);
+		normalizedDeltaArray[cz * NUM_THREADS * NUM_THREADS + threadIdx.y * NUM_THREADS + threadIdx.x] = static_cast<float>(summedUpDeltaArray[cz * layerIdxOffset + threadIndex2D]) / static_cast<float>(numPixels);
 	}
 
 	// Wait for all threads to finish filling the values
@@ -380,28 +320,26 @@ __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsig
 	if (cz == 0 && isWindowRepresent) {
 		unsigned char lowestLayer = 0;
 
-		for (unsigned char z = 1; z < dimZ; ++z) {
+		for (unsigned char z = 1; z < numLayers; ++z) {
 			if (normalizedDeltaArray[z * NUM_THREADS * NUM_THREADS + threadIdx.y * NUM_THREADS + threadIdx.x] < 
 				normalizedDeltaArray[lowestLayer * NUM_THREADS * NUM_THREADS + threadIdx.y * NUM_THREADS + threadIdx.x]) {
 				lowestLayer = z;
 			}
 		}
 
-		globalLowestLayerArray[cy * dimX + cx] = lowestLayer;
+		globalLowestLayerArray[threadIndex2D] = lowestLayer;
 	}
 }
 
 // Kernel that adjusts the offset array based on the comparison results
 __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalLowestLayerArray, unsigned char* statusArray,
-								  const unsigned int windowDim, const unsigned int dimZ, 
-								  const unsigned int dimY, const unsigned int dimX, const bool lastRun) {
-
-	// Allocate shared memory to cache the lowest layer
-	__shared__ unsigned char lowestLayerArray[NUM_THREADS * NUM_THREADS];
+								  const unsigned int windowDim, const unsigned int directionIdxOffset, const unsigned int layerIdxOffset, 
+								  const unsigned int numLayers, const unsigned int lowDimY, const unsigned int lowDimX, const bool lastRun) {
 
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
 
 	/*
 	* Status Array Key:
@@ -414,94 +352,89 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 	* 6: Search complete
 	*/
 
-	if (cy < dimY && cx < dimX) {
-		const unsigned int trwx = (((cx / blockDim.x) * blockDim.x) / windowDim) * windowDim;
-		const unsigned int trwy = (((cy / blockDim.y) * blockDim.y) / windowDim) * windowDim;
-		const unsigned int wx = (cx / windowDim) * windowDim;
-		const unsigned int wy = (cy / windowDim) * windowDim;
-		unsigned char lowestLayer;
+	if (cy < lowDimY && cx < lowDimX) {
+		const unsigned char currentStatus = statusArray[threadIndex2D];
 
-		// We are the block representative
-		if (threadIdx.y == 0 && threadIdx.x == 0) {
-			lowestLayer = globalLowestLayerArray[wy * dimX + wx];
-			lowestLayerArray[0] = lowestLayer;
-		}
-		
-		__syncthreads();
-
-		// We can reuse the block representative value
-		if (wy == trwy && wx == trwx) {
-			lowestLayer = lowestLayerArray[0];
-		// The value relevant to us is different from the cached one
-		} else {
-			lowestLayer = globalLowestLayerArray[wy * dimX + wx];
+		// We are done searching and we only need to do cleanup on the last run, so we exit here
+		if (currentStatus == 6 && !lastRun) {
+			return;
 		}
 
-		const unsigned char currentStatus = statusArray[cy * dimX + cx];
+		// We only need the lowestLayer if we are still searching
+		unsigned char lowestLayer = 0;
+		if (currentStatus != 6) {
+			const unsigned int wx = (cx / windowDim) * windowDim;
+			const unsigned int wy = (cy / windowDim) * windowDim;
+			lowestLayer = globalLowestLayerArray[wy * lowDimX + wx];
+		}
+
 		int currX;
 		int currY;
 
-		// If this is the last run, we need to adjust the offset array accordingly
-		switch (currentStatus) {
-			// We are still trying to find the perfect x direction
-			case 0:
-			case 1:
-			case 2:
-				currX = offsetArray[lowestLayer * dimY * dimX + cy * dimX + cx];
+		// If this is the last run, we need to adjust the offset array for the next iteration
+		if (lastRun) {
+			switch (currentStatus) {
+				// We are still trying to find the perfect x direction
+				case 0:
+				case 1:
+				case 2:
+					currX = offsetArray[lowestLayer * layerIdxOffset + threadIndex2D];
 
-				// Shift the X direction layer 0 to the ideal X direction
-				offsetArray[dimY * dimX + cy * dimX + cx] = currX;
-				// Shift the X direction layer 1 by -2
-				offsetArray[dimY * dimX + cy * dimX + cx] = currX - 2;
-				// Shift the X direction layer 2 by -1
-				offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX - 1;
-				// Shift the X direction layer 3 by +1
-				offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX + 1;
-				// Shift the X direction layer 4 by +2
-				offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX + 2;
-				break;
+					// Shift the X direction layer 0 to the ideal X direction
+					offsetArray[threadIndex2D] = currX;
+					// Shift the X direction layer 1 by -2
+					offsetArray[layerIdxOffset + threadIndex2D] = currX - 2;
+					// Shift the X direction layer 2 by -1
+					offsetArray[2 * layerIdxOffset + threadIndex2D] = currX - 1;
+					// Shift the X direction layer 3 by +1
+					offsetArray[3 * layerIdxOffset + threadIndex2D] = currX + 1;
+					// Shift the X direction layer 4 by +2
+					offsetArray[4 * layerIdxOffset + threadIndex2D] = currX + 2;
+					return;
 
-			// We are still trying to find the perfect y direction
-			case 3:
-			case 4:
-			case 5:
-				currX = offsetArray[cy * dimX + cx];
-				currY = offsetArray[dimZ * dimY * dimX + lowestLayer * dimY * dimX + cy * dimX + cx];
+				// We are still trying to find the perfect y direction
+				case 3:
+				case 4:
+				case 5:
+					currX = offsetArray[threadIndex2D];
+					currY = offsetArray[directionIdxOffset + lowestLayer * layerIdxOffset + threadIndex2D];
 
-				// Set all Y direction layers to the ideal Y direction
-				for (unsigned int z = 0; z < dimZ; z++) {
-					offsetArray[dimZ * dimY * dimX + z * dimY * dimX + cy * dimX + cx] = currY;
-				}
+					// Set all Y direction layers to the ideal Y direction
+					for (unsigned int z = 0; z < numLayers; z++) {
+						offsetArray[directionIdxOffset + z * layerIdxOffset + threadIndex2D] = currY;
+					}
 
-				// Shift the X direction layer 1 by -2
-				offsetArray[dimY * dimX + cy * dimX + cx] = currX - 2;
-				// Shift the X direction layer 2 by -1
-				offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX - 1;
-				// Shift the X direction layer 3 by +1
-				offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX + 1;
-				// Shift the X direction layer 4 by +2
-				offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX + 2;
-				break;
+					// Shift the X direction layer 1 by -2
+					offsetArray[layerIdxOffset + threadIndex2D] = currX - 2;
+					// Shift the X direction layer 2 by -1
+					offsetArray[2 * layerIdxOffset + threadIndex2D] = currX - 1;
+					// Shift the X direction layer 3 by +1
+					offsetArray[3 * layerIdxOffset + threadIndex2D] = currX + 1;
+					// Shift the X direction layer 4 by +2
+					offsetArray[4 * layerIdxOffset + threadIndex2D] = currX + 2;
+					return;
 
-			// Search completed, so we adjust the offset array for the next run
-			default:
-				currX = offsetArray[cy * dimX + cx];
-				currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
+				// Search completed, so we adjust the offset array for the next run
+				default:
+					currX = offsetArray[threadIndex2D];
+					currY = offsetArray[directionIdxOffset + threadIndex2D];
 
-				// Set all Y direction layers to the ideal Y direction
-				for (unsigned int z = 1; z < dimZ; z++) {
-					offsetArray[dimZ * dimY * dimX + z * dimY * dimX + cy * dimX + cx] = currY;
-				}
+					// Set all Y direction layers to the ideal Y direction
+					for (unsigned int z = 1; z < numLayers; z++) {
+						offsetArray[directionIdxOffset + z * layerIdxOffset + threadIndex2D] = currY;
+					}
 
-				// Shift the X direction layer 1 by -2
-				offsetArray[dimY * dimX + cy * dimX + cx] = currX - 2;
-				// Shift the X direction layer 2 by -1
-				offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX - 1;
-				// Shift the X direction layer 3 by +1
-				offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX + 1;
-				// Shift the X direction layer 4 by +2
-				offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX + 2;
-				break;
+					// Shift the X direction layer 1 by -2
+					offsetArray[layerIdxOffset + threadIndex2D] = currX - 2;
+					// Shift the X direction layer 2 by -1
+					offsetArray[2 * layerIdxOffset + threadIndex2D] = currX - 1;
+					// Shift the X direction layer 3 by +1
+					offsetArray[3 * layerIdxOffset + threadIndex2D] = currX + 1;
+					// Shift the X direction layer 4 by +2
+					offsetArray[4 * layerIdxOffset + threadIndex2D] = currX + 2;
+					return;
+			}
+			return;
 		}
 
 		// If we are still calculating, adjust the offset array based on the current status and lowest layer
@@ -511,229 +444,259 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 			*/
 			// Find the initial x direction
 			case 0:
-				// If the lowest layer is 0, no x direction is needed -> continue to y direction
-				if (lowestLayer == 0) {
-					statusArray[cy * dimX + cx] = 3;
-					currX = offsetArray[cy * dimX + cx];
-					currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
-					for (int z = 0; z < dimZ; z++) {
-						offsetArray[z * dimY * dimX + cy * dimX + cx] = currX;
-					}
-					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 2;
-					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = currY - 1;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY + 2;
+				switch (lowestLayer) {
+					// If the lowest layer is 0, no x direction is needed -> continue to y direction
+					case 0:
+						statusArray[threadIndex2D] = 3;
+						currX = offsetArray[threadIndex2D];
+						currY = offsetArray[directionIdxOffset + threadIndex2D];
+						for (int z = 0; z < numLayers; z++) {
+							offsetArray[z * layerIdxOffset + threadIndex2D] = currX;
+						}
+						offsetArray[directionIdxOffset + layerIdxOffset + threadIndex2D] = currY - 2;
+						offsetArray[directionIdxOffset + 2 * layerIdxOffset + threadIndex2D] = currY - 1;
+						offsetArray[directionIdxOffset + 3 * layerIdxOffset + threadIndex2D] = currY + 1;
+						offsetArray[directionIdxOffset + 4 * layerIdxOffset + threadIndex2D] = currY + 2;
+						return;
+					
+					// If the lowest layer is 1 -> continue moving in the negative x direction
+					case 1:
+						statusArray[threadIndex2D] = 2;
+						currX = offsetArray[layerIdxOffset + threadIndex2D];
+						offsetArray[threadIndex2D] = currX;
+						offsetArray[layerIdxOffset + threadIndex2D] = currX - 1;
+						offsetArray[2 * layerIdxOffset + threadIndex2D] = currX - 2;
+						offsetArray[3 * layerIdxOffset + threadIndex2D] = currX - 3;
+						offsetArray[4 * layerIdxOffset + threadIndex2D] = currX - 4;
+						return;
 
-				// If the lowest layer is 2, ideal x direction found -> continue to y direction
-				} else if (lowestLayer == 2) {
-					statusArray[cy * dimX + cx] = 3;
-					currX = offsetArray[2 * dimY * dimX + cy * dimX + cx];
-					currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
-					offsetArray[cy * dimX + cx] = currX;
-					offsetArray[dimY * dimX + cy * dimX + cx] = currX;
-					offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX;
-					offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX;
-					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 2;
-					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = currY - 1;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY + 2;
+					// If the lowest layer is 2, ideal x direction found -> continue to y direction
+					case 2:
+						statusArray[threadIndex2D] = 3;
+						currX = offsetArray[2 * layerIdxOffset + threadIndex2D];
+						currY = offsetArray[directionIdxOffset + threadIndex2D];
+						offsetArray[threadIndex2D] = currX;
+						offsetArray[layerIdxOffset + threadIndex2D] = currX;
+						offsetArray[3 * layerIdxOffset + threadIndex2D] = currX;
+						offsetArray[4 * layerIdxOffset + threadIndex2D] = currX;
+						offsetArray[directionIdxOffset + layerIdxOffset + threadIndex2D] = currY - 2;
+						offsetArray[directionIdxOffset + 2 * layerIdxOffset + threadIndex2D] = currY - 1;
+						offsetArray[directionIdxOffset + 3 * layerIdxOffset + threadIndex2D] = currY + 1;
+						offsetArray[directionIdxOffset + 4 * layerIdxOffset + threadIndex2D] = currY + 2;
+						return;
 
-				// If the lowest layer is 3, ideal x direction found -> continue to y direction
-				} else if (lowestLayer == 3) {
-					statusArray[cy * dimX + cx] = 3;
-					currX = offsetArray[3 * dimY * dimX + cy * dimX + cx];
-					currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
-					offsetArray[cy * dimX + cx] = currX;
-					offsetArray[dimY * dimX + cy * dimX + cx] = currX;
-					offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX;
-					offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX;
-					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 2;
-					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = currY - 1;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY + 2;
+					// If the lowest layer is 3, ideal x direction found -> continue to y direction
+					case 3:
+						statusArray[threadIndex2D] = 3;
+						currX = offsetArray[3 * layerIdxOffset + threadIndex2D];
+						currY = offsetArray[directionIdxOffset + threadIndex2D];
+						offsetArray[threadIndex2D] = currX;
+						offsetArray[layerIdxOffset + threadIndex2D] = currX;
+						offsetArray[2 * layerIdxOffset + threadIndex2D] = currX;
+						offsetArray[4 * layerIdxOffset + threadIndex2D] = currX;
+						offsetArray[directionIdxOffset + layerIdxOffset + threadIndex2D] = currY - 2;
+						offsetArray[directionIdxOffset + 2 * layerIdxOffset + threadIndex2D] = currY - 1;
+						offsetArray[directionIdxOffset + 3 * layerIdxOffset + threadIndex2D] = currY + 1;
+						offsetArray[directionIdxOffset + 4 * layerIdxOffset + threadIndex2D] = currY + 2;
+						return;
 
-				// If the lowest layer is 4 -> continue moving in the positive x direction
-				} else if (lowestLayer == 4) {
-					statusArray[cy * dimX + cx] = 1;
-					currX = offsetArray[4 * dimY * dimX + cy * dimX + cx];
-					offsetArray[cy * dimX + cx] = currX + 4;
-					offsetArray[dimY * dimX + cy * dimX + cx] = currX + 3;
-					offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX + 2;
-					offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX + 1;
-
-				// If the lowest layer is 1 -> continue moving in the negative x direction
-				} else if (lowestLayer == 1) {
-					statusArray[cy * dimX + cx] = 2;
-					currX = offsetArray[dimY * dimX + cy * dimX + cx];
-					offsetArray[cy * dimX + cx] = currX;
-					offsetArray[dimY * dimX + cy * dimX + cx] = currX - 1;
-					offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX - 2;
-					offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX - 3;
-					offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX - 4;
+					// If the lowest layer is 4 -> continue moving in the positive x direction
+					case 4:
+						statusArray[threadIndex2D] = 1;
+						currX = offsetArray[4 * layerIdxOffset + threadIndex2D];
+						offsetArray[threadIndex2D] = currX + 4;
+						offsetArray[layerIdxOffset + threadIndex2D] = currX + 3;
+						offsetArray[2 * layerIdxOffset + threadIndex2D] = currX + 2;
+						offsetArray[3 * layerIdxOffset + threadIndex2D] = currX + 1;
+						return;
 				}
-				break;
+				return;
 
 			// Find extended positive x direction
 			case 1:
-				// If the lowest layer is not 0, no x further direction is needed -> continue to y direction
-				if (lowestLayer != 0) {
-					statusArray[cy * dimX + cx] = 3;
-					const int idealX = offsetArray[lowestLayer * dimY * dimX + cy * dimX + cx];
-					for (unsigned int z = 0; z < dimZ; z++) {
-						offsetArray[z * dimY * dimX + cy * dimX + cx] = idealX;
-					}
-					currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
-					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 2;
-					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = currY - 1;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY + 2;
+				switch (lowestLayer) {
+					// If the lowest layer is 0 -> continue moving in x direction
+					case 0:
+						currX = offsetArray[threadIndex2D];
+						offsetArray[threadIndex2D] = currX + 4;
+						offsetArray[layerIdxOffset + threadIndex2D] = currX + 3;
+						offsetArray[2 * layerIdxOffset + threadIndex2D] = currX + 2;
+						offsetArray[3 * layerIdxOffset + threadIndex2D] = currX + 1;
+						offsetArray[4 * layerIdxOffset + threadIndex2D] = currX;
+						return;
 
-				// If the lowest layer is 0 -> continue moving in x direction
-				} else {
-					currX = offsetArray[cy * dimX + cx];
-					offsetArray[cy * dimX + cx] = currX + 4;
-					offsetArray[dimY * dimX + cy * dimX + cx] = currX + 3;
-					offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX + 2;
-					offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX + 1;
-					offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX;
+					// If the lowest layer is not 0, no x further direction is needed -> continue to y direction
+					default:
+						statusArray[threadIndex2D] = 3;
+						const int idealX = offsetArray[lowestLayer * layerIdxOffset + threadIndex2D];
+						for (unsigned int z = 0; z < numLayers; z++) {
+							offsetArray[z * layerIdxOffset + threadIndex2D] = idealX;
+						}
+						currY = offsetArray[directionIdxOffset + threadIndex2D];
+						offsetArray[directionIdxOffset + layerIdxOffset + threadIndex2D] = currY - 2;
+						offsetArray[directionIdxOffset + 2 * layerIdxOffset + threadIndex2D] = currY - 1;
+						offsetArray[directionIdxOffset + 3 * layerIdxOffset + threadIndex2D] = currY + 1;
+						offsetArray[directionIdxOffset + 4 * layerIdxOffset + threadIndex2D] = currY + 2;
+						return;
 				}
-				break;
+				return;
 
 			// Find extended negative x direction
 			case 2:
-				// If the lowest layer is not 4, no x further direction is needed -> continue to y direction
-				if (lowestLayer != 4) {
-					statusArray[cy * dimX + cx] = 3;
-					const int idealX = offsetArray[lowestLayer * dimY * dimX + cy * dimX + cx];
-					for (unsigned int z = 0; z < dimZ; z++) {
-						offsetArray[z * dimY * dimX + cy * dimX + cx] = idealX;
-					}
-					currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
-					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 2;
-					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = currY - 1;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY + 2;
+				switch (lowestLayer) {
+					// If the lowest layer is not 4, no x further direction is needed -> continue to y direction
+					case 0:
+					case 1:
+					case 2:
+					case 3:
+						statusArray[threadIndex2D] = 3;
+						const int idealX = offsetArray[lowestLayer * layerIdxOffset + threadIndex2D];
+						for (unsigned int z = 0; z < numLayers; z++) {
+							offsetArray[z * layerIdxOffset + threadIndex2D] = idealX;
+						}
+						currY = offsetArray[directionIdxOffset + threadIndex2D];
+						offsetArray[directionIdxOffset + layerIdxOffset + threadIndex2D] = currY - 2;
+						offsetArray[directionIdxOffset + 2 * layerIdxOffset + threadIndex2D] = currY - 1;
+						offsetArray[directionIdxOffset + 3 * layerIdxOffset + threadIndex2D] = currY + 1;
+						offsetArray[directionIdxOffset + 4 * layerIdxOffset + threadIndex2D] = currY + 2;
+						return;
 
-				// If the lowest layer is 4 -> continue moving in x direction
-				} else {
-					currX = offsetArray[4 * dimY * dimX + cy * dimX + cx];
-					offsetArray[cy * dimX + cx] = currX;
-					offsetArray[dimY * dimX + cy * dimX + cx] = currX - 1;
-					offsetArray[2 * dimY * dimX + cy * dimX + cx] = currX - 2;
-					offsetArray[3 * dimY * dimX + cy * dimX + cx] = currX - 3;
-					offsetArray[4 * dimY * dimX + cy * dimX + cx] = currX - 4;
+					// If the lowest layer is 4 -> continue moving in x direction
+					case 4:
+						currX = offsetArray[4 * layerIdxOffset + threadIndex2D];
+						offsetArray[threadIndex2D] = currX;
+						offsetArray[layerIdxOffset + threadIndex2D] = currX - 1;
+						offsetArray[2 * layerIdxOffset + threadIndex2D] = currX - 2;
+						offsetArray[3 * layerIdxOffset + threadIndex2D] = currX - 3;
+						offsetArray[4 * layerIdxOffset + threadIndex2D] = currX - 4;
+						return;
 				}
-				break;
+				return;
 
 			/*
 			* Y - DIRECTION
 			*/
 			// Find the initial y direction
 			case 3:
-				// If the lowest layer is 0, 2, or 3, no y direction is needed -> we are done
-				if (lowestLayer == 0 || lowestLayer == 2 || lowestLayer == 3) {
-					statusArray[cy * dimX + cx] = 6;
-					if (lowestLayer != 0) {
-						currY = offsetArray[dimZ * dimY * dimX + lowestLayer * dimY * dimX + cy * dimX + cx];
-						offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY;
-					}
+				switch (lowestLayer) {
+					// If the lowest layer is 0, 2, or 3, no y direction is needed -> we are done
+					case 0:
+					case 2:
+					case 3:
+						statusArray[threadIndex2D] = 6;
+						if (lowestLayer != 0) {
+							currY = offsetArray[directionIdxOffset + lowestLayer * layerIdxOffset + threadIndex2D];
+							offsetArray[directionIdxOffset + threadIndex2D] = currY;
+						}
+						return;
 
-				// If the lowest layer is 4 -> continue moving in the positive y direction
-				} else if (lowestLayer == 4) {
-					statusArray[cy * dimX + cx] = 4;
-					currY = offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx];
-					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY + 4;
-					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY + 3;
-					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = currY + 2;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
+					// If the lowest layer is 1 -> continue moving in the negative y direction
+					case 1:
+						statusArray[threadIndex2D] = 5;
+						currY = offsetArray[directionIdxOffset + layerIdxOffset + threadIndex2D];
+						offsetArray[directionIdxOffset + threadIndex2D] = currY;
+						offsetArray[directionIdxOffset + layerIdxOffset + threadIndex2D] = currY - 1;
+						offsetArray[directionIdxOffset + 2 * layerIdxOffset + threadIndex2D] = currY - 2;
+						offsetArray[directionIdxOffset + 3 * layerIdxOffset + threadIndex2D] = currY - 3;
+						offsetArray[directionIdxOffset + 4 * layerIdxOffset + threadIndex2D] = currY - 4;
+						return;
 
-				// If the lowest layer is 1 -> continue moving in the negative y direction
-				} else if (lowestLayer == 1) {
-					statusArray[cy * dimX + cx] = 5;
-					currY = offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx];
-					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY;
-					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 1;
-					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = currY - 2;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY - 3;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY - 4;
+					// If the lowest layer is 4 -> continue moving in the positive y direction
+					case 4:
+						statusArray[threadIndex2D] = 4;
+						currY = offsetArray[directionIdxOffset + 4 * layerIdxOffset + threadIndex2D];
+						offsetArray[directionIdxOffset + threadIndex2D] = currY + 4;
+						offsetArray[directionIdxOffset + layerIdxOffset + threadIndex2D] = currY + 3;
+						offsetArray[directionIdxOffset + 2 * layerIdxOffset + threadIndex2D] = currY + 2;
+						offsetArray[directionIdxOffset + 3 * layerIdxOffset + threadIndex2D] = currY + 1;
+						return;
 				}
-				break;
+				return;
 
 			// Find extended positive y direction
 			case 4:
-				// If the lowest layer is not 0, no y further direction is needed -> we are done
-				if (lowestLayer != 0) {
-					statusArray[cy * dimX + cx] = 6;
-					const int idealY = offsetArray[dimZ * dimY * dimX + lowestLayer * dimY * dimX + cy * dimX + cx];
-					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = idealY;
+				switch (lowestLayer) {
+					// If the lowest layer is 0 -> continue moving in y direction
+					case 0:
+						currY = offsetArray[directionIdxOffset + threadIndex2D];
+						offsetArray[directionIdxOffset + threadIndex2D] = currY + 4;
+						offsetArray[directionIdxOffset + layerIdxOffset + threadIndex2D] = currY + 3;
+						offsetArray[directionIdxOffset + 2 * layerIdxOffset + threadIndex2D] = currY + 2;
+						offsetArray[directionIdxOffset + 3 * layerIdxOffset + threadIndex2D] = currY + 1;
+						offsetArray[directionIdxOffset + 4 * layerIdxOffset + threadIndex2D] = currY;
+						return;
 
-				// If the lowest layer is 0 -> continue moving in y direction
-				} else {
-					currY = offsetArray[dimZ * dimY * dimX + cy * dimX + cx];
-					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY + 4;
-					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY + 3;
-					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = currY + 2;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY + 1;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY;
+					// If the lowest layer is not 0, no y further direction is needed -> we are done
+					default:
+						statusArray[threadIndex2D] = 6;
+						const int idealY = offsetArray[directionIdxOffset + lowestLayer * layerIdxOffset + threadIndex2D];
+						offsetArray[directionIdxOffset + threadIndex2D] = idealY;
+						return;
 				}
-				break;
+				return;
 
 			// Find extended negative y direction
 			case 5:
-				// If the lowest layer is not 4, no y further direction is needed -> we are done
-				if (lowestLayer != 4) {
-					statusArray[cy * dimX + cx] = 6;
-					const int idealY = offsetArray[dimZ * dimY * dimX + lowestLayer * dimY * dimX + cy * dimX + cx];
-					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = idealY;
+				switch (lowestLayer) {
+					// If the lowest layer is not 4, no y further direction is needed -> we are done
+					case 0:
+					case 1:
+					case 2:
+					case 3:
+						statusArray[threadIndex2D] = 6;
+						const int idealY = offsetArray[directionIdxOffset + lowestLayer * layerIdxOffset + threadIndex2D];
+						offsetArray[directionIdxOffset + threadIndex2D] = idealY;
+						return;
 
-				// If the lowest layer is 4 -> continue moving in y direction
-				} else {
-					currY = offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx];
-					offsetArray[dimZ * dimY * dimX + cy * dimX + cx] = currY;
-					offsetArray[dimZ * dimY * dimX + dimY * dimX + cy * dimX + cx] = currY - 1;
-					offsetArray[dimZ * dimY * dimX + 2 * dimY * dimX + cy * dimX + cx] = currY - 2;
-					offsetArray[dimZ * dimY * dimX + 3 * dimY * dimX + cy * dimX + cx] = currY - 3;
-					offsetArray[dimZ * dimY * dimX + 4 * dimY * dimX + cy * dimX + cx] = currY - 4;
+					// If the lowest layer is 4 -> continue moving in y direction
+					case 4:
+						currY = offsetArray[directionIdxOffset + 4 * layerIdxOffset + threadIndex2D];
+						offsetArray[directionIdxOffset + threadIndex2D] = currY;
+						offsetArray[directionIdxOffset + layerIdxOffset + threadIndex2D] = currY - 1;
+						offsetArray[directionIdxOffset + 2 * layerIdxOffset + threadIndex2D] = currY - 2;
+						offsetArray[directionIdxOffset + 3 * layerIdxOffset + threadIndex2D] = currY - 3;
+						offsetArray[directionIdxOffset + 4 * layerIdxOffset + threadIndex2D] = currY - 4;
+						return;
 				}
-				break;
+				return;
 
 			// Search is complete
 			default:
-				break;
+				return;
 		}
 	}
 }
 
 // Kernel that translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
-__global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const unsigned int dimZ,
-							   const int dimY, const int dimX, const double dResolutionDivider) {
+__global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const unsigned int numLayers,
+							   const int lowDimY, const int lowDimX, const double dResolutionDivider) {
 	// Current entry to be computed by the thread
 	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const int cz = threadIdx.z;
 
 	// Check if we are inside the flow array
-	if (cz < 2 && cy < dimY && cx < dimX) {
+	if (cz < 2 && cy < lowDimY && cx < lowDimX) {
 		// Get the current flow values
-		const int x = flowArray12[cy * dimX + cx];
-		const int y = flowArray12[dimZ * dimY * dimX + cy * dimX + cx];
+		const int x = flowArray12[cy * lowDimX + cx];
+		const int y = flowArray12[numLayers * lowDimY * lowDimX + cy * lowDimX + cx];
 		const int scaledX = static_cast<int>(x * dResolutionDivider);
 		const int scaledY = static_cast<int>(y * dResolutionDivider);
 
 		// Project the flow values onto the flow array from frame 2 to frame 1
 		// X-Layer
-		if (cz == 0 && (cy + scaledY) < dimY && (cy + scaledY) >= 0 && (cx + scaledX) < dimX && (cx + scaledX) >= 0) {
-			flowArray21[(cy + scaledY) * dimX + cx + scaledX] = -x;
+		if (cz == 0 && (cy + scaledY) < lowDimY && (cy + scaledY) >= 0 && (cx + scaledX) < lowDimX && (cx + scaledX) >= 0) {
+			flowArray21[(cy + scaledY) * lowDimX + cx + scaledX] = -x;
 		// Y-Layer
-		} else if (cz == 1 && (cy + scaledY) < dimY && (cy + scaledY) >= 0 && (cx + scaledX) < dimX && (cx + scaledX) >= 0) {
-			flowArray21[dimY * dimX + (cy + scaledY) * dimX + cx + scaledX] = -y;
+		} else if (cz == 1 && (cy + scaledY) < lowDimY && (cy + scaledY) >= 0 && (cx + scaledX) < lowDimX && (cx + scaledX) >= 0) {
+			flowArray21[lowDimY * lowDimX + (cy + scaledY) * lowDimX + cx + scaledX] = -y;
 		}
 	}
 }
 
 // Kernel that blurs a flow array
-__global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, const int kernelSize, const int dimZ, const int dimY,
-						   const int dimX, const bool offset12) {
+__global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, const int kernelSize, const int numLayers, const int lowDimY,
+						   const int lowDimX, const bool offset12) {
 	// Current entry to be computed by the thread
 	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -746,23 +709,23 @@ __global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, cons
 		long blurredOffset = 0;
 
 		// Collect the sum of the surrounding pixels
-		if (cz < 2 && cy < dimY && cx < dimX) {
+		if (cz < 2 && cy < lowDimY && cx < lowDimX) {
 			for (int y = start; y < end; y++) {
 				for (int x = start; x < end; x++) {
-					if ((cy + y) < dimY && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
-						blurredOffset += flowArray[cz * dimZ * dimY * dimX + (cy + y) * dimX + cx + x];
+					if ((cy + y) < lowDimY && (cy + y) >= 0 && (cx + x) < lowDimX && (cx + x) >= 0) {
+						blurredOffset += flowArray[cz * numLayers * lowDimY * lowDimX + (cy + y) * lowDimX + cx + x];
 					}
 				}
 			}
 			blurredOffset /= (end - start) * (end - start);
-			blurredFlowArray[cz * dimY * dimX + cy * dimX + cx] = blurredOffset;
+			blurredFlowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx] = blurredOffset;
 		}
 	} else {
-		if (cz < 2 && cy < dimY && cx < dimX) {
+		if (cz < 2 && cy < lowDimY && cx < lowDimX) {
 			if (offset12) {
-				blurredFlowArray[cz * dimY * dimX + cy * dimX + cx] = flowArray[cz * dimZ * dimY * dimX + cy * dimX + cx];
+				blurredFlowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx] = flowArray[cz * numLayers * lowDimY * lowDimX + cy * lowDimX + cx];
 			} else {
-				blurredFlowArray[cz * dimY * dimX + cy * dimX + cx] = flowArray[cz * dimY * dimX + cy * dimX + cx];
+				blurredFlowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx] = flowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx];
 			}
 		}
 	}
@@ -771,22 +734,23 @@ __global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, cons
 // Kernel that removes artifacts from the warped frame
 template <typename T>
 __global__ void artifactRemovalKernelForBlending(const T* frame1, const int* hitCount, T* warpedFrame,
-												    const unsigned int dimY, const unsigned int dimX) {
+												 const unsigned int dimY, const unsigned int dimX) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = threadIdx.z;
+	const unsigned int threadIndex2D = cy * dimX + cx; // Standard thread index without Z-Dim
 
 	// Y Channel
 	if (cz == 0 && cy < dimY && cx < dimX) {
-		if (hitCount[cy * dimX + cx] != 1) {
-			warpedFrame[cy * dimX + cx] = frame1[cy * dimX + cx];
+		if (hitCount[threadIndex2D] != 1) {
+			warpedFrame[threadIndex2D] = frame1[threadIndex2D];
 		}
 
 	// U/V Channels
-	} else if (cz == 1 && cy < (dimY / 2) && cx < dimX) {
-		if (hitCount[cy * dimX + cx] != 1) {
-			warpedFrame[dimY * dimX + cy * dimX + cx] = frame1[dimY * dimX + cy * dimX + cx];
+	} else if (cz == 1 && cy < (dimY >> 1) && cx < dimX) {
+		if (hitCount[threadIndex2D] != 1) {
+			warpedFrame[dimY * dimX + threadIndex2D] = frame1[dimY * dimX + threadIndex2D];
 		}
 	}
 }
@@ -830,17 +794,6 @@ void OpticalFlowCalc::blurFlowArrays(const int kernelSize) const {
 /*
 * Template instantiation
 */
-template __global__ void blurFrameKernel<unsigned char>(const unsigned char* frameArray, unsigned char* blurredFrameArray, 
-								const unsigned char kernelSize, const unsigned char chacheSize, const unsigned char boundsOffset, 
-								const unsigned char avgEntriesPerThread, const unsigned short remainder, const char lumStart,
-								const unsigned char lumEnd, const unsigned short lumPixelCount, const char chromStart, 
-								const unsigned char chromEnd, const unsigned short chromPixelCount, const unsigned short dimY, const unsigned short dimX);
-template __global__ void blurFrameKernel<unsigned short>(const unsigned short* frameArray, unsigned short* blurredFrameArray, 
-								const unsigned char kernelSize, const unsigned char chacheSize, const unsigned char boundsOffset, 
-								const unsigned char avgEntriesPerThread, const unsigned short remainder, const char lumStart,
-								const unsigned char lumEnd, const unsigned short lumPixelCount, const char chromStart, 
-								const unsigned char chromEnd, const unsigned short chromPixelCount, const unsigned short dimY, const unsigned short dimX);
-
 template __global__ void calcImageDelta<unsigned char>(const unsigned char* frame1, const unsigned char* frame2, unsigned char* imageDeltaArray,
 	const int* offsetArray, const unsigned int lowDimY, const unsigned int lowDimX,
 	const unsigned int dimY, const unsigned int dimX, const float resolutionScalar, const unsigned int directionIdxOffset,
