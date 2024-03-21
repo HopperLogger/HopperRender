@@ -222,7 +222,7 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
 	CheckPointer(ppropInputRequest, E_POINTER)
 	HRESULT hr = NOERROR;
 
-	ppropInputRequest->cBuffers = 4;
+	ppropInputRequest->cBuffers = 5;
 	ppropInputRequest->cbBuffer = m_pOutput->CurrentMediaType().GetSampleSize() * m_lBufferRequest;
 	ppropInputRequest->cbAlign = 1;
 	ppropInputRequest->cbPrefix = 0;
@@ -237,7 +237,7 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
 		return hr;
 	}
 
-	ASSERT(Actual.cBuffers == 4);
+	ASSERT(Actual.cBuffers == 5);
 
 	if (ppropInputRequest->cBuffers > Actual.cBuffers ||
 		ppropInputRequest->cbBuffer > Actual.cbBuffer) {
@@ -278,7 +278,6 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) const {
 	const long biHeight = pvi->bmiHeader.biHeight;
 	const unsigned int dwX = pvi->dwPictAspectRatioX;
 	const unsigned int dwY = pvi->dwPictAspectRatioY;
-	const bool bInterlaced = (pvi->dwInterlaceFlags & AMINTERLACE_IsInterlaced) != 0;
 	const GUID guid = MEDIASUBTYPE_P010;
 
 	// Set the VideoInfoHeader2 information
@@ -292,11 +291,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) const {
 	vih2->dwBitRate = pvi->dwBitRate;
 	vih2->dwBitErrorRate = pvi->dwBitErrorRate;
 	vih2->dwCopyProtectFlags = pvi->dwCopyProtectFlags;
-	if (bInterlaced) {
-		vih2->dwInterlaceFlags = AMINTERLACE_IsInterlaced | AMINTERLACE_DisplayModeBobOrWeave;
-	} else {
-		vih2->dwInterlaceFlags = AMINTERLACE_1FieldPerSample;
-	}
+	vih2->dwInterlaceFlags = 0;
 
 	// Set the BitmapInfoHeader information
 	BITMAPINFOHEADER* pBIH = nullptr;
@@ -305,7 +300,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) const {
 	pBIH->biWidth = biWidth;
 	pBIH->biHeight = biHeight;
 	pBIH->biBitCount = 24;
-	pBIH->biPlanes = 1;
+	pBIH->biPlanes = 2;
 	pBIH->biSizeImage = (biWidth * biHeight * 12) >> 3;
 	pBIH->biCompression = guid.Data1;
 
@@ -613,7 +608,6 @@ HRESULT CHopperRender::CopyFrame(const unsigned char* pInBuffer, unsigned char* 
 	return NOERROR;
 }
 
-
 // Interpolates a frame
 HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer, const float fScalar, const int iIntFrameNum) {
 	if (TEST_MODE) {
@@ -687,6 +681,7 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 	// Adjust the settings to process everything fast enough
 	if (m_iFrameOutput != 4 && iIntFrameNum == (m_iNumSamples - 1) && !TEST_MODE) {
 		autoAdjustSettings();
+		//m_iNumSteps = 15;
 	}
 
 	// Check for CUDA errors
@@ -892,7 +887,7 @@ void CHopperRender::autoAdjustSettings() {
 			" NumSteps: " + std::to_string(m_iNumSteps), LOG_PERFORMANCE);
 
 		// Increase the frame scalar if we have enough leftover capacity
-		if (m_iNumSteps >= MIN_NUM_STEPS + 8 && m_dResolutionDivider < 1.0) {
+		if (m_dResolutionDivider < 1.0 && (m_iNumSteps >= MIN_NUM_STEPS + 8 || m_iNumSteps >= MAX_NUM_STEPS)) {
 			m_cNumTimesTooSlow = 0;
 			adjustFrameScalar(m_dResolutionDivider + 0.25);
 			m_iNumSteps = MIN_NUM_STEPS;
