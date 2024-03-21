@@ -520,6 +520,7 @@ void OpticalFlowCalcSDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 	const unsigned int directionIdxOffset = m_iNumLayers * m_iLowDimY * m_iLowDimX; // Offset to index the Y-Offset-Layer
 	const unsigned int channelIdxOffset = m_iDimY * m_iDimX; // Offset to index the color channel of the current thread
 	const unsigned int layerIdxOffset = m_iLowDimY * m_iLowDimX; // Offset to index the layer of the current thread
+	unsigned int iNumStepsPerIter = iNumSteps; // Number of steps executed to find the ideal offset (limits the maximum offset)
 
 	// We set the initial window size to the next larger power of 2
 	unsigned int windowDim = 1;
@@ -553,8 +554,20 @@ void OpticalFlowCalcSDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 
 	// We calculate the ideal offset array for each window size (entire frame, ..., individual pixels)
 	for (unsigned int iter = 0; iter < iNumIterations; iter++) {
+		switch (iter) {
+			case 0: iNumStepsPerIter = iNumSteps; break;
+			case 1: iNumStepsPerIter = iNumSteps; break;
+			case 2: iNumStepsPerIter = iNumSteps; break;
+			case 3: iNumStepsPerIter = iNumSteps / 2; break;
+			case 4: iNumStepsPerIter = iNumSteps / 2; break;
+			case 5: iNumStepsPerIter = iNumSteps / 2; break;
+			case 6: iNumStepsPerIter = iNumSteps / 3; break;
+			case 7: iNumStepsPerIter = iNumSteps / 3; break;
+			case 8: iNumStepsPerIter = iNumSteps / 6; break;
+			default: iNumStepsPerIter = 1; break;
+		}
 		// Each step we adjust the offset array to find the ideal offset
-		for (unsigned int step = 0; step < iNumSteps; step++) {
+		for (unsigned int step = 0; step < iNumStepsPerIter; step++) {
 			// Reset the summed up delta array
 			m_summedUpDeltaArray.zero();
 
@@ -598,7 +611,7 @@ void OpticalFlowCalcSDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 			// 4. Adjust the offset array based on the comparison results
 			adjustOffsetArray << <m_gridAOA, m_threadsAOA >> > (m_offsetArray12.arrayPtrGPU, m_lowestLayerArray.arrayPtrGPU,
 															  m_statusArray.arrayPtrGPU, windowDim, directionIdxOffset, layerIdxOffset,
-															  m_iNumLayers, m_iLowDimY, m_iLowDimX, step == iNumSteps - 1);
+															  m_iNumLayers, m_iLowDimY, m_iLowDimX, step == iNumStepsPerIter - 1);
 		}
 
 		// 5. Adjust variables for the next iteration
