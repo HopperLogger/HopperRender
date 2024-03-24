@@ -707,17 +707,13 @@ __global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray,
 	extern __shared__ int sharedFlowArray[];
 
 	// Current entry to be computed by the thread
-	const unsigned short cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned short cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned char cz = blockIdx.z;
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = blockIdx.z;
 
-	// Check if the current thread is supposed to perform calculations
-	if (cy >= lowDimY || cx >= lowDimX) {
-		return;
-	}
-
-	const unsigned short trX = blockIdx.x * blockDim.x;
-	const unsigned short trY = blockIdx.y * blockDim.y;
+	// Current threadblock index
+	const int trX = blockIdx.x * blockDim.x;
+	const int trY = blockIdx.y * blockDim.y;
 	unsigned char offsetX;
 	unsigned char offsetY;
 
@@ -745,21 +741,24 @@ __global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray,
     // Ensure all threads have finished loading before continuing
     __syncthreads();
 
-	// Calculate the x and y boundaries of the kernel
-	int blurredOffset = 0;
+	// Check if we are inside the flow array
+	if (cy < lowDimY && cy >= 0 && cx < lowDimX && cx >= 0) {
+		// Calculate the x and y boundaries of the kernel
+		int blurredOffset = 0;
 
-	// Collect the sum of the surrounding values
-	for (char y = start; y < end; y++) {
-		for (char x = start; x < end; x++) {
-			if ((cy + y) < lowDimY && (cy + y) >= 0 && (cx + x) < lowDimX && (cx + x) >= 0) {
-				blurredOffset += sharedFlowArray[(threadIdx.y + boundsOffset + y) * chacheSize + threadIdx.x + boundsOffset + x];
-			} else {
-				blurredOffset += sharedFlowArray[(threadIdx.y + boundsOffset) * chacheSize + threadIdx.x + boundsOffset];
+		// Collect the sum of the surrounding values
+		for (char y = start; y < end; y++) {
+			for (char x = start; x < end; x++) {
+				if ((cy + y) < lowDimY && (cy + y) >= 0 && (cx + x) < lowDimX && (cx + x) >= 0) {
+					blurredOffset += sharedFlowArray[(threadIdx.y + boundsOffset + y) * chacheSize + threadIdx.x + boundsOffset + x];
+				} else {
+					blurredOffset += sharedFlowArray[(threadIdx.y + boundsOffset) * chacheSize + threadIdx.x + boundsOffset];
+				}
 			}
 		}
+		blurredOffset /= pixelCount;
+		blurredFlowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx] = blurredOffset;
 	}
-	blurredOffset /= pixelCount;
-	blurredFlowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx] = blurredOffset;
 	
 }
 
@@ -817,8 +816,8 @@ void OpticalFlowCalc::blurFlowArrays(const int kernelSize) const {
 	const unsigned short pixelCount = (end - start) * (end - start);
 
 	// Calculate the number of blocks needed
-	const unsigned int NUM_BLOCKS_X = max(static_cast<int>(ceil(static_cast<float>(m_iLowDimX) / kernelSize)), 1);
-	const unsigned int NUM_BLOCKS_Y = max(static_cast<int>(ceil(static_cast<float>(m_iLowDimY) / kernelSize)), 1);
+	const unsigned int NUM_BLOCKS_X = max(static_cast<int>(ceil(static_cast<double>(m_iLowDimX) / kernelSize)), 1);
+	const unsigned int NUM_BLOCKS_Y = max(static_cast<int>(ceil(static_cast<double>(m_iLowDimY) / kernelSize)), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 gridBF(NUM_BLOCKS_X, NUM_BLOCKS_Y, 2);

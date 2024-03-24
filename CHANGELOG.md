@@ -193,7 +193,7 @@
 
 ## [Version 1.5.7.0] - 2024-03-24 - Fully functional
 ### Added
-- Added support for DVD playback
+- Added support for DVD (interlaced) playback
 - 2 defines to control the autoAdjustSettings behavior
 - Added two more low resolution dividers to allow calculation of high res video
 
@@ -208,3 +208,6 @@
 - Improved the performance of the convertFlowToHSV kernel
 - Improved the performance of the scaleFrame kernel
 - General code clean-up
+
+### Fixed
+- Fixed indexing bug in blurFrame kernel
