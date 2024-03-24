@@ -2,8 +2,6 @@
 
 #include <vector>
 
-constexpr int NUM_THREADS = 8;
-
 /*
 * This class initializes a multidimensional array on the GPU
 *

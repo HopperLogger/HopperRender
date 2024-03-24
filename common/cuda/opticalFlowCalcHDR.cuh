@@ -11,9 +11,9 @@ public:
 	* @param dimY: The height of the frame
 	* @param dimX: The width of the frame
 	* @param dDimScalar: The scalar to scale the frame dimensions with depending on the renderer used
-	* @param dResolutionDivider: The scalar to scale the resolution with
+	* @param fResolutionDivider: The scalar to scale the resolution with
 	*/
-	OpticalFlowCalcHDR(unsigned int dimY, unsigned int dimX, double dDimScalar, double dResolutionDivider);
+	OpticalFlowCalcHDR(unsigned int dimY, unsigned int dimX, double dDimScalar, float fResolutionDivider);
 
 	/*
 	* Updates the frame1 array
@@ -80,7 +80,7 @@ public:
 	*
 	* @param blendScalar: The scalar that determines how much of the source frame is blended with the flow
 	*/
-	void drawFlowAsHSV(double blendScalar) const override;
+	void drawFlowAsHSV(float blendScalar) const override;
 
 	// GPU Arrays
 	GPUArray<unsigned short> m_frame1; // Array containing the first frame

@@ -5,7 +5,8 @@
 #include "GPUArrayLib.cuh"
 
 // Kernel that sets the initial offset array
-__global__ void setInitialOffset(int* offsetArray, unsigned int numLayers, unsigned int lowDimY, unsigned int lowDimX);
+__global__ void setInitialOffset(int* offsetArray, const unsigned int numLayers, const unsigned int lowDimY, 
+								 const unsigned int lowDimX, const unsigned int layerIdxOffset);
 
 // Kernel that calculates the absolute difference between two frames using the offset array
 template <typename T>
@@ -46,17 +47,21 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 	unsigned int lowDimY, unsigned int lowDimX, const bool lastRun);
 
 // Kernel that translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
-__global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const unsigned int numLayers,
-							   const int lowDimY, const int lowDimX, const double dResolutionDivider);
+__global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const int lowDimY, const int lowDimX, 
+							   const float resolutionDivider, const unsigned int directionIdxOffset,
+							   const unsigned int layerIdxOffset);
 
 // Kernel that blurs a flow array
-__global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, int kernelSize, int numLayers, int lowDimY,
-	int lowDimX, bool offset12);
+__global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, 
+								const unsigned char kernelSize, const unsigned char chacheSize, const unsigned char boundsOffset, 
+								const unsigned char avgEntriesPerThread, const unsigned short remainder, const char start,
+								const unsigned char end, const unsigned short pixelCount, const unsigned short numLayers,
+								const unsigned short lowDimY, const unsigned short lowDimX);
 
 // Kernel that removes artifacts from the warped frame
 template <typename T>
 __global__ void artifactRemovalKernelForBlending(const T* frame1, const int* hitCount, T* warpedFrame,
-	const unsigned int dimY, const unsigned int dimX);
+	const unsigned int dimY, const unsigned int dimX, const unsigned int channelIdxOffset);
 
 class OpticalFlowCalc {
 public:
@@ -140,30 +145,42 @@ public:
 	*
 	* @param blendScalar: The scalar that determines how much of the source frame is blended with the flow
 	*/
-	virtual void drawFlowAsHSV(const double blendScalar) const = 0;
+	virtual void drawFlowAsHSV(const float blendScalar) const = 0;
 
-	// The number of cuda threads needed
-	dim3 m_lowGrid;
-	dim3 m_grid;
-	dim3 m_gridCID;
-	dim3 m_threadsCID;
-	dim3 m_gridAOA;
-	dim3 m_threadsAOA;
-	dim3 m_threads10;
-	dim3 m_threads5;
-	dim3 m_threads2;
-	dim3 m_threads1;
+	// Grids
+	dim3 m_lowGrid32x32x1;
+	dim3 m_lowGrid16x16x5;
+	dim3 m_lowGrid16x16x4;
+	dim3 m_lowGrid16x16x1;
+	dim3 m_lowGrid8x8x1;
+	dim3 m_grid16x16x1;
+	dim3 m_grid8x8x1;
+	
+	// Threads
+	dim3 m_threads32x32x1;
+	dim3 m_threads16x16x2;
+	dim3 m_threads16x16x1;
+	dim3 m_threads8x8x10;
+	dim3 m_threads8x8x5;
+	dim3 m_threads8x8x2;
+	dim3 m_threads8x8x1;
 
 	// Variables
 	bool m_bBisNewest = true; // Whether frame1 or frame2 is the newest frame
-	double m_dResolutionScalar; // Scalar to scale the resolution with
-	double m_dResolutionDivider; // Scalar to divide the resolution with
+	float m_fResolutionScalar; // Scalar to scale the resolution with
+	float m_fResolutionDivider; // Scalar to divide the resolution with
 	unsigned int m_iDimX; // Width of the frame
 	unsigned int m_iDimY; // Height of the frame
 	unsigned int m_iLowDimX; // Width of the frame used by the optical flow calculation
 	unsigned int m_iLowDimY; // Height of the frame used by the optical flow calculation
 	unsigned int m_iNumLayers; // Number of layers used by the optical flow calculation
 	double m_dDimScalar; // Scalar to scale the frame dimensions with depending on the renderer used
+	unsigned int m_iDirectionIdxOffset; // m_iNumLayers * m_iLowDimY * m_iLowDimX
+	unsigned int m_iLayerIdxOffset; // m_iLowDimY * m_iLowDimX
+	unsigned int m_iChannelIdxOffset; // m_iDimY * m_iDimX
+	unsigned int m_iScaledChannelIdxOffset; // m_iDimY * m_iDimX * m_dDimScalar
+	unsigned int m_iScaledDimX; // m_iDimX * m_dDimScalar;
+	unsigned int m_iScaledDimY; // m_iDimY * m_dDimScalar;
 
 	// GPU Arrays
 	GPUArray<int> m_offsetArray12; // Array containing x,y offsets for each pixel of frame1

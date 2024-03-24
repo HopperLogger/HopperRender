@@ -4,11 +4,13 @@
 
 #include "opticalFlowCalc.cuh"
 
-#define TEST_MODE 0
-#define FT_TARGET 166667 // 60 fps in 100ns units
-#define LOG_PERFORMANCE 0
-#define MIN_NUM_STEPS 3
-#define MAX_NUM_STEPS 15
+#define TEST_MODE 0 // Disables automatic settings change to allow accurate performance testing
+#define AUTO_FRAME_SCALE 1 // Wheter to automatically reduce/increase the calculation resolutuion depending on the performance
+#define AUTO_STEPS_ADJUST 1 // Wheter to automatically reduce/increase the number of calculation steps depending on the performance
+#define FT_TARGET 166667 // The target frame rate (60 fps in 100ns units)
+#define LOG_PERFORMANCE 0 // Whether or not to print debug messages regarding calculation performance
+#define MIN_NUM_STEPS 4 // The minimum number of calculation steps (if we get below this, the resolution will be decreased or calculation disabled)
+#define MAX_NUM_STEPS 15 // The maximum number of calcultation steps (if we reach this, we increase the resolution or keep this number of steps)
 
 class CHopperRender : public CTransformFilter,
                       public SettingsInterface,
@@ -52,17 +54,16 @@ private:
 	// Constructor
 	CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr);
 
-	HRESULT UpdateVideoInfoHeader(CMediaType* pMediaType) const;
+	HRESULT UpdateVideoInfoHeader(CMediaType* pMediaType);
 	HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget);
 	HRESULT CopyFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer) const;
 	HRESULT InterpolateFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer, float fScalar, int iIntFrameNum);
-	void adjustFrameScalar(double dResolutionDivider);
+	void adjustFrameScalar(const unsigned char newResolutionStep);
 	void autoAdjustSettings();
 	HRESULT loadSettings();
 
 	CCritSec m_csHopperRenderLock; // Private play critical section
 	bool m_bActivated; // Whether the filter is activated
-	bool m_bP010Input; // Whether the input is P010 or not
 	int m_iFrameOutput; // What frame output to use
 	unsigned char m_cNumTimesTooSlow; // The number of times the interpolation has been too slow
 	int m_iNumIterations; // Number of iterations to use in the optical flow calculation
@@ -84,9 +85,11 @@ private:
 	std::chrono::time_point<std::chrono::high_resolution_clock> m_tpCurrCalcEnd; // The end time of the current calculation
 	double m_dCurrCalcDuration; // The duration of the current calculation
 	bool m_bFirstFrame; // Whether the current frame is the first frame
+	bool m_bInterlaced; // Whether the video is interlaced or not
 	double m_dDimScalar; // The scalar to scale the frame dimensions with depending on the renderer used
 	unsigned int m_iDimX; // The width of the frame
 	unsigned int m_iDimY; // The height of the frame
-	double m_dResolutionScalar; // The scalar to scale the resolution with
-	double m_dResolutionDivider; // The divider to scale the resolution with
+	unsigned char m_cResolutionStep; // Determines which predefined resolution scalar will be used
+	float m_fResolutionScalar; // The scalar to scale the resolution with
+	float m_fResolutionDivider; // The divider to scale the resolution with
 };
