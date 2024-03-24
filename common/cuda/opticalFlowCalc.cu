@@ -4,31 +4,31 @@
 #include "opticalFlowCalc.cuh"
 
 // Kernel that sets the initial offset array
-__global__ void setInitialOffset(int* offsetArray, const unsigned int numLayers, const unsigned int lowDimY, const unsigned int lowDimX) {
+__global__ void setInitialOffset(int* offsetArray, const unsigned int numLayers, const unsigned int lowDimY, 
+								 const unsigned int lowDimX, const unsigned int layerIdxOffset) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = threadIdx.z;
+	const unsigned int cz = blockIdx.z;
 
-	if (cz < numLayers && cy < lowDimY && cx < lowDimX) {
-		// Set the Y direction to no offset
-		offsetArray[numLayers * lowDimY * lowDimX + cz * lowDimY * lowDimX + cy * lowDimX + cx] = 0;
-
-		// Set the X direction layer 0 to no offset
-		if (cz == 0) {
-			offsetArray[cy * lowDimX + cx] = 0;
-		// Set the X direction layer 1 to a -2 offset
-		} else if (cz == 1) {
-			offsetArray[lowDimY * lowDimX + cy * lowDimX + cx] = -2;
-		// Set the X direction layer 2 to a -1 offset
-		} else if (cz == 2) {
-			offsetArray[2 * lowDimY * lowDimX + cy * lowDimX + cx] = -1;
-		// Set the X direction layer 3 to a +1 offset
-		} else if (cz == 3) {
-			offsetArray[3 * lowDimY * lowDimX + cy * lowDimX + cx] = 1;
-		// Set the X direction layer 4 to a +2 offset
-		} else if (cz == 4) {
-			offsetArray[4 * lowDimY * lowDimX + cy * lowDimX + cx] = 2;
+	if (cy < lowDimY && cx < lowDimX) {
+		switch (cz) {
+			// Set the X direction layer 1 to a -2 offset
+			case 0:
+				offsetArray[layerIdxOffset + cy * lowDimX + cx] = -2;
+				return;
+			// Set the X direction layer 2 to a -1 offset
+			case 1:
+				offsetArray[2 * layerIdxOffset + cy * lowDimX + cx] = -1;
+				return;
+			// Set the X direction layer 3 to a +1 offset
+			case 2:
+				offsetArray[3 * layerIdxOffset + cy * lowDimX + cx] = 1;
+				return;
+			// Set the X direction layer 4 to a +2 offset
+			case 3:
+				offsetArray[4 * layerIdxOffset + cy * lowDimX + cx] = 2;
+				return;
 		}
 	}
 }
@@ -273,11 +273,11 @@ __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsig
 								   const unsigned int directionIdxOffset, const unsigned int layerIdxOffset, 
 								   const unsigned int numLayers, const unsigned int lowDimY, const unsigned int lowDimX) {
 	// Allocate shared memory to share values across layers
-	__shared__ float normalizedDeltaArray[5 * NUM_THREADS * NUM_THREADS * 4];
+	__shared__ float normalizedDeltaArray[5 * 8 * 8 * 4];
 	
 	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = threadIdx.z;
 	const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
 	bool isWindowRepresent = cy % windowDim == 0 && cx % windowDim == 0;
@@ -310,7 +310,7 @@ __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsig
 		numPixels = max(numPixels, 1);
 
 		// Normalize the summed up delta
-		normalizedDeltaArray[cz * NUM_THREADS * NUM_THREADS + threadIdx.y * NUM_THREADS + threadIdx.x] = static_cast<float>(summedUpDeltaArray[cz * layerIdxOffset + threadIndex2D]) / static_cast<float>(numPixels);
+		normalizedDeltaArray[cz * 8 * 8 + threadIdx.y * 8 + threadIdx.x] = static_cast<float>(summedUpDeltaArray[cz * layerIdxOffset + threadIndex2D]) / static_cast<float>(numPixels);
 	}
 
 	// Wait for all threads to finish filling the values
@@ -321,8 +321,8 @@ __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsig
 		unsigned char lowestLayer = 0;
 
 		for (unsigned char z = 1; z < numLayers; ++z) {
-			if (normalizedDeltaArray[z * NUM_THREADS * NUM_THREADS + threadIdx.y * NUM_THREADS + threadIdx.x] < 
-				normalizedDeltaArray[lowestLayer * NUM_THREADS * NUM_THREADS + threadIdx.y * NUM_THREADS + threadIdx.x]) {
+			if (normalizedDeltaArray[z * 8 * 8 + threadIdx.y * 8 + threadIdx.x] < 
+				normalizedDeltaArray[lowestLayer * 8 * 8 + threadIdx.y * 8 + threadIdx.x]) {
 				lowestLayer = z;
 			}
 		}
@@ -438,6 +438,8 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 		}
 
 		// If we are still calculating, adjust the offset array based on the current status and lowest layer
+		int idealX;
+		int idealY;
 		switch (currentStatus) {
 			/*
 			* X - DIRECTION
@@ -528,7 +530,7 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 					// If the lowest layer is not 0, no x further direction is needed -> continue to y direction
 					default:
 						statusArray[threadIndex2D] = 3;
-						const int idealX = offsetArray[lowestLayer * layerIdxOffset + threadIndex2D];
+						idealX = offsetArray[lowestLayer * layerIdxOffset + threadIndex2D];
 						for (unsigned int z = 0; z < numLayers; z++) {
 							offsetArray[z * layerIdxOffset + threadIndex2D] = idealX;
 						}
@@ -550,7 +552,7 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 					case 2:
 					case 3:
 						statusArray[threadIndex2D] = 3;
-						const int idealX = offsetArray[lowestLayer * layerIdxOffset + threadIndex2D];
+						idealX = offsetArray[lowestLayer * layerIdxOffset + threadIndex2D];
 						for (unsigned int z = 0; z < numLayers; z++) {
 							offsetArray[z * layerIdxOffset + threadIndex2D] = idealX;
 						}
@@ -629,7 +631,7 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 					// If the lowest layer is not 0, no y further direction is needed -> we are done
 					default:
 						statusArray[threadIndex2D] = 6;
-						const int idealY = offsetArray[directionIdxOffset + lowestLayer * layerIdxOffset + threadIndex2D];
+						idealY = offsetArray[directionIdxOffset + lowestLayer * layerIdxOffset + threadIndex2D];
 						offsetArray[directionIdxOffset + threadIndex2D] = idealY;
 						return;
 				}
@@ -644,7 +646,7 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 					case 2:
 					case 3:
 						statusArray[threadIndex2D] = 6;
-						const int idealY = offsetArray[directionIdxOffset + lowestLayer * layerIdxOffset + threadIndex2D];
+						idealY = offsetArray[directionIdxOffset + lowestLayer * layerIdxOffset + threadIndex2D];
 						offsetArray[directionIdxOffset + threadIndex2D] = idealY;
 						return;
 
@@ -668,20 +670,21 @@ __global__ void adjustOffsetArray(int* offsetArray, const unsigned char* globalL
 }
 
 // Kernel that translates a flow array from frame 1 to frame 2 into a flow array from frame 2 to frame 1
-__global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const unsigned int numLayers,
-							   const int lowDimY, const int lowDimX, const double dResolutionDivider) {
+__global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const int lowDimY, const int lowDimX, 
+							   const float resolutionDivider, const unsigned int directionIdxOffset,
+							   const unsigned int layerIdxOffset) {
 	// Current entry to be computed by the thread
 	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const int cz = threadIdx.z;
 
 	// Check if we are inside the flow array
-	if (cz < 2 && cy < lowDimY && cx < lowDimX) {
+	if (cy < lowDimY && cx < lowDimX) {
 		// Get the current flow values
 		const int x = flowArray12[cy * lowDimX + cx];
-		const int y = flowArray12[numLayers * lowDimY * lowDimX + cy * lowDimX + cx];
-		const int scaledX = static_cast<int>(x * dResolutionDivider);
-		const int scaledY = static_cast<int>(y * dResolutionDivider);
+		const int y = flowArray12[directionIdxOffset + cy * lowDimX + cx];
+		const int scaledX = static_cast<int>(static_cast<float>(x) * resolutionDivider);
+		const int scaledY = static_cast<int>(static_cast<float>(y) * resolutionDivider);
 
 		// Project the flow values onto the flow array from frame 2 to frame 1
 		// X-Layer
@@ -689,52 +692,81 @@ __global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const u
 			flowArray21[(cy + scaledY) * lowDimX + cx + scaledX] = -x;
 		// Y-Layer
 		} else if (cz == 1 && (cy + scaledY) < lowDimY && (cy + scaledY) >= 0 && (cx + scaledX) < lowDimX && (cx + scaledX) >= 0) {
-			flowArray21[lowDimY * lowDimX + (cy + scaledY) * lowDimX + cx + scaledX] = -y;
+			flowArray21[layerIdxOffset + (cy + scaledY) * lowDimX + cx + scaledX] = -y;
 		}
 	}
 }
 
 // Kernel that blurs a flow array
-__global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, const int kernelSize, const int numLayers, const int lowDimY,
-						   const int lowDimX, const bool offset12) {
+__global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, 
+								const unsigned char kernelSize, const unsigned char chacheSize, const unsigned char boundsOffset, 
+								const unsigned char avgEntriesPerThread, const unsigned short remainder, const char start,
+								const unsigned char end, const unsigned short pixelCount, const unsigned short numLayers,
+								const unsigned short lowDimY, const unsigned short lowDimX) {
+	// Shared memory for the flow to prevent multiple global memory accesses
+	extern __shared__ int sharedFlowArray[];
+
 	// Current entry to be computed by the thread
-	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const int cz = threadIdx.z;
+	const unsigned short cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned short cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned char cz = blockIdx.z;
 
-	if (kernelSize > 1) {
-		// Calculate the x and y boundaries of the kernel
-		const int start = -(kernelSize / 2);
-		const int end = (kernelSize / 2);
-		long blurredOffset = 0;
+	// Check if the current thread is supposed to perform calculations
+	if (cy >= lowDimY || cx >= lowDimX) {
+		return;
+	}
 
-		// Collect the sum of the surrounding pixels
-		if (cz < 2 && cy < lowDimY && cx < lowDimX) {
-			for (int y = start; y < end; y++) {
-				for (int x = start; x < end; x++) {
-					if ((cy + y) < lowDimY && (cy + y) >= 0 && (cx + x) < lowDimX && (cx + x) >= 0) {
-						blurredOffset += flowArray[cz * numLayers * lowDimY * lowDimX + (cy + y) * lowDimX + cx + x];
-					}
-				}
-			}
-			blurredOffset /= (end - start) * (end - start);
-			blurredFlowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx] = blurredOffset;
+	const unsigned short trX = blockIdx.x * blockDim.x;
+	const unsigned short trY = blockIdx.y * blockDim.y;
+	unsigned char offsetX;
+	unsigned char offsetY;
+
+    // Calculate the number of entries to fill for this thread
+    const unsigned short threadIndex = threadIdx.y * blockDim.x + threadIdx.x;
+    const unsigned char entriesToFill = avgEntriesPerThread + (threadIndex < remainder ? 1 : 0);
+
+    // Calculate the starting index for this thread
+    unsigned short startIndex = 0;
+    for (unsigned short i = 0; i < threadIndex; ++i) {
+        startIndex += avgEntriesPerThread + (i < remainder ? 1 : 0);
+    }
+
+    // Fill the shared memory for this thread
+    for (unsigned short i = 0; i < entriesToFill; ++i) {
+		offsetX = (startIndex + i) % chacheSize;
+		offsetY = (startIndex + i) / chacheSize;
+		if ((trY - boundsOffset + offsetY) < lowDimY && (trX - boundsOffset + offsetX) < lowDimX) {
+			sharedFlowArray[startIndex + i] = flowArray[cz * numLayers * lowDimY * lowDimX + (trY - boundsOffset + offsetY) * lowDimX + (trX - boundsOffset + offsetX)];
+		} else {
+			sharedFlowArray[startIndex + i] = 0;
 		}
-	} else {
-		if (cz < 2 && cy < lowDimY && cx < lowDimX) {
-			if (offset12) {
-				blurredFlowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx] = flowArray[cz * numLayers * lowDimY * lowDimX + cy * lowDimX + cx];
+	}
+
+    // Ensure all threads have finished loading before continuing
+    __syncthreads();
+
+	// Calculate the x and y boundaries of the kernel
+	int blurredOffset = 0;
+
+	// Collect the sum of the surrounding values
+	for (char y = start; y < end; y++) {
+		for (char x = start; x < end; x++) {
+			if ((cy + y) < lowDimY && (cy + y) >= 0 && (cx + x) < lowDimX && (cx + x) >= 0) {
+				blurredOffset += sharedFlowArray[(threadIdx.y + boundsOffset + y) * chacheSize + threadIdx.x + boundsOffset + x];
 			} else {
-				blurredFlowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx] = flowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx];
+				blurredOffset += sharedFlowArray[(threadIdx.y + boundsOffset) * chacheSize + threadIdx.x + boundsOffset];
 			}
 		}
 	}
+	blurredOffset /= pixelCount;
+	blurredFlowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx] = blurredOffset;
+	
 }
 
 // Kernel that removes artifacts from the warped frame
 template <typename T>
 __global__ void artifactRemovalKernelForBlending(const T* frame1, const int* hitCount, T* warpedFrame,
-												 const unsigned int dimY, const unsigned int dimX) {
+												 const unsigned int dimY, const unsigned int dimX, const unsigned int channelIdxOffset) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -750,7 +782,7 @@ __global__ void artifactRemovalKernelForBlending(const T* frame1, const int* hit
 	// U/V Channels
 	} else if (cz == 1 && cy < (dimY >> 1) && cx < dimX) {
 		if (hitCount[threadIndex2D] != 1) {
-			warpedFrame[dimY * dimX + threadIndex2D] = frame1[dimY * dimX + threadIndex2D];
+			warpedFrame[channelIdxOffset + threadIndex2D] = frame1[channelIdxOffset + threadIndex2D];
 		}
 	}
 }
@@ -763,8 +795,8 @@ void OpticalFlowCalc::flipFlow() const {
 	m_offsetArray21.zero();
 
 	// Launch kernel
-	flipFlowKernel << <m_lowGrid, m_threads2 >> > (m_offsetArray12.arrayPtrGPU, m_offsetArray21.arrayPtrGPU,
-												   m_iNumLayers, m_iLowDimY, m_iLowDimX, m_dResolutionDivider);
+	flipFlowKernel << <m_lowGrid16x16x1, m_threads16x16x2 >> > (m_offsetArray12.arrayPtrGPU, m_offsetArray21.arrayPtrGPU,
+												            m_iLowDimY, m_iLowDimX, m_fResolutionDivider, m_iDirectionIdxOffset, m_iLayerIdxOffset);
 }
 
 /*
@@ -773,22 +805,51 @@ void OpticalFlowCalc::flipFlow() const {
 * @param kernelSize: Size of the kernel to use for the blur
 */
 void OpticalFlowCalc::blurFlowArrays(const int kernelSize) const {
-	// Create CUDA streams
-	cudaStream_t blurStream1, blurStream2;
-	cudaStreamCreate(&blurStream1);
-	cudaStreamCreate(&blurStream2);
+	const unsigned char boundsOffset = kernelSize >> 1;
+	const unsigned char chacheSize = kernelSize + (boundsOffset << 1);
+	const size_t sharedMemSize = chacheSize * chacheSize * sizeof(int);
+	const unsigned short totalThreads = max(kernelSize * kernelSize, 1);
+    const unsigned short totalEntries = chacheSize * chacheSize;
+    const unsigned char avgEntriesPerThread = totalEntries / totalThreads;
+	const unsigned short remainder = totalEntries % totalThreads;
+	const char start = -(kernelSize >> 1);
+	const unsigned char end = (kernelSize >> 1);
+	const unsigned short pixelCount = (end - start) * (end - start);
 
-	// Launch kernels
-	blurFlowKernel << <m_lowGrid, m_threads2, 0, blurStream1 >> > (m_offsetArray12.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU, kernelSize, m_iNumLayers, m_iLowDimY, m_iLowDimX, true);
-	blurFlowKernel << <m_lowGrid, m_threads2, 0, blurStream2 >> > (m_offsetArray21.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU, kernelSize, 1, m_iLowDimY, m_iLowDimX, false);
+	// Calculate the number of blocks needed
+	const unsigned int NUM_BLOCKS_X = max(static_cast<int>(ceil(static_cast<float>(m_iLowDimX) / kernelSize)), 1);
+	const unsigned int NUM_BLOCKS_Y = max(static_cast<int>(ceil(static_cast<float>(m_iLowDimY) / kernelSize)), 1);
 
-	// Synchronize streams to ensure completion
-	cudaStreamSynchronize(blurStream1);
-	cudaStreamSynchronize(blurStream2);
+	// Use dim3 structs for block and grid size
+	dim3 gridBF(NUM_BLOCKS_X, NUM_BLOCKS_Y, 2);
+	dim3 threadsBF(kernelSize, kernelSize, 1);
 
-	// Clean up streams
-	cudaStreamDestroy(blurStream1);
-	cudaStreamDestroy(blurStream2);
+	// No need to blur the flow if the kernel size is less than 4
+	if (kernelSize < 4) {
+		// Offset12 X-Dir
+		cudaMemcpy(m_blurredOffsetArray12.arrayPtrGPU, m_offsetArray12.arrayPtrGPU, m_iLayerIdxOffset * sizeof(int), cudaMemcpyDeviceToDevice);
+		// Offset12 Y-Dir
+		cudaMemcpy(m_blurredOffsetArray12.arrayPtrGPU + m_iLayerIdxOffset, m_offsetArray12.arrayPtrGPU + m_iDirectionIdxOffset, m_iLayerIdxOffset * sizeof(int), cudaMemcpyDeviceToDevice);
+		// Offset21 X&Y-Dir
+		cudaMemcpy(m_blurredOffsetArray21.arrayPtrGPU, m_offsetArray21.arrayPtrGPU, m_offsetArray21.bytes, cudaMemcpyDeviceToDevice);
+	} else {
+		// Create CUDA streams
+		cudaStream_t blurStream1, blurStream2;
+		cudaStreamCreate(&blurStream1);
+		cudaStreamCreate(&blurStream2);
+
+		// Launch kernels
+		blurFlowKernel << <gridBF, threadsBF, sharedMemSize, blurStream1 >> > (m_offsetArray12.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, start, end, pixelCount, m_iNumLayers, m_iLowDimY, m_iLowDimX);
+		blurFlowKernel << <gridBF, threadsBF, sharedMemSize, blurStream2 >> > (m_offsetArray21.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, start, end, pixelCount, 1, m_iLowDimY, m_iLowDimX);
+
+		// Synchronize streams to ensure completion
+		cudaStreamSynchronize(blurStream1);
+		cudaStreamSynchronize(blurStream2);
+
+		// Clean up streams
+		cudaStreamDestroy(blurStream1);
+		cudaStreamDestroy(blurStream2);
+	}
 }
 
 /*
@@ -824,6 +885,6 @@ template __global__ void calcDeltaSums1x1<unsigned short>(const unsigned short* 
 	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
 
 template __global__ void artifactRemovalKernelForBlending<unsigned char>(const unsigned char* frame1, const int* hitCount, unsigned char* warpedFrame,
-	const unsigned int dimY, const unsigned int dimX);
+	const unsigned int dimY, const unsigned int dimX, const unsigned int channelIdxOffset);
 template __global__ void artifactRemovalKernelForBlending<unsigned short>(const unsigned short* frame1, const int* hitCount, unsigned short* warpedFrame,
-	const unsigned int dimY, const unsigned int dimX);
+	const unsigned int dimY, const unsigned int dimX, const unsigned int channelIdxOffset);

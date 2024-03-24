@@ -190,3 +190,21 @@
 - Set the cBuffers from 4 to 5 to reduce playback issues
 - Disabled copying of the interlace flag in the output pin to correctly handle DVD playback
 - Set the number of planes to 2 to reflect the P010 output format
+
+## [Version 1.5.7.0] - 2024-03-24 - Fully functional
+### Added
+- Added support for DVD playback
+- 2 defines to control the autoAdjustSettings behavior
+- Added two more low resolution dividers to allow calculation of high res video
+
+### Changed
+- Adapted the flowBlur kernel to the new performance optimized frameBlur kernel
+- Improved the performance of the setInitialOffsetArray kernel
+- Improved the performance of the flipFlow kernel
+- Improved the performance of the warpFrame kernels
+- Improved the performance of the artifactRemoval kernels
+- Improved the performance of the blendFrame kernel
+- Improved the performance of the convertNV12toP010 kernel
+- Improved the performance of the convertFlowToHSV kernel
+- Improved the performance of the scaleFrame kernel
+- General code clean-up

@@ -126,13 +126,12 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	CTransformFilter(tszName, punk, CLSID_HopperRender),
 	CPersistStream(punk, phr),
 	m_bActivated(true),
-	m_bP010Input(false),
 	m_iFrameOutput(2),
 	m_cNumTimesTooSlow(0),
 	m_iNumIterations(0),
-	m_iNumSteps(10),
-	m_iFrameBlurKernelSize(20),
-	m_iFlowBlurKernelSize(14),
+	m_iNumSteps(3),
+	m_iFrameBlurKernelSize(16),
+	m_iFlowBlurKernelSize(32),
 	m_lBufferRequest(1),
 	m_bBisNewest(true),
 	m_iFrameCounter(0),
@@ -145,11 +144,13 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_rtCurrPlaybackFrameTime(0),
 	m_dCurrCalcDuration(0),
 	m_bFirstFrame(true),
+	m_bInterlaced(false),
 	m_dDimScalar(1.0),
 	m_iDimX(1),
 	m_iDimY(1),
-	m_dResolutionScalar(1.0),
-	m_dResolutionDivider(1.0) {
+	m_cResolutionStep(0),
+	m_fResolutionScalar(1.0f),
+	m_fResolutionDivider(1.0f) {
 	loadSettings();
 }
 
@@ -270,7 +271,7 @@ HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType) {
 
 
 // Updates the video info header with the information for the output pin
-HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) const {
+HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
 	// Get the input media type information
 	CMediaType* mtIn = &m_pInput->CurrentMediaType();
 	auto pvi = (VIDEOINFOHEADER2*)mtIn->Format();
@@ -279,6 +280,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) const {
 	const unsigned int dwX = pvi->dwPictAspectRatioX;
 	const unsigned int dwY = pvi->dwPictAspectRatioY;
 	const GUID guid = MEDIASUBTYPE_P010;
+	m_bInterlaced = (pvi->dwInterlaceFlags & AMINTERLACE_IsInterlaced) != 0;
 
 	// Set the VideoInfoHeader2 information
 	VIDEOINFOHEADER2* vih2 = (VIDEOINFOHEADER2*)pMediaType->ReallocFormatBuffer(sizeof(VIDEOINFOHEADER2));
@@ -335,17 +337,20 @@ HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
 		if (pFilter != nullptr) {
 			CLSID guid;
 			if (SUCCEEDED(pFilter->GetClassID(&guid))) {
+				// madVR wants the frame dimensions to be scaled depending on the content type
 				if (guid == CLSID_madVR) {
-					m_dDimScalar = 16.0 / 15.0;
+					if (m_bInterlaced) {
+						m_dDimScalar = 64.0 / 45.0; // Interlaced
+					} else {
+						m_dDimScalar = 16.0 / 15.0; // Progressive
+					}
+				// EVR, MPC-VR, etc. doesn't need special scalars
 				} else {
 					m_dDimScalar = 1.0;
 				}
 			}
 			pFilter->Release();
 		}
-
-		// Check if the input is P010
-		m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010 ? m_bP010Input = true : m_bP010Input = false;
 
 		// Get the frame dimensions and frame rate
 		auto pvi = (VIDEOINFOHEADER2*)m_pInput->CurrentMediaType().Format();
@@ -354,17 +359,17 @@ HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
 		m_iDimY = pvi->bmiHeader.biHeight;
 
 		// Initialize the Optical Flow Calculator
-		if (m_bP010Input) {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, m_iDimX, m_dDimScalar, m_dResolutionDivider);
+		if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, m_iDimX, m_dDimScalar, m_fResolutionDivider);
 		} else {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, m_iDimX, m_dDimScalar, m_dResolutionDivider);
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, m_iDimX, m_dDimScalar, m_fResolutionDivider);
 		}
 	}
 	return __super::CompleteConnect(dir, pReceivePin);
 }
 
 
-// Transforms an input sample to produce an output sample
+// Called when a new sample (source frame) arrives
 HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 	CheckPointer(pIn, E_POINTER)
 	CheckPointer(pOut, E_POINTER)
@@ -382,11 +387,10 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 }
 
 
-// Called when a new segment is started
+// Called when a new segment is started (by seeking or changing the playback speed)
 HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) {
 	// Calculate the current playback frame time
-	m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(static_cast<double>(m_rtAvgSourceFrameTime) * (1.0 /
-		dRate));
+	m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(static_cast<double>(m_rtAvgSourceFrameTime) * (1.0 / dRate));
 
 	// Check if interpolation is necessary
 	if (m_bActivated && m_rtCurrPlaybackFrameTime > FT_TARGET) {
@@ -410,7 +414,7 @@ HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, d
 }
 
 
-// Delivers the first sample to the renderer
+// Delivers the samples to the renderer
 HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget) {
 	CheckPointer(pIn, E_POINTER)
 	CheckPointer(pOut, E_POINTER)
@@ -490,9 +494,12 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 		}
 
 		// Calculate the scalar for the interpolation
-		const float fScalar = max(
-			min((static_cast<float>(m_rtCurrStartTime) - static_cast<float>(m_rtLastStartTime)) / static_cast<float>(
-				m_rtCurrPlaybackFrameTime), static_cast<float>(1.0)), static_cast<float>(0.0));
+		const float fScalar = 
+			max(min((static_cast<float>(m_rtCurrStartTime) - 
+				static_cast<float>(m_rtLastStartTime)) / 
+				static_cast<float>(m_rtCurrPlaybackFrameTime), 
+				1.0f), 
+				0.0f);
 		//const float dScalar = static_cast<float>(iIntFrameNum) / static_cast<float>(m_iNumSamples);
 
 		// Increment the frame time for the next sample
@@ -659,7 +666,7 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 
 		// Draw the flow as an HSV image
 		if (m_iFrameOutput == 3) {
-			m_pofcOpticalFlowCalc->drawFlowAsHSV(0.5);
+			m_pofcOpticalFlowCalc->drawFlowAsHSV(0.5f);
 		}
 	}
 
@@ -816,27 +823,54 @@ STDMETHODIMP CHopperRender::put_Settings(bool bActivated, int iFrameOutput, int 
 }
 
 // Adjusts the frame scalar
-void CHopperRender::adjustFrameScalar(const double dResolutionDivider) {
-	if (dResolutionDivider != m_dResolutionDivider && dResolutionDivider > 0.0 && dResolutionDivider <= 1.0) {
-		// Re-Calculate the resolution scalar
-		m_dResolutionDivider = dResolutionDivider;
-		m_dResolutionScalar = 1.0 / m_dResolutionDivider;
-
-		// Re-Initialize the Optical Flow Calculator
-		m_bFirstFrame = true;
-		m_iFrameCounter = 0;
-		m_bBisNewest = true;
-		m_bIntTooSlow = false;
-		m_bIntNeeded = true;
-		m_dCurrCalcDuration = 0.0;
-		m_iNumSteps = MIN_NUM_STEPS;
-		m_pofcOpticalFlowCalc->m_dResolutionScalar = m_dResolutionScalar;
-		m_pofcOpticalFlowCalc->m_dResolutionDivider = m_dResolutionDivider;
-		m_pofcOpticalFlowCalc->m_iLowDimX = static_cast<unsigned int>(static_cast<double>(m_iDimX) * m_dResolutionDivider);
-		m_pofcOpticalFlowCalc->m_iLowDimY = static_cast<unsigned int>(static_cast<double>(m_iDimY) * m_dResolutionDivider);
-		m_pofcOpticalFlowCalc->m_lowGrid.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / static_cast<double>(NUM_THREADS)), 1.0));
-		m_pofcOpticalFlowCalc->m_lowGrid.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / static_cast<double>(NUM_THREADS)), 1.0));
+void CHopperRender::adjustFrameScalar(const unsigned char newResolutionStep) {
+	m_cResolutionStep = newResolutionStep;
+	switch (newResolutionStep) {
+		case 0:
+			m_fResolutionDivider = 1.0f;
+			break;
+		case 1:
+			m_fResolutionDivider = 0.75f;
+			break;
+		case 2:
+			m_fResolutionDivider = 0.5f;
+			break;
+		case 3:
+			m_fResolutionDivider = 0.25f;
+			break;
+		case 4:
+			m_fResolutionDivider = 0.125f;
+			break;
+		default:
+			m_fResolutionDivider = 0.0625f;
+			break;
 	}
+
+	// Re-Calculate the resolution scalar
+	m_fResolutionScalar = 1.0f / m_fResolutionDivider;
+
+	// Re-Initialize the Optical Flow Calculator
+	m_bFirstFrame = true;
+	m_iFrameCounter = 0;
+	m_bBisNewest = true;
+	m_bIntTooSlow = false;
+	m_bIntNeeded = true;
+	m_dCurrCalcDuration = 0.0;
+	m_iNumSteps = MIN_NUM_STEPS;
+	m_pofcOpticalFlowCalc->m_fResolutionScalar = m_fResolutionScalar;
+	m_pofcOpticalFlowCalc->m_fResolutionDivider = m_fResolutionDivider;
+	m_pofcOpticalFlowCalc->m_iLowDimX = static_cast<unsigned int>(static_cast<double>(m_iDimX) * m_fResolutionDivider);
+	m_pofcOpticalFlowCalc->m_iLowDimY = static_cast<unsigned int>(static_cast<double>(m_iDimY) * m_fResolutionDivider);
+	m_pofcOpticalFlowCalc->m_iDirectionIdxOffset = m_pofcOpticalFlowCalc->m_iNumLayers * m_pofcOpticalFlowCalc->m_iLowDimY * m_pofcOpticalFlowCalc->m_iLowDimX;
+	m_pofcOpticalFlowCalc->m_iLayerIdxOffset = m_pofcOpticalFlowCalc->m_iLowDimY * m_pofcOpticalFlowCalc->m_iLowDimX;
+	m_pofcOpticalFlowCalc->m_lowGrid32x32x1.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 32.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid32x32x1.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 32.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x5.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x5.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x4.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x4.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid8x8x1.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 8.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid8x8x1.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 8.0), 1.0));
 }
 
 // Adjust settings for optimal performance
@@ -857,18 +891,18 @@ void CHopperRender::autoAdjustSettings() {
 			" NumSteps: " + std::to_string(m_iNumSteps), LOG_PERFORMANCE);
 
 		// Decrease the number of steps to reduce calculation time
-		if (m_iNumSteps > MIN_NUM_STEPS) {
+		if (AUTO_STEPS_ADJUST && m_iNumSteps > MIN_NUM_STEPS) {
 			m_iNumSteps -= 1;
 			return;
 		}
 
 		// We can't reduce the number of steps any further, so we reduce the resolution divider instead
-		if (m_dResolutionDivider > 0.25) {
+		if (AUTO_FRAME_SCALE && m_cResolutionStep < 5) {
 			// To avoid unnecessary adjustments, we only adjust the resolution divider if we have been too slow for a while
 			m_cNumTimesTooSlow += 1;
 			if (m_cNumTimesTooSlow > 10) {
 				m_cNumTimesTooSlow = 0;
-				adjustFrameScalar(m_dResolutionDivider - 0.25);
+				adjustFrameScalar(m_cResolutionStep + 1);
 			}
 			return;
 		}
@@ -887,11 +921,11 @@ void CHopperRender::autoAdjustSettings() {
 			" NumSteps: " + std::to_string(m_iNumSteps), LOG_PERFORMANCE);
 
 		// Increase the frame scalar if we have enough leftover capacity
-		if (m_dResolutionDivider < 1.0 && (m_iNumSteps >= MIN_NUM_STEPS + 8 || m_iNumSteps >= MAX_NUM_STEPS)) {
+		if (AUTO_FRAME_SCALE && m_cResolutionStep > 0 && (m_iNumSteps >= MIN_NUM_STEPS + 8 || m_iNumSteps >= MAX_NUM_STEPS)) {
 			m_cNumTimesTooSlow = 0;
-			adjustFrameScalar(m_dResolutionDivider + 0.25);
+			adjustFrameScalar(m_cResolutionStep - 1);
 			m_iNumSteps = MIN_NUM_STEPS;
-		} else {
+		} else if (AUTO_STEPS_ADJUST) {
 			m_iNumSteps = min(m_iNumSteps + 1, MAX_NUM_STEPS); // Increase the number of steps to use the leftover capacity
 		}
 

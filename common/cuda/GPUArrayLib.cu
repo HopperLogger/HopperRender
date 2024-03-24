@@ -310,13 +310,13 @@ void GPUArray<T>::fill(T value) {
 	}
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = static_cast<int>(fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1));
-	const int NUM_BLOCKS_Y = static_cast<int>(fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1));
-	const int NUM_BLOCKS_Z = static_cast<int>(fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1));
+	const int NUM_BLOCKS_X = static_cast<int>(fmaxf(ceilf(dimX / static_cast<float>(8)), 1));
+	const int NUM_BLOCKS_Y = static_cast<int>(fmaxf(ceilf(dimY / static_cast<float>(8)), 1));
+	const int NUM_BLOCKS_Z = static_cast<int>(fmaxf(ceilf(dimZ / static_cast<float>(8)), 1));
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
-	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
+	dim3 threads(8, 8, 8);
 
 	// Set the array entries to the provided value
 	setArrayEntriesAll << <grid, threads >> > (arrayPtrGPU, value, dimZ, dimY, dimX);
@@ -350,13 +350,13 @@ void GPUArray<T>::fill(T value, unsigned int startIdx, unsigned int endIndex) {
 	}
 
 	// Calculate the number of blocks needed
-	const int NUM_BLOCKS_X = static_cast<int>(fmaxf(ceilf(dimX / static_cast<float>(NUM_THREADS)), 1));
-	const int NUM_BLOCKS_Y = static_cast<int>(fmaxf(ceilf(dimY / static_cast<float>(NUM_THREADS)), 1));
-	const int NUM_BLOCKS_Z = static_cast<int>(fmaxf(ceilf(dimZ / static_cast<float>(NUM_THREADS)), 1));
+	const int NUM_BLOCKS_X = static_cast<int>(fmaxf(ceilf(dimX / static_cast<float>(8)), 1));
+	const int NUM_BLOCKS_Y = static_cast<int>(fmaxf(ceilf(dimY / static_cast<float>(8)), 1));
+	const int NUM_BLOCKS_Z = static_cast<int>(fmaxf(ceilf(dimZ / static_cast<float>(8)), 1));
 
 	// Use dim3 structs for block and grid size
 	dim3 grid(NUM_BLOCKS_X, NUM_BLOCKS_Y, NUM_BLOCKS_Z);
-	dim3 threads(NUM_THREADS, NUM_THREADS, NUM_THREADS);
+	dim3 threads(8, 8, 8);
 
 	// Set the array entries to the provided value
 	setArrayEntriesInRange << <grid, threads >> > (arrayPtrGPU, value, startIdx, endIndex, dimZ, dimY, dimX);
