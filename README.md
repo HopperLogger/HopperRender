@@ -11,7 +11,7 @@ The filter can be added to a DirectShow media player like MPC-HC or MPC-BE in co
 ## Features
 - Realtime frame interpolation of any source framerate to 60fps
 - Compatible with HDR video _(usage of madVR recommended)_
-- All resolutions (even NTSC DVD) are supported
+- All resolutions _(even DVDs and 4K Blu-rays)_ are supported
 - No installation or internet connection required
 - Warps frames in both directions and blends them for the smoothest experience
 - User customizable settings to adjust the quality and performance of the interpolation
