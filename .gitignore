@@ -14,7 +14,6 @@
 /common/cuda/.vs
 /.old
 /.backup
-/x64/Debug
-/x64/Release
+/x64
 /.testing
 /.releases
