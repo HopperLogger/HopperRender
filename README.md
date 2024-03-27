@@ -28,20 +28,20 @@ The usage of [madVR](https://www.videohelp.com/software/madVR) is recommended, b
 ### Installation
 1. Open MPC-HC or MPC-BE's settings.
 2. Select the External Filters submenu.
-4. Click on Add Filter.
+3. Click on Add Filter.
 <div align="left">
   <img alt="install1" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/ecf7003b-09f1-4195-8c13-7767f195ee62">
 </div>
-5. Click on Browse.
+4. Click on Browse.
 <div align="left">
   <img alt="install2" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/59b27a26-8889-4549-a67b-bbdec7f7eec6">
 </div>
-6. Select the HopperRender.dll file from the extracted zip file.
+5. Select the HopperRender.dll file from the extracted zip file.
 <div align="left">
   <img alt="install3" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/be6dc452-2f4d-4570-8745-3d49102006ee">
 </div>
-7. Select Prefer.
-8. Close the settings and the media player.
+<div>6. Select Prefer.</div>
+7. Close the settings and the media player.
 <div align="left">
   <img alt="install4" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/9cbc1894-8ff3-410a-bd0d-2f9e785bcac3">
 </div>
