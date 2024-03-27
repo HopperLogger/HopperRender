@@ -73,3 +73,7 @@ You can access the settings when playing back a video with HopperRender by right
 - You can set the Frame and Flow blur kernel sizes which controls how much the frames or the flow will be blurred
 - In the status section, you can see the current state of HopperRender, the number of calculation steps that are currently performed, the source framerate, as well as the frame and calculation resolutions
 - The settings will be automatically saved to the registry `HKEY_CURRENT_USER\Software\HopperRender` so next time the filter is used, it loads the settings automatically
+
+## Acknowledgements
+
+This project is based on the [EZRGB24 Filter Sample](https://learn.microsoft.com/en-us/windows/win32/directshow/ezrgb24-filter-sample) and the DirectShow core parts were inspired by the [LAV Video Decoder](https://github.com/clsid2/LAVFilters).
