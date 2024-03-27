@@ -1,1 +1,0 @@
-regsvr32.exe "%~dp0x64\HopperRender.dll"
