@@ -22,23 +22,17 @@
 #include "opticalFlowCalcHDR.cuh"
 #include "resource.h"
 
-
 // Debug message function
-void DebugMessage(const std::string& message, const bool showLog) {
-	if (showLog) {
-		const std::string m_debugMessage = message + "\n";
-		OutputDebugStringA(m_debugMessage.c_str());
-	}
+void DebugMessage(const std::string& logMessage, const bool showLog) {
+	if (showLog) OutputDebugStringA((logMessage + "\n").c_str());
 }
 
-
 // Input pin types
-constexpr AMOVIESETUP_MEDIATYPE sudPinTypesIn =
+constexpr AMOVIESETUP_MEDIATYPE sudPinTypesIn = 
 {
 	&MEDIATYPE_Video, // Major type
 	&MEDIASUBTYPE_NULL // Minor type
 };
-
 
 // Output pin types
 constexpr AMOVIESETUP_MEDIATYPE sudPinTypesOut =
@@ -46,7 +40,6 @@ constexpr AMOVIESETUP_MEDIATYPE sudPinTypesOut =
 	&MEDIATYPE_Video, // Major type
 	&MEDIASUBTYPE_P010 // Minor type
 };
-
 
 // Input/Output pin information
 constexpr AMOVIESETUP_PIN sudpPins[] =
@@ -75,7 +68,6 @@ constexpr AMOVIESETUP_PIN sudpPins[] =
 	}
 };
 
-
 // Filter information
 constexpr AMOVIESETUP_FILTER sudHopperRender =
 {
@@ -86,7 +78,6 @@ constexpr AMOVIESETUP_FILTER sudHopperRender =
 	sudpPins // Pin information
 };
 
-
 // List of class IDs and creator functions for the class factory. This
 // provides the link between the OLE entry point in the DLL and an object
 // being created. The class factory will call the static CreateInstance
@@ -96,18 +87,15 @@ CFactoryTemplate g_Templates[] = {
 };
 int g_cTemplates = sizeof(g_Templates) / sizeof(g_Templates[0]);
 
-
 // Handles sample registry
 STDAPI DllRegisterServer() {
 	return AMovieDllRegisterServer2(TRUE);
 }
 
-
 // Handles sample unregistry
 STDAPI DllUnregisterServer() {
 	return AMovieDllRegisterServer2(FALSE);
 }
-
 
 // DllEntryPoint
 extern "C" BOOL WINAPI DllEntryPoint(HINSTANCE, ULONG, LPVOID);
@@ -118,42 +106,52 @@ BOOL APIENTRY DllMain(HANDLE hModule,
 	return DllEntryPoint(static_cast<HINSTANCE>(hModule), dwReason, lpReserved);
 }
 
-
 // Constructor
 CHopperRender::CHopperRender(TCHAR* tszName,
                              LPUNKNOWN punk,
                              HRESULT* phr) :
 	CTransformFilter(tszName, punk, CLSID_HopperRender),
 	CPersistStream(punk, phr),
-	m_bActivated(true),
+	// Settings
 	m_iFrameOutput(2),
-	m_cNumTimesTooSlow(0),
 	m_iNumIterations(0),
-	m_iNumSteps(3),
 	m_iFrameBlurKernelSize(16),
 	m_iFlowBlurKernelSize(32),
-	m_lBufferRequest(1),
-	m_bBisNewest(true),
-	m_iFrameCounter(0),
-	m_rtCurrStartTime(-1),
-	m_rtLastStartTime(-1),
-	m_bIntNeeded(false),
-	m_bIntTooSlow(false),
-	m_iNumSamples(1),
-	m_rtAvgSourceFrameTime(0),
-	m_rtCurrPlaybackFrameTime(0),
-	m_dCurrCalcDuration(0),
-	m_bFirstFrame(true),
-	m_bInterlaced(false),
-	m_dDimScalar(1.0),
+
+	// Video info
 	m_iDimX(1),
 	m_iDimY(1),
+	m_bFirstFrame(true),
+	m_bInterlaced(false),
+	m_bHDR(false),
+
+	// Timings
+	m_rtCurrStartTime(-1),
+	m_rtLastStartTime(-1),
+	m_rtSourceFrameTime(0),
+	m_rtCurrPlaybackFrameTime(0),
+	m_dCurrCalcDuration(0),
+
+	// Optical Flow calculation
+	m_pofcOpticalFlowCalc(nullptr),
 	m_cResolutionStep(0),
+	m_fResolutionDividers{ 1.0f, 0.75f, 0.5f, 0.25f, 0.125f, 0.0625f },
 	m_fResolutionScalar(1.0f),
-	m_fResolutionDivider(1.0f) {
+	m_fResolutionDivider(1.0f),
+	m_iNumSteps(4),
+
+	// Frame output
+	m_dDimScalar(1.0),
+	m_bBisNewest(true),
+	m_iFrameCounter(0),
+	m_iNumIntFrames(1),
+	m_lBufferRequest(1),
+
+	// Performance and activation status
+	m_cNumTimesTooSlow(0),
+	m_iIntActiveState(2) {
 	loadSettings();
 }
-
 
 // Provide the way for COM to create a HopperRender object
 CUnknown* CHopperRender::CreateInstance(LPUNKNOWN punk, HRESULT* phr) {
@@ -168,7 +166,6 @@ CUnknown* CHopperRender::CreateInstance(LPUNKNOWN punk, HRESULT* phr) {
 	return pNewObject;
 }
 
-
 // Reveals IIPEffect and ISpecifyPropertyPages
 STDMETHODIMP CHopperRender::NonDelegatingQueryInterface(REFIID riid, void** ppv) {
 	CheckPointer(ppv, E_POINTER)
@@ -182,35 +179,36 @@ STDMETHODIMP CHopperRender::NonDelegatingQueryInterface(REFIID riid, void** ppv)
 	return CTransformFilter::NonDelegatingQueryInterface(riid, ppv);
 }
 
-
 // Checks whether a specified media type is acceptable for input
 HRESULT CHopperRender::CheckInputType(const CMediaType* mtIn) {
 	CheckPointer(mtIn, E_POINTER)
 
-	// Check this is a VIDEOINFOHEADER2 type
+	// We only accept the VideoInfo2 header
 	if (*mtIn->FormatType() != FORMAT_VideoInfo2) {
 		return E_INVALIDARG;
 	}
 
-	// Can we transform this type
-	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) && (IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) || IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010))) {
+	// We only accept NV12 or P010 input
+	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) && 
+		(IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) || IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010))) {
 		return NOERROR;
 	}
 	return E_FAIL;
 }
-
 
 // Checks whether an input media type is compatible with an output media type
 HRESULT CHopperRender::CheckTransform(const CMediaType* mtIn, const CMediaType* mtOut) {
 	CheckPointer(mtIn, E_POINTER)
 	CheckPointer(mtOut, E_POINTER)
 
-	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) && (IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) || IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010)) && IsEqualGUID(*mtOut->Subtype(), MEDIASUBTYPE_P010)) {
+	// We can transform NV12 or P010 input to P010 output
+	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) && 
+		(IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) || IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010)) && 
+		IsEqualGUID(*mtOut->Subtype(), MEDIASUBTYPE_P010)) {
 		return NOERROR;
 	}
 	return E_FAIL;
 }
-
 
 // Sets the output pin's buffer requirements
 HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERTIES* ppropInputRequest) {
@@ -247,7 +245,6 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
 	return NOERROR;
 }
 
-
 // Retrieves a preferred media type for the output pin
 HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType) {
 	if (iPosition < 0) {
@@ -268,7 +265,6 @@ HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType) {
 
 	return NOERROR;
 }
-
 
 // Updates the video info header with the information for the output pin
 HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
@@ -294,6 +290,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
 	vih2->dwBitErrorRate = pvi->dwBitErrorRate;
 	vih2->dwCopyProtectFlags = pvi->dwCopyProtectFlags;
 	vih2->dwInterlaceFlags = 0;
+	vih2->dwControlFlags = m_bHDR ? 2051155841 : 0;
 
 	// Set the BitmapInfoHeader information
 	BITMAPINFOHEADER* pBIH = nullptr;
@@ -313,8 +310,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
 	return NOERROR;
 }
 
-
-// Retrieves the filter's settings
+// Retrieves a filter from a pin
 IBaseFilter* GetFilterFromPin(IPin* pPin)
 {
 	CheckPointer(pPin, nullptr);
@@ -328,9 +324,9 @@ IBaseFilter* GetFilterFromPin(IPin* pPin)
 	return nullptr;
 }
 
-
 // Completes the pin connection process
 HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
+	// Check if we're connecting to the output pin
 	if (dir == PINDIR_OUTPUT) {
 		// Check if we're connecting to madVR
 		IBaseFilter* pFilter = GetFilterFromPin(pReceivePin);
@@ -354,12 +350,13 @@ HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
 
 		// Get the frame dimensions and frame rate
 		auto pvi = (VIDEOINFOHEADER2*)m_pInput->CurrentMediaType().Format();
-		m_rtAvgSourceFrameTime = pvi->AvgTimePerFrame;
+		m_rtSourceFrameTime = pvi->AvgTimePerFrame;
 		m_iDimX = pvi->bmiHeader.biWidth;
 		m_iDimY = pvi->bmiHeader.biHeight;
 
 		// Initialize the Optical Flow Calculator
 		if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
+			m_bHDR = true;
 			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, m_iDimX, m_dDimScalar, m_fResolutionDivider);
 		} else {
 			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, m_iDimX, m_dDimScalar, m_fResolutionDivider);
@@ -368,17 +365,14 @@ HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
 	return __super::CompleteConnect(dir, pReceivePin);
 }
 
-
 // Called when a new sample (source frame) arrives
 HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 	CheckPointer(pIn, E_POINTER)
 	CheckPointer(pOut, E_POINTER)
 
-	// Increment the frame counter
 	m_iFrameCounter++;
 
-	// Copy the properties across
-	HRESULT hr = DeliverToRenderer(pIn, pOut, FT_TARGET);
+	HRESULT hr = DeliverToRenderer(pIn, pOut);
 	if (FAILED(hr)) {
 		return hr;
 	}
@@ -386,36 +380,37 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 	return NOERROR;
 }
 
-
-// Called when a new segment is started (by seeking or changing the playback speed)
-HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) {
-	// Calculate the current playback frame time
-	m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(static_cast<double>(m_rtAvgSourceFrameTime) * (1.0 / dRate));
-
+void CHopperRender::UpdateInterpolationStatus() {
 	// Check if interpolation is necessary
-	if (m_bActivated && m_rtCurrPlaybackFrameTime > FT_TARGET) {
-		m_bIntNeeded = true;
-	} else {
-		m_bIntNeeded = false;
+	if (m_iIntActiveState && m_rtCurrPlaybackFrameTime > FT_TARGET) {
+		m_iIntActiveState = 2; // Active
+	} else if (m_iIntActiveState) {
+		m_iIntActiveState = 1; // Not Needed
 	}
 
 	// Calculate the number of intermediate frames needed
-	if (m_bIntNeeded) {
+	if (m_iIntActiveState == 2) {
 		m_rtCurrStartTime = -1; // Tells the DeliverToRenderer function that we are at the start of a new segment
-		m_iNumSamples = static_cast<int>(ceil(
-			static_cast<double>(m_rtCurrPlaybackFrameTime) / static_cast<double>(FT_TARGET)));
+		m_iNumIntFrames = static_cast<int>(ceil(
+			static_cast<double>(m_rtCurrPlaybackFrameTime) / static_cast<double>(FT_TARGET))
+			);
 	} else {
-		m_iNumSamples = 1;
+		m_iNumIntFrames = 1;
 	}
+}
 
-	m_bIntTooSlow = false;
+// Called when a new segment is started (by seeking or changing the playback speed)
+HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) {
+	// Calculate the current source playback frame time
+	m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(static_cast<double>(m_rtSourceFrameTime) * (1.0 / dRate));
+
+	UpdateInterpolationStatus();
 
 	return __super::NewSegment(tStart, tStop, dRate);
 }
 
-
-// Delivers the samples to the renderer
-HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, REFERENCE_TIME rtAvgFrameTimeTarget) {
+// Delivers the new samples (interpolated frames) to the renderer
+HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) {
 	CheckPointer(pIn, E_POINTER)
 	CheckPointer(pOut, E_POINTER)
 
@@ -437,16 +432,15 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 	}
 
 	// Reset our frame time if necessary and calculate the current number of intermediate frames needed
-	if (m_bIntNeeded) {
-		//DebugMessage("ACINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtCurrPlaybackFrameTime));
+	if (m_iIntActiveState == 2) {
 		if (m_rtCurrStartTime == -1) {
 			// We are at the start of a new segment
 			m_rtCurrStartTime = rtStartTime;
 		} else {
 			// We are in the middle of a segment
-			m_iNumSamples = static_cast<int>(ceil(
+			m_iNumIntFrames = static_cast<int>(ceil(
 				static_cast<double>((m_rtCurrPlaybackFrameTime + rtStartTime - m_rtCurrStartTime)) / static_cast<double>
-				(rtAvgFrameTimeTarget)));
+				(FT_TARGET)));
 		}
 		m_rtLastStartTime = rtStartTime;
 	}
@@ -455,9 +449,9 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 	IMediaSample* pOutNew;
 	unsigned char* pOutNewBuffer;
 
-	for (int iIntFrameNum = 0; iIntFrameNum < m_iNumSamples; ++iIntFrameNum) {
+	for (int iIntFrameNum = 0; iIntFrameNum < m_iNumIntFrames; ++iIntFrameNum) {
 		// Create a new output sample
-		if (iIntFrameNum < (m_iNumSamples - 1)) {
+		if (iIntFrameNum < (m_iNumIntFrames - 1)) {
 			pOutNew = nullptr;
 			hr = m_pOutput->GetDeliveryBuffer(&pOutNew, nullptr, nullptr, 0);
 			if (FAILED(hr)) {
@@ -474,15 +468,14 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 			return hr;
 		}
 
-		if (m_bIntNeeded) {
+		if (m_iIntActiveState == 2) {
 			// Interpolation needed
 			// Set the new start and end times
 			rtStartTime = m_rtCurrStartTime;
-			rtEndTime = rtStartTime + rtAvgFrameTimeTarget;
+			rtEndTime = rtStartTime + FT_TARGET;
 		} else {
 			// No interpolation needed
-			//DebugMessage("NOINT | Start time: " + std::to_string(rtStartTime) + " End time: " + std::to_string(rtEndTime) + " Delta: " + std::to_string(rtEndTime - rtStartTime) + " Start2-Start1: " + std::to_string(rtStartTime - m_rtLastStartTime) + " AVG S2-S1: " + std::to_string(m_rtCurrPlaybackFrameTime));
-			m_iNumSamples = 1;
+			m_iNumIntFrames = 1;
 			m_rtCurrStartTime = rtStartTime;
 			m_rtLastStartTime = rtStartTime;
 		}
@@ -494,16 +487,18 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 		}
 
 		// Calculate the scalar for the interpolation
+		// 0.0 means we show frame 1
+		// 0.5 means we show a 50/50 mix of frame 1 and frame 2
+		// 1.0 means we show frame 2
 		const float fScalar = 
 			max(min((static_cast<float>(m_rtCurrStartTime) - 
 				static_cast<float>(m_rtLastStartTime)) / 
 				static_cast<float>(m_rtCurrPlaybackFrameTime), 
 				1.0f), 
 				0.0f);
-		//const float dScalar = static_cast<float>(iIntFrameNum) / static_cast<float>(m_iNumSamples);
 
 		// Increment the frame time for the next sample
-		m_rtCurrStartTime += rtAvgFrameTimeTarget;
+		m_rtCurrStartTime += FT_TARGET;
 
 		// Copy the media times
 		LONGLONG llMediaStart, llMediaEnd;
@@ -527,7 +522,6 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 				return hr;
 			}
 		} else {
-			// an unexpected error has occured...
 			return E_UNEXPECTED;
 		}
 
@@ -556,7 +550,6 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 				return hr;
 			}
 		} else {
-			// an unexpected error has occured...
 			return E_UNEXPECTED;
 		}
 
@@ -573,7 +566,6 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 				return hr;
 			}
 		} else {
-			// an unexpected error has occured...
 			return E_UNEXPECTED;
 		}
 
@@ -584,7 +576,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 		}
 
 		// Interpolate the frame if necessary
-		if (m_bIntNeeded) {
+		if (m_iIntActiveState == 2) {
 			hr = InterpolateFrame(pInBuffer, pOutNewBuffer, fScalar, iIntFrameNum);
 			if (FAILED(hr)) {
 				return hr;
@@ -594,7 +586,8 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 		}
 
 		// Deliver the new output sample downstream
-		if (iIntFrameNum < (m_iNumSamples - 1)) {
+		// We don't need to deliver the last sample, as it is automatically delivered by the caller
+		if (iIntFrameNum < (m_iNumIntFrames - 1)) {
 			hr = m_pOutput->Deliver(pOutNew);
 			if (FAILED(hr)) {
 				return hr;
@@ -608,14 +601,13 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut, 
 	return NOERROR;
 }
 
-
 // Copies the source frame to the output frame
 HRESULT CHopperRender::CopyFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer) const {
 	m_pofcOpticalFlowCalc->copyFrame(pInBuffer, pOutBuffer);
 	return NOERROR;
 }
 
-// Interpolates a frame
+// Calculates the optical flow on the first frame and interpolates all subsequent frames
 HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer, const float fScalar, const int iIntFrameNum) {
 	if (TEST_MODE) {
 		m_iNumSteps = 1;
@@ -628,6 +620,7 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 
 	// Either fill the A or B frame with the new data, so that
 	// we always have the current frame and the previous frame
+	// And blur the newest frame for the calculation
 	if (iIntFrameNum == 0) {
 		if (m_bBisNewest) {
 			m_pofcOpticalFlowCalc->updateFrame1(pInBuffer);
@@ -640,6 +633,7 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 	}
 
 	// If this is the very first frame, we can't interpolate
+	// Note: We did need to first fill the A/B frame so we have the necessary frames to interpolate next time
 	if (m_bFirstFrame) {
 		if (m_iFrameCounter > 1) {
 			m_bFirstFrame = false;
@@ -686,9 +680,8 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 	m_pofcOpticalFlowCalc->m_outputFrame.download(pOutBuffer);
 
 	// Adjust the settings to process everything fast enough
-	if (m_iFrameOutput != 4 && iIntFrameNum == (m_iNumSamples - 1) && !TEST_MODE) {
+	if (m_iFrameOutput != 4 && iIntFrameNum == (m_iNumIntFrames - 1) && !TEST_MODE) {
 		autoAdjustSettings();
-		//m_iNumSteps = 15;
 	}
 
 	// Check for CUDA errors
@@ -701,53 +694,46 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 	return NOERROR;
 }
 
-
 #define WRITEOUT(var)  hr = pStream->Write(&var, sizeof(var), NULL); \
                if (FAILED(hr)) return hr;
 
 #define READIN(var)    hr = pStream->Read(&var, sizeof(var), NULL); \
                if (FAILED(hr)) return hr;
 
-
 // This is the only method of IPersist
 STDMETHODIMP CHopperRender::GetClassID(CLSID* pClsid) {
 	return CBaseFilter::GetClassID(pClsid);
 }
 
-
-// Overriden to write our state into a stream
+// Overridden to write our state into a stream
 HRESULT CHopperRender::ScribbleToStream(IStream* pStream) const {
 	HRESULT hr;
 
-	WRITEOUT(m_bActivated)
+	WRITEOUT(m_iIntActiveState)
 	WRITEOUT(m_iFrameOutput)
 	WRITEOUT(m_iNumIterations)
 	WRITEOUT(m_iFrameBlurKernelSize)
 	WRITEOUT(m_iFlowBlurKernelSize)
-	WRITEOUT(m_bIntNeeded)
 	WRITEOUT(m_rtCurrPlaybackFrameTime)
 	WRITEOUT(m_iNumSteps)
 
 	return NOERROR;
 }
 
-
-// Likewise overriden to restore our state from a stream
+// Likewise overridden to restore our state from a stream
 HRESULT CHopperRender::ReadFromStream(IStream* pStream) {
 	HRESULT hr;
 
-	READIN(m_bActivated)
+	READIN(m_iIntActiveState)
 	READIN(m_iFrameOutput)
 	READIN(m_iNumIterations)
 	READIN(m_iFrameBlurKernelSize)
 	READIN(m_iFlowBlurKernelSize)
-	READIN(m_bIntNeeded)
 	READIN(m_rtCurrPlaybackFrameTime)
 	READIN(m_iNumSteps)
 
 	return NOERROR;
 }
-
 
 // Returns the clsid's of the property pages we support
 STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
@@ -763,9 +749,8 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
 	return NOERROR;
 }
 
-
 // Return the current settings selected
-STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piFrameOutput,
+STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated, int* piFrameOutput,
 										 int* piNumIterations, int* piFrameBlurKernelSize, int* piFlowBlurKernelSize, int* piIntActiveState, 
 										 double* pdSourceFPS, int* piNumSteps, int* piDimX,
 										 int* piDimY, int* piLowDimX, int* piLowDimY) {
@@ -783,20 +768,12 @@ STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piFrameOutput,
 	CheckPointer(piLowDimX, E_POINTER)
 	CheckPointer(piLowDimY, E_POINTER)
 
-	*pbActivated = m_bActivated;
+	*pbActivated = m_iIntActiveState != 0;
 	*piFrameOutput = m_iFrameOutput;
 	*piNumIterations = m_iNumIterations;
 	*piFrameBlurKernelSize = m_iFrameBlurKernelSize;
 	*piFlowBlurKernelSize = m_iFlowBlurKernelSize;
-	if (m_bIntTooSlow) {
-		*piIntActiveState = 3; // Too slow
-	} else if (m_bActivated && m_bIntNeeded) {
-		*piIntActiveState = 2; // Active
-	} else if (m_bActivated && !m_bIntNeeded) {
-		*piIntActiveState = 1; // Not needed
-	} else {
-		*piIntActiveState = 0; // Deactivated
-	}
+	*piIntActiveState = m_iIntActiveState;
 	*pdSourceFPS = 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime);
 	*piNumSteps = m_iNumSteps;
 	*piDimX = m_iDimX;
@@ -807,12 +784,16 @@ STDMETHODIMP CHopperRender::get_Settings(bool* pbActivated, int* piFrameOutput,
 	return NOERROR;
 }
 
-
-// Set the settings
-STDMETHODIMP CHopperRender::put_Settings(bool bActivated, int iFrameOutput, int iNumIterations, int iFrameBlurKernelSize, int iFlowBlurKernelSize) {
+// Apply the new settings
+STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, int iNumIterations, int iFrameBlurKernelSize, int iFlowBlurKernelSize) {
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 
-	m_bActivated = bActivated;
+	if (!bActivated) {
+		m_iIntActiveState = 0;
+	} else if (!m_iIntActiveState) {
+		m_iIntActiveState = 2;
+		UpdateInterpolationStatus();
+	}
 	m_iFrameOutput = iFrameOutput;
 	m_iNumIterations = iNumIterations;
 	m_iFrameBlurKernelSize = iFrameBlurKernelSize;
@@ -825,26 +806,14 @@ STDMETHODIMP CHopperRender::put_Settings(bool bActivated, int iFrameOutput, int 
 // Adjusts the frame scalar
 void CHopperRender::adjustFrameScalar(const unsigned char newResolutionStep) {
 	m_cResolutionStep = newResolutionStep;
-	switch (newResolutionStep) {
-		case 0:
-			m_fResolutionDivider = 1.0f;
-			break;
-		case 1:
-			m_fResolutionDivider = 0.75f;
-			break;
-		case 2:
-			m_fResolutionDivider = 0.5f;
-			break;
-		case 3:
-			m_fResolutionDivider = 0.25f;
-			break;
-		case 4:
-			m_fResolutionDivider = 0.125f;
-			break;
-		default:
-			m_fResolutionDivider = 0.0625f;
-			break;
-	}
+
+    // Set the resolution divider based on the new resolution step
+    if (newResolutionStep < sizeof(m_fResolutionDividers) / sizeof(float)) {
+        m_fResolutionDivider = m_fResolutionDividers[newResolutionStep];
+    } else {
+        // Default resolution divider for out-of-range steps
+        m_fResolutionDivider = 1.0f;
+    }
 
 	// Re-Calculate the resolution scalar
 	m_fResolutionScalar = 1.0f / m_fResolutionDivider;
@@ -853,8 +822,7 @@ void CHopperRender::adjustFrameScalar(const unsigned char newResolutionStep) {
 	m_bFirstFrame = true;
 	m_iFrameCounter = 0;
 	m_bBisNewest = true;
-	m_bIntTooSlow = false;
-	m_bIntNeeded = true;
+	if (m_iIntActiveState == 3) m_iIntActiveState = 2;
 	m_dCurrCalcDuration = 0.0;
 	m_iNumSteps = MIN_NUM_STEPS;
 	m_pofcOpticalFlowCalc->m_fResolutionScalar = m_fResolutionScalar;
@@ -908,8 +876,7 @@ void CHopperRender::autoAdjustSettings() {
 		}
 
 		// Disable Interpolation if we are too slow
-		m_bIntNeeded = false;
-		m_bIntTooSlow = true;
+		m_iIntActiveState = 3;
 
 	/*
 	* We have left over capacity
@@ -955,7 +922,8 @@ HRESULT CHopperRender::loadSettings() {
         // Load activated state
 		valueName = L"Activated"; 
         LONG result1 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		m_bActivated = value;
+		if (value) m_iIntActiveState = 2;
+		else m_iIntActiveState = 0;
 
 		// Load Frame Output
 		valueName = L"FrameOutput"; 
