@@ -5,14 +5,6 @@
 #include <cuda_runtime.h>
 #include "opticalFlowCalcSDR.cuh"
 
-// Debug message function
-void CudaDebugMessage(const std::string& message, const bool showLog) {
-	if (showLog) {
-		const std::string m_debugMessage = message + "\n";
-		OutputDebugStringA(m_debugMessage.c_str());
-	}
-}
-
 // Kernel that converts an NV12 array to a P010 array
 __global__ void convertNV12toP010KernelSDR(const unsigned char* nv12Array, unsigned short* p010Array, const unsigned int dimY,
 										   const unsigned int dimX, const unsigned int scaledDimY, const unsigned int scaledDimX,

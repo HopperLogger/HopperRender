@@ -1,0 +1,11 @@
+﻿---
+IndentWidth: '4'
+KeepEmptyLinesAtTheStartOfBlocks: 'false'
+Language: Cpp
+PointerAlignment: Left
+SpaceAfterCStyleCast: 'false'
+SpaceAfterLogicalNot: 'false'
+SpacesInSquareBrackets: 'false'
+UseTab: ForContinuationAndIndentation
+
+...

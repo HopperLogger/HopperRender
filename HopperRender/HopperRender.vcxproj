@@ -91,7 +91,7 @@
     </Manifest>
     <CudaCompile>
       <CompileOut Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
-      <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">compute_89,sm_89;compute_61,sm_61</CodeGeneration>
+      <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">compute_89,sm_89;compute_86,sm_86;compute_75,sm_75;compute_70,sm_70;compute_61,sm_61;compute_52,sm_52</CodeGeneration>
       <FastMath Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</FastMath>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">EditAndContinue</DebugInformationFormat>
       <PtxAsOptionV Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</PtxAsOptionV>
@@ -144,7 +144,7 @@
     </Manifest>
     <CudaCompile>
       <CompileOut Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
-      <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Release|x64'">compute_89,sm_89;compute_61,sm_61</CodeGeneration>
+      <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Release|x64'">compute_89,sm_89;compute_86,sm_86;compute_75,sm_75;compute_70,sm_70;compute_61,sm_61;compute_52,sm_52</CodeGeneration>
       <FastMath Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</FastMath>
       <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</GPUDebugInfo>
       <HostDebugInfo Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</HostDebugInfo>

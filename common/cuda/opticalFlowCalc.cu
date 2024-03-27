@@ -125,7 +125,7 @@ __global__ void calcDeltaSums8x8(const T* imageDeltaArray, unsigned int* summedU
 	partial_sums[tIdx] = 0;
 
 	if (cy < lowDimY && cx < lowDimX) {
-		// Add the luminace and color channels together
+		// Add the luminance and color channels together
 		partial_sums[tIdx] = 
 			imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + 
 			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX] +
@@ -177,7 +177,7 @@ __global__ void calcDeltaSums4x4(const T* imageDeltaArray, unsigned int* summedU
 	partial_sums[tIdx] = 0;
 
 	if (cy < lowDimY && cx < lowDimX) {
-		// Add the luminace and color channels together
+		// Add the luminance and color channels together
 		partial_sums[tIdx] = 
 			imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + 
 			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX] +
@@ -224,7 +224,7 @@ __global__ void calcDeltaSums2x2(const T* imageDeltaArray, unsigned int* summedU
 	partial_sums[tIdx] = 0;
 
 	if (cy < lowDimY && cx < lowDimX) {
-		// Add the luminace and color channels together
+		// Add the luminance and color channels together
 		partial_sums[tIdx] = 
 			imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + 
 			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX] +
@@ -259,7 +259,7 @@ __global__ void calcDeltaSums1x1(const T* imageDeltaArray, unsigned int* summedU
 	const unsigned int chromY = cy >> 1;
 
 	if (cy < lowDimY && cx < lowDimX) {
-		// Add the luminace and color channels together
+		// Add the luminance and color channels together
 		summedUpDeltaArray[cz * channelIdxOffset + cy * lowDimX + cx] = 
 			imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + 
 			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX] +

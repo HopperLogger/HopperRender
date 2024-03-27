@@ -211,3 +211,15 @@
 
 ### Fixed
 - Fixed indexing bug in blurFrame kernel
+
+## [Version 1.5.7.1] - 2024-03-27 - Fully functional
+### Added
+- Added install and uninstall batch files to register the filter
+- Finished README for the first public release
+
+### Changed
+- Lots of code clean-up
+
+### Fixed
+- HDR (BT.2020) videos are now correctly recognized by madVR and therefore tonemapped with correct colors
+- Fixed settings page being drawn improperly in MPC-BE

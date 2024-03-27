@@ -54,11 +54,11 @@ BEGIN
         CONTROL         "Off", IDC_OFF,"Button", BS_AUTORADIOBUTTON, 11, 40, 47, 10
 
     GROUPBOX        "Frame Output", IDS_STATIC, 4, 65, 115, 90
-        CONTROL         "WarpedFrame 1 -> 2", IDC_WARPEDFRAME12, "Button", BS_AUTORADIOBUTTON | WS_GROUP, 11, 80, 41, 10
-        CONTROL         "WarpedFrame 2 -> 1", IDC_WARPEDFRAME21, "Button", BS_AUTORADIOBUTTON, 11, 95, 47, 10
-        CONTROL         "BlendedFrame", IDC_BLENDEDFRAME, "Button", BS_AUTORADIOBUTTON, 11, 110, 47, 10
-        CONTROL         "HSV Flow", IDC_HSVFLOW, "Button", BS_AUTORADIOBUTTON, 11, 125, 47, 10
-        CONTROL         "Blurred Frames", IDC_BLURREDFRAMES, "Button", BS_AUTORADIOBUTTON, 11, 140, 47, 10
+        CONTROL         "WarpedFrame 1 -> 2", IDC_WARPEDFRAME12, "Button", BS_AUTORADIOBUTTON | WS_GROUP, 11, 80, 80, 10
+        CONTROL         "WarpedFrame 2 -> 1", IDC_WARPEDFRAME21, "Button", BS_AUTORADIOBUTTON, 11, 95, 80, 10
+        CONTROL         "BlendedFrame", IDC_BLENDEDFRAME, "Button", BS_AUTORADIOBUTTON, 11, 110, 80, 10
+        CONTROL         "HSV Flow", IDC_HSVFLOW, "Button", BS_AUTORADIOBUTTON, 11, 125, 80, 10
+        CONTROL         "Blurred Frames", IDC_BLURREDFRAMES, "Button", BS_AUTORADIOBUTTON, 11, 140, 80, 10
 
     GROUPBOX        "Parameters", IDS_STATIC, 125, 10, 130, 67
         EDITTEXT        IDC_NUMITS, 200, 21, 40, 13, ES_AUTOHSCROLL
@@ -79,6 +79,7 @@ BEGIN
         LTEXT           "n/a", IDC_NUMSTEPS, 200, 130, 50, 9
         LTEXT           "n/a", IDC_FRAMERES, 200, 145, 50, 9
         LTEXT           "n/a", IDC_CALCRES, 200, 160, 50, 9
+    LTEXT           "HopperRender V1.5.7.1", IDS_STATIC, 10, 165, 80, 9
 END
 
 STRINGTABLE DISCARDABLE

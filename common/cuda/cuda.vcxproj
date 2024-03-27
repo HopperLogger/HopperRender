@@ -66,7 +66,7 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <CodeGeneration>compute_89,sm_89;compute_61,sm_61</CodeGeneration>
+      <CodeGeneration>compute_89,sm_89;compute_86,sm_86;compute_75,sm_75;compute_70,sm_70;compute_61,sm_61;compute_52,sm_52</CodeGeneration>
       <SplitCompile>MaxThreads</SplitCompile>
       <SplitCompileCustomThreads>16</SplitCompileCustomThreads>
       <FastMath>true</FastMath>
@@ -102,7 +102,7 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <CodeGeneration>compute_89,sm_89;compute_61,sm_61</CodeGeneration>
+      <CodeGeneration>compute_89,sm_89;compute_86,sm_86;compute_75,sm_75;compute_70,sm_70;compute_61,sm_61;compute_52,sm_52</CodeGeneration>
       <FastMath>true</FastMath>
       <PtxAsOptionV>false</PtxAsOptionV>
       <SplitCompile>MaxThreads</SplitCompile>
