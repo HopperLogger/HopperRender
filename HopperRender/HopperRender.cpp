@@ -333,16 +333,21 @@ HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
 		if (pFilter != nullptr) {
 			CLSID guid;
 			if (SUCCEEDED(pFilter->GetClassID(&guid))) {
-				// madVR wants the frame dimensions to be scaled depending on the content type
+				// Depending on the renderer and content type 
+				// the frame dimensions need to be scaled accordingly
 				if (guid == CLSID_madVR) {
 					if (m_bInterlaced) {
 						m_dDimScalar = 64.0 / 45.0; // Interlaced
 					} else {
 						m_dDimScalar = 16.0 / 15.0; // Progressive
 					}
-				// EVR, MPC-VR, etc. doesn't need special scalars
+				// EVR, MPC-VR, etc.
 				} else {
-					m_dDimScalar = 1.0;
+					if (m_bInterlaced) {
+						m_dDimScalar = 16.0 / 15.0; // Interlaced
+					} else {
+						m_dDimScalar = 1.0; // Progressive
+					}
 				}
 			}
 			pFilter->Release();
