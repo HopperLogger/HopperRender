@@ -38,7 +38,7 @@ The usage of [madVR](https://www.videohelp.com/software/madVR) is recommended, b
 </div>
 6. Select the HopperRender.dll file from the extracted zip file.
 <div align="left">
-  <img alt="install3" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/e059abd1-1dab-4674-b0bb-4311ac760b54">
+  <img alt="install3" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/be6dc452-2f4d-4570-8745-3d49102006ee">
 </div>
 7. Select Prefer.
 8. Close the settings and the media player.
