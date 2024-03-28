@@ -366,9 +366,6 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const unsigned int dimY, const unsigned i
 	m_lowGrid32x32x1.x = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimX) / 32.0), 1.0));
 	m_lowGrid32x32x1.y = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimY) / 32.0), 1.0));
 	m_lowGrid32x32x1.z = 1;
-	m_lowGrid16x16x5.x = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimX) / 16.0), 1.0));
-	m_lowGrid16x16x5.y = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimY) / 16.0), 1.0));
-	m_lowGrid16x16x5.z = 5;
 	m_lowGrid16x16x4.x = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimX) / 16.0), 1.0));
 	m_lowGrid16x16x4.y = static_cast<int>(fmax(ceil(static_cast<double>(m_iLowDimY) / 16.0), 1.0));
 	m_lowGrid16x16x4.z = 4;
@@ -395,26 +392,18 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const unsigned int dimY, const unsigned i
 	m_threads16x16x1.x = 16;
 	m_threads16x16x1.y = 16;
 	m_threads16x16x1.z = 1;
-	m_threads8x8x10.x = 8;
-	m_threads8x8x10.y = 8;
-	m_threads8x8x10.z = 10;
 	m_threads8x8x5.x = 8;
 	m_threads8x8x5.y = 8;
 	m_threads8x8x5.z = 5;
 	m_threads8x8x2.x = 8;
 	m_threads8x8x2.y = 8;
 	m_threads8x8x2.z = 2;
-	m_threads8x8x1.x = 8;
-	m_threads8x8x1.y = 8;
-	m_threads8x8x1.z = 1;
-
 
 	// GPU Arrays
 	m_frame1.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
 	m_frame2.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
 	m_blurredFrame1.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
 	m_blurredFrame2.init({ 1, dimY, dimX }, 0, static_cast<size_t>(3.0 * static_cast<double>(dimY * dimX)));
-	m_imageDeltaArray.init({ 5, 2, dimY, dimX });
 	m_offsetArray12.init({ 2, 5, dimY, dimX });
 	m_offsetArray21.init({ 2, dimY, dimX });
 	m_blurredOffsetArray12.init({ 2, dimY, dimX });
@@ -560,8 +549,8 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 	size_t sharedMemSize = num_threads * num_threads * sizeof(unsigned int);
 
 	// Calculate the number of blocks needed
-	unsigned int NUM_BLOCKS_X = max(static_cast<int>(ceil(static_cast<float>(m_imageDeltaArray.dimX) / num_threads)), 1);
-	unsigned int NUM_BLOCKS_Y = max(static_cast<int>(ceil(static_cast<float>(m_imageDeltaArray.dimY) / num_threads)), 1);
+	unsigned int NUM_BLOCKS_X = max(static_cast<int>(ceil(static_cast<float>(m_iLowDimX) / num_threads)), 1);
+	unsigned int NUM_BLOCKS_Y = max(static_cast<int>(ceil(static_cast<float>(m_iLowDimY) / num_threads)), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 gridCDS(NUM_BLOCKS_X, NUM_BLOCKS_Y, 5);
@@ -580,68 +569,64 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 			case 0: iNumStepsPerIter = iNumSteps; break;
 			case 1: iNumStepsPerIter = iNumSteps; break;
 			case 2: iNumStepsPerIter = iNumSteps; break;
-			case 3: iNumStepsPerIter = iNumSteps / 2; break;
-			case 4: iNumStepsPerIter = iNumSteps / 2; break;
-			case 5: iNumStepsPerIter = iNumSteps / 2; break;
-			case 6: iNumStepsPerIter = iNumSteps / 3; break;
-			case 7: iNumStepsPerIter = iNumSteps / 3; break;
-			case 8: iNumStepsPerIter = iNumSteps / 6; break;
+			case 3: iNumStepsPerIter = max(iNumSteps / 2, 1); break;
+			case 4: iNumStepsPerIter = max(iNumSteps / 2, 1); break;
+			case 5: iNumStepsPerIter = max(iNumSteps / 2, 1); break;
+			case 6: iNumStepsPerIter = max(iNumSteps / 3, 1); break;
+			case 7: iNumStepsPerIter = max(iNumSteps / 3, 1); break;
+			case 8: iNumStepsPerIter = max(iNumSteps / 6, 1); break;
 			default: iNumStepsPerIter = 1; break;
 		}
+
 		// Each step we adjust the offset array to find the ideal offset
 		for (unsigned int step = 0; step < iNumStepsPerIter; step++) {
 			// Reset the summed up delta array
 			m_summedUpDeltaArray.zero();
 
-			// 1. Calculate the image deltas with the current offset array
-			if (m_bBisNewest) {
-				calcImageDelta << <m_lowGrid16x16x5, m_threads16x16x2 >> > (m_blurredFrame1.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU,
-															      m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
-															      m_iLowDimY, m_iLowDimX, m_iDimY, m_iDimX,
-															      m_fResolutionScalar, m_iDirectionIdxOffset, m_iChannelIdxOffset);
-			} else {
-				calcImageDelta << <m_lowGrid16x16x5, m_threads16x16x2 >> > (m_blurredFrame2.arrayPtrGPU, m_blurredFrame1.arrayPtrGPU,
-															      m_imageDeltaArray.arrayPtrGPU, m_offsetArray12.arrayPtrGPU,
-															      m_iLowDimY, m_iLowDimX, m_iDimY, m_iDimX,
-															      m_fResolutionScalar, m_iDirectionIdxOffset, m_iChannelIdxOffset);
-			}
-
-			// 2. Sum up the deltas of each window
+			// 1. Calculate the image delta and sum up the deltas of each window
 			if (windowDim >= 8) {
-				calcDeltaSums8x8 << <gridCDS, threadsCDS, sharedMemSize>> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU, 
-																	2 * m_iLayerIdxOffset, m_iLayerIdxOffset, 
-																	m_iLowDimY, m_iLowDimX, windowDim);
+				calcDeltaSums8x8 << <gridCDS, threadsCDS, sharedMemSize>> > (m_summedUpDeltaArray.arrayPtrGPU, 
+																	m_bBisNewest ? m_blurredFrame1.arrayPtrGPU : m_blurredFrame2.arrayPtrGPU,
+                                                                 m_bBisNewest ? m_blurredFrame2.arrayPtrGPU : m_blurredFrame1.arrayPtrGPU,
+																m_offsetArray12.arrayPtrGPU, m_iLayerIdxOffset, m_iDirectionIdxOffset,
+																	m_iDimY, m_iDimX, m_iLowDimY, m_iLowDimX, windowDim, m_fResolutionScalar);
 			} else if (windowDim == 4) {
-				calcDeltaSums4x4 << <gridCDS, threadsCDS, sharedMemSize>> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU, 
-																	2 * m_iLayerIdxOffset, m_iLayerIdxOffset, 
-																	m_iLowDimY, m_iLowDimX, windowDim);
+				calcDeltaSums4x4 << <gridCDS, threadsCDS, sharedMemSize>> > (m_summedUpDeltaArray.arrayPtrGPU, 
+																	m_bBisNewest ? m_blurredFrame1.arrayPtrGPU : m_blurredFrame2.arrayPtrGPU,
+                                                                 m_bBisNewest ? m_blurredFrame2.arrayPtrGPU : m_blurredFrame1.arrayPtrGPU,
+																m_offsetArray12.arrayPtrGPU, m_iLayerIdxOffset, m_iDirectionIdxOffset,
+																	m_iDimY, m_iDimX, m_iLowDimY, m_iLowDimX, windowDim, m_fResolutionScalar);
 			} else if (windowDim == 2) {
-				calcDeltaSums2x2 << <gridCDS, threadsCDS, sharedMemSize>> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU, 
-																	2 * m_iLayerIdxOffset, m_iLayerIdxOffset, 
-																	m_iLowDimY, m_iLowDimX, windowDim);
+				calcDeltaSums2x2 << <gridCDS, threadsCDS, sharedMemSize>> > (m_summedUpDeltaArray.arrayPtrGPU, 
+																	m_bBisNewest ? m_blurredFrame1.arrayPtrGPU : m_blurredFrame2.arrayPtrGPU,
+                                                                 m_bBisNewest ? m_blurredFrame2.arrayPtrGPU : m_blurredFrame1.arrayPtrGPU,
+																m_offsetArray12.arrayPtrGPU, m_iLayerIdxOffset, m_iDirectionIdxOffset,
+																	m_iDimY, m_iDimX, m_iLowDimY, m_iLowDimX, windowDim, m_fResolutionScalar);
 			} else if (windowDim == 1) {
-				calcDeltaSums1x1 << <m_lowGrid8x8x1, m_threads8x8x5, sharedMemSize>> > (m_imageDeltaArray.arrayPtrGPU, m_summedUpDeltaArray.arrayPtrGPU, 
-																	2 * m_iLayerIdxOffset, m_iLayerIdxOffset, 
-																	m_iLowDimY, m_iLowDimX, windowDim);
+				calcDeltaSums1x1 << <m_lowGrid8x8x1, m_threads8x8x5, sharedMemSize>> > (m_summedUpDeltaArray.arrayPtrGPU, 
+																	m_bBisNewest ? m_blurredFrame1.arrayPtrGPU : m_blurredFrame2.arrayPtrGPU,
+                                                                 m_bBisNewest ? m_blurredFrame2.arrayPtrGPU : m_blurredFrame1.arrayPtrGPU,
+																m_offsetArray12.arrayPtrGPU, m_iLayerIdxOffset, m_iDirectionIdxOffset,
+																	m_iDimY, m_iDimX, m_iLowDimY, m_iLowDimX, m_fResolutionScalar);
 			}
 
-			// 3. Normalize the summed up delta array and find the best layer
+			// 2. Normalize the summed up delta array and find the best layer
 			normalizeDeltaSums << <m_lowGrid8x8x1, m_threads8x8x5 >> > (m_summedUpDeltaArray.arrayPtrGPU, m_lowestLayerArray.arrayPtrGPU,
 				m_offsetArray12.arrayPtrGPU, windowDim, windowDim * windowDim,
 				m_iDirectionIdxOffset, m_iLayerIdxOffset, m_iNumLayers, m_iLowDimY, m_iLowDimX);
 
-			// 4. Adjust the offset array based on the comparison results
+			// 3. Adjust the offset array based on the comparison results
 			adjustOffsetArray << <m_lowGrid32x32x1, m_threads32x32x1 >> > (m_offsetArray12.arrayPtrGPU, m_lowestLayerArray.arrayPtrGPU,
 				m_statusArray.arrayPtrGPU, windowDim, m_iDirectionIdxOffset, m_iLayerIdxOffset,
 				m_iNumLayers, m_iLowDimY, m_iLowDimX, step == iNumStepsPerIter - 1);
 		}
 
-		// 5. Adjust window size
+		// 4. Adjust window size
 		windowDim = max(windowDim >> 1, 1);
 		num_threads = min(windowDim, 16);
 		sharedMemSize = num_threads * num_threads * sizeof(unsigned int);
-		NUM_BLOCKS_X = max(static_cast<int>(ceil(static_cast<float>(m_imageDeltaArray.dimX) / num_threads)), 1);
-		NUM_BLOCKS_Y = max(static_cast<int>(ceil(static_cast<float>(m_imageDeltaArray.dimY) / num_threads)), 1);
+		NUM_BLOCKS_X = max(static_cast<int>(ceil(static_cast<float>(m_iLowDimX) / num_threads)), 1);
+		NUM_BLOCKS_Y = max(static_cast<int>(ceil(static_cast<float>(m_iLowDimY) / num_threads)), 1);
 		gridCDS.x = NUM_BLOCKS_X;
 		gridCDS.y = NUM_BLOCKS_Y;
 		threadsCDS.x = num_threads;
@@ -671,46 +656,22 @@ void OpticalFlowCalcHDR::warpFramesForOutput(float fScalar, const bool bOutput12
 		m_hitCount21.zero();
 	}
 
-	// Launch kernels
-	if (m_bBisNewest) {
-		// Frame 1 to Frame 2
-		if (bOutput12) {
-			warpFrameKernelForOutputHDR << <m_grid16x16x1, m_threads16x16x2 >> > (m_frame1.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU,
-				m_hitCount12.arrayPtrGPU, m_ones.arrayPtrGPU,
-				m_outputFrame.arrayPtrGPU, frameScalar12, m_iLowDimY, m_iLowDimX,
-				m_iDimY, m_iDimX, m_fResolutionDivider, m_iLayerIdxOffset, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
-			artifactRemovalKernelForOutputHDR << <m_grid8x8x1, m_threads8x8x2 >> > (m_frame1.arrayPtrGPU, m_hitCount12.arrayPtrGPU,
-				m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
-			// Frame 2 to Frame 1
-		}
-		else {
-			warpFrameKernelForOutputHDR << <m_grid16x16x1, m_threads16x16x2 >> > (m_frame2.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU,
-				m_hitCount21.arrayPtrGPU, m_ones.arrayPtrGPU,
-				m_outputFrame.arrayPtrGPU, frameScalar21, m_iLowDimY, m_iLowDimX,
-				m_iDimY, m_iDimX, m_fResolutionDivider, m_iLayerIdxOffset, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
-			artifactRemovalKernelForOutputHDR << <m_grid8x8x1, m_threads8x8x2 >> > (m_frame2.arrayPtrGPU, m_hitCount21.arrayPtrGPU,
-				m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
-		}
-	}
-	else {
-		// Frame 1 to Frame 2
-		if (bOutput12) {
-			warpFrameKernelForOutputHDR << <m_grid16x16x1, m_threads16x16x2 >> > (m_frame2.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU,
-				m_hitCount12.arrayPtrGPU, m_ones.arrayPtrGPU,
-				m_outputFrame.arrayPtrGPU, frameScalar12, m_iLowDimY, m_iLowDimX,
-				m_iDimY, m_iDimX, m_fResolutionDivider, m_iLayerIdxOffset, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
-			artifactRemovalKernelForOutputHDR << <m_grid8x8x1, m_threads8x8x2 >> > (m_frame2.arrayPtrGPU, m_hitCount12.arrayPtrGPU,
-				m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
-			// Frame 2 to Frame 1
-		}
-		else {
-			warpFrameKernelForOutputHDR << <m_grid16x16x1, m_threads16x16x2 >> > (m_frame1.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU,
-				m_hitCount21.arrayPtrGPU, m_ones.arrayPtrGPU,
-				m_outputFrame.arrayPtrGPU, frameScalar21, m_iLowDimY, m_iLowDimX,
-				m_iDimY, m_iDimX, m_fResolutionDivider, m_iLayerIdxOffset, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
-			artifactRemovalKernelForOutputHDR << <m_grid8x8x1, m_threads8x8x2 >> > (m_frame1.arrayPtrGPU, m_hitCount21.arrayPtrGPU,
-				m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
-		}
+	// Frame 1 to Frame 2
+	if (bOutput12) {
+		warpFrameKernelForOutputHDR << <m_grid16x16x1, m_threads16x16x2 >> > (m_bBisNewest ? m_frame1.arrayPtrGPU : m_frame2.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU,
+			m_hitCount12.arrayPtrGPU, m_ones.arrayPtrGPU,
+			m_outputFrame.arrayPtrGPU, frameScalar12, m_iLowDimY, m_iLowDimX,
+			m_iDimY, m_iDimX, m_fResolutionDivider, m_iLayerIdxOffset, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
+		artifactRemovalKernelForOutputHDR << <m_grid8x8x1, m_threads8x8x2 >> > (m_bBisNewest ? m_frame1.arrayPtrGPU : m_frame2.arrayPtrGPU, m_hitCount12.arrayPtrGPU,
+			m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
+	// Frame 2 to Frame 1
+	} else {
+		warpFrameKernelForOutputHDR << <m_grid16x16x1, m_threads16x16x2 >> > (m_bBisNewest ? m_frame2.arrayPtrGPU : m_frame1.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU,
+			m_hitCount21.arrayPtrGPU, m_ones.arrayPtrGPU,
+			m_outputFrame.arrayPtrGPU, frameScalar21, m_iLowDimY, m_iLowDimX,
+			m_iDimY, m_iDimX, m_fResolutionDivider, m_iLayerIdxOffset, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
+		artifactRemovalKernelForOutputHDR << <m_grid8x8x1, m_threads8x8x2 >> > (m_bBisNewest ? m_frame2.arrayPtrGPU : m_frame1.arrayPtrGPU, m_hitCount21.arrayPtrGPU,
+			m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
 	}
 }
 
@@ -733,42 +694,22 @@ void OpticalFlowCalcHDR::warpFramesForBlending(float fScalar) {
 	cudaStreamCreate(&warpStream1);
 	cudaStreamCreate(&warpStream2);
 
-	// Launch kernels
-	if (m_bBisNewest) {
-		// Frame 1 to Frame 2
-		warpFrameKernelForBlendingHDR << <m_grid16x16x1, m_threads16x16x2, 0, warpStream1 >> > (m_frame1.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU,
-														          m_hitCount12.arrayPtrGPU, m_ones.arrayPtrGPU, 
-																  m_warpedFrame12.arrayPtrGPU, frameScalar12, m_iLowDimY, m_iLowDimX,
-																  m_iDimY, m_iDimX, m_fResolutionDivider, m_iLayerIdxOffset, m_iChannelIdxOffset);
-		artifactRemovalKernelForBlending << <m_grid8x8x1, m_threads8x8x2, 0, warpStream1 >> > (m_frame1.arrayPtrGPU, m_hitCount12.arrayPtrGPU,
-																				      m_warpedFrame12.arrayPtrGPU, m_iDimY, m_iDimX, m_iChannelIdxOffset);
+	// Frame 1 to Frame 2
+	warpFrameKernelForBlendingHDR << <m_grid16x16x1, m_threads16x16x2, 0, warpStream1 >> > (m_bBisNewest ? m_frame1.arrayPtrGPU : m_frame2.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU,
+														        m_hitCount12.arrayPtrGPU, m_ones.arrayPtrGPU, 
+																m_warpedFrame12.arrayPtrGPU, frameScalar12, m_iLowDimY, m_iLowDimX,
+																m_iDimY, m_iDimX, m_fResolutionDivider, m_iLayerIdxOffset, m_iChannelIdxOffset);
+	artifactRemovalKernelForBlending << <m_grid8x8x1, m_threads8x8x2, 0, warpStream1 >> > (m_bBisNewest ? m_frame1.arrayPtrGPU : m_frame2.arrayPtrGPU, m_hitCount12.arrayPtrGPU,
+																				    m_warpedFrame12.arrayPtrGPU, m_iDimY, m_iDimX, m_iChannelIdxOffset);
 
-		// Frame 2 to Frame 1
-		warpFrameKernelForBlendingHDR << <m_grid16x16x1, m_threads16x16x2, 0, warpStream2 >> > (m_frame2.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU,
-																  m_hitCount21.arrayPtrGPU, m_ones.arrayPtrGPU, 
-																  m_warpedFrame21.arrayPtrGPU, frameScalar21, m_iLowDimY, m_iLowDimX,
-																  m_iDimY, m_iDimX, m_fResolutionDivider, m_iLayerIdxOffset, m_iChannelIdxOffset);
-		artifactRemovalKernelForBlending << <m_grid8x8x1, m_threads8x8x2, 0, warpStream2 >> > (m_frame2.arrayPtrGPU, m_hitCount21.arrayPtrGPU,
-																					  m_warpedFrame21.arrayPtrGPU, m_iDimY, m_iDimX, m_iChannelIdxOffset);
+	// Frame 2 to Frame 1
+	warpFrameKernelForBlendingHDR << <m_grid16x16x1, m_threads16x16x2, 0, warpStream2 >> > (m_bBisNewest ? m_frame2.arrayPtrGPU : m_frame1.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU,
+																m_hitCount21.arrayPtrGPU, m_ones.arrayPtrGPU, 
+																m_warpedFrame21.arrayPtrGPU, frameScalar21, m_iLowDimY, m_iLowDimX,
+																m_iDimY, m_iDimX, m_fResolutionDivider, m_iLayerIdxOffset, m_iChannelIdxOffset);
+	artifactRemovalKernelForBlending << <m_grid8x8x1, m_threads8x8x2, 0, warpStream2 >> > (m_bBisNewest ? m_frame2.arrayPtrGPU : m_frame1.arrayPtrGPU, m_hitCount21.arrayPtrGPU,
+																					m_warpedFrame21.arrayPtrGPU, m_iDimY, m_iDimX, m_iChannelIdxOffset);
 
-	} else {
-		// Frame 1 to Frame 2
-		warpFrameKernelForBlendingHDR << <m_grid16x16x1, m_threads16x16x2, 0, warpStream1 >> > (m_frame2.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU,
-																  m_hitCount12.arrayPtrGPU, m_ones.arrayPtrGPU,
-																  m_warpedFrame12.arrayPtrGPU, frameScalar12, m_iLowDimY, m_iLowDimX,
-																  m_iDimY, m_iDimX, m_fResolutionDivider, m_iLayerIdxOffset, m_iChannelIdxOffset);
-		artifactRemovalKernelForBlending << <m_grid8x8x1, m_threads8x8x2, 0, warpStream1 >> > (m_frame2.arrayPtrGPU, m_hitCount12.arrayPtrGPU,
-																					  m_warpedFrame12.arrayPtrGPU, m_iDimY, m_iDimX, m_iChannelIdxOffset);
-
-		// Frame 2 to Frame 1
-		warpFrameKernelForBlendingHDR << <m_grid16x16x1, m_threads16x16x2, 0, warpStream2 >> > (m_frame1.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU,
-																  m_hitCount21.arrayPtrGPU, m_ones.arrayPtrGPU,
-																  m_warpedFrame21.arrayPtrGPU, frameScalar21, m_iLowDimY, m_iLowDimX,
-																  m_iDimY, m_iDimX, m_fResolutionDivider, m_iLayerIdxOffset, m_iChannelIdxOffset);
-		artifactRemovalKernelForBlending << <m_grid8x8x1, m_threads8x8x2, 0, warpStream2 >> > (m_frame1.arrayPtrGPU, m_hitCount21.arrayPtrGPU,
-																					  m_warpedFrame21.arrayPtrGPU, m_iDimY, m_iDimX, m_iChannelIdxOffset);
-
-	}
 
 	// Synchronize streams to ensure completion
 	cudaStreamSynchronize(warpStream1);
@@ -801,14 +742,7 @@ void OpticalFlowCalcHDR::blendFrames(float fScalar) {
 * @param blendScalar: The scalar that determines how much of the source frame is blended with the flow
 */
 void OpticalFlowCalcHDR::drawFlowAsHSV(const float blendScalar) const {
-	if (m_bBisNewest) {
-		convertFlowToHSVKernelHDR << <m_grid16x16x1, m_threads16x16x2 >> > (m_blurredOffsetArray12.arrayPtrGPU, m_outputFrame.arrayPtrGPU,
-														    m_frame2.arrayPtrGPU, blendScalar, m_iLowDimX, m_iDimY, m_iDimX, 
-															m_fResolutionDivider, m_iLayerIdxOffset, m_iScaledDimX, m_iScaledChannelIdxOffset);
-	}
-	else {
-		convertFlowToHSVKernelHDR << <m_grid16x16x1, m_threads16x16x2 >> > (m_blurredOffsetArray12.arrayPtrGPU, m_outputFrame.arrayPtrGPU,
-														    m_frame1.arrayPtrGPU, blendScalar, m_iLowDimX, m_iDimY, m_iDimX, 
-															m_fResolutionDivider, m_iLayerIdxOffset, m_iScaledDimX, m_iScaledChannelIdxOffset);
-	}
+	convertFlowToHSVKernelHDR << <m_grid16x16x1, m_threads16x16x2 >> > (m_blurredOffsetArray12.arrayPtrGPU, m_outputFrame.arrayPtrGPU,
+														m_bBisNewest ? m_frame2.arrayPtrGPU : m_frame1.arrayPtrGPU, blendScalar, m_iLowDimX, m_iDimY, m_iDimX, 
+														m_fResolutionDivider, m_iLayerIdxOffset, m_iScaledDimX, m_iScaledChannelIdxOffset);
 }

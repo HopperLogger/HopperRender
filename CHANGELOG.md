@@ -223,3 +223,12 @@
 ### Fixed
 - HDR (BT.2020) videos are now correctly recognized by madVR and therefore tonemapped with correct colors
 - Fixed settings page being drawn improperly in MPC-BE
+
+## [Version 1.5.7.2] - 2024-03-28 - Fully functional
+### Changed
+- Merged calcImageDelta and calcDeltaSum kernel to improve performance by about 1.6x
+- Removed color channel consideration when calculating optical flow to save performance and since it did't provide added quality
+- General code clean-up
+
+### Fixed
+- Fixed iteration dependent step calculation resulting in some iterations doing 0 steps instead of 1

@@ -79,7 +79,7 @@ BEGIN
         LTEXT           "n/a", IDC_NUMSTEPS, 200, 130, 50, 9
         LTEXT           "n/a", IDC_FRAMERES, 200, 145, 50, 9
         LTEXT           "n/a", IDC_CALCRES, 200, 160, 50, 9
-    LTEXT           "HopperRender V1.5.7.1", IDS_STATIC, 10, 165, 80, 9
+    LTEXT           "HopperRender V1.5.7.2", IDS_STATIC, 10, 165, 100, 9
 END
 
 STRINGTABLE DISCARDABLE

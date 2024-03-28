@@ -87,7 +87,6 @@ public:
 	GPUArray<unsigned char> m_frame2; // Array containing the second frame
 	GPUArray<unsigned char> m_blurredFrame1; // Array containing the first frame after blurring
 	GPUArray<unsigned char> m_blurredFrame2; // Array containing the second frame after blurring
-	GPUArray<unsigned char> m_imageDeltaArray; // Array containing the absolute difference between the two frames
 	GPUArray<unsigned char> m_warpedFrame12; // Array containing the warped frame (frame 1 to frame 2)
 	GPUArray<unsigned char> m_warpedFrame21; // Array containing the warped frame (frame 2 to frame 1)
 };

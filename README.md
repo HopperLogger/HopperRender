@@ -70,9 +70,27 @@ You can access the settings when playing back a video with HopperRender by right
 
     - _Blurred Frames: Outputs the blurred source frames_
 - You can set the number of iterations (0 will automatically do as many iterations as possible)
-- You can set the Frame and Flow blur kernel sizes which controls how much the frames or the flow will be blurred
+- You can set the Frame and Flow blur kernel sizes which controls how much the frames or the flow will be blurred _(Values between 0-32)_
 - In the status section, you can see the current state of HopperRender, the number of calculation steps that are currently performed, the source framerate, as well as the frame and calculation resolutions
 - The settings will be automatically saved to the registry `HKEY_CURRENT_USER\Software\HopperRender` so next time the filter is used, it loads the settings automatically
+
+## How it works
+> Note: The following is a very brief overview of how the filter works. It is not a complete, or 100% accurate description of the interpolation process. Refer to the source code for more details.
+
+- To prevent the algorithm from focusing on pixel level details or compression artifacts, we first (depending on the user setting) blur the frames internally to use for the optical flow calculation
+- HopperRender uses an offset array that shifts the frame according to the values contained in it
+- The offset array has 5 layers that contain different shifts that can be 'tried out' at the same time to find the best one
+- The first step involves setting the 5 layers to a horizontal shift of -2, -1, 0, 1, and 2
+- Then, the first frame is shifted accordingly and we subtract the y-channel difference of the shifted frame to the unshifted next frame
+- We then reduce all the absolute pixel deltas to one value and find out which layer (i.e. which horizontal shift) contains the lowest value and therefore difference
+- Depending on the resulting layer index, we can either move on to the same procedure for the vertical movement, or continue moving in the negative or positive x direction
+- We repeat this process until we are certain we found the best offset, or are out of calculation steps
+- After having found the best offset for the entire frame, we decrease our window size to a quarter the size and continue the search again for every individual window starting at the previous position
+- Depending on the user setting, we do this until we get to the individual pixel level
+- Finally, we flip the offset array to give us not just the ideal shift to warp frame 1 to frame 2, but also to warp frame 2 to frame 1
+- We then blur both offset arrays depending on the user settings to get a more smooth warp
+- Then we use these offset arrays to generate intermediate frames by multiplying the offset values by certain scalars
+- We add a bit of artifact removal for the pixels that weren't ideally moved and blend the warped frames from both directions together
 
 ## Acknowledgements
 
