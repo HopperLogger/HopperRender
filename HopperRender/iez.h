@@ -16,6 +16,8 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int* piNumIterations, // Number of iterations to use in the optical flow calculation (0: As many as possible)
 		int* piFrameBlurKernelSize, // The size of the blur kernel used to blur the source frames before calculating the optical flow
 		int* piFlowBlurKernelSize, // The size of the blur kernel used to blur the offset calculated by the optical flow
+		int* piSceneChangeThreshold, // The threshold used to determine whether a scene change has occurred
+		int* piCurrentSceneChange, // How many pixel differences are currently detected
 		int* piIntActiveState, // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
 		double* pdSourceFPS, // The source frames per second
 		int* piNumSteps, // Number of steps executed to find the ideal offset (limits the maximum offset)
@@ -30,7 +32,8 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int iFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames)
 		int iNumIterations, // Number of iterations to use in the optical flow calculation (0: As many as possible)
 		int iFrameBlurKernelSize, // The size of the blur kernel used to blur the source frames before calculating the optical flow
-		int iFlowBlurKernelSize // The size of the blur kernel used to blur the offset calculated by the optical flow
+		int iFlowBlurKernelSize, // The size of the blur kernel used to blur the offset calculated by the optical flow
+		int iSceneChangeThreshold // The threshold used to determine whether a scene change has occurred
 	) PURE;
 };
 

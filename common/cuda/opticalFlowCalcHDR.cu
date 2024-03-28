@@ -453,8 +453,26 @@ void OpticalFlowCalcHDR::copyFrame(const unsigned char* pInBuffer, unsigned char
 		// Set the array entries to the provided value
 		m_frame1.fillData(pInBuffer);
 
-		// Convert the NV12 frame to P010
+		// Scale the frame according to the renderer
 		scaleFrameKernelHDR << <m_grid8x8x1, m_threads8x8x2 >> > (m_frame1.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimY, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
+
+		// Download the output frame
+		m_outputFrame.download(pOutBuffer);
+	}
+}
+
+/*
+* Copies a frame that is already on the GPU in the correct format to the output buffer
+*
+* @param bUseFrame2: Whether to use frame2 or frame1
+* @param pOutBuffer: Pointer to the output frame
+*/
+void OpticalFlowCalcHDR::copyOwnFrame(const bool bUseFrame2, unsigned char* pOutBuffer) {
+	if (m_dDimScalar == 1.0) {
+		bUseFrame2 ? m_frame2.download(pOutBuffer) : m_frame1.download(pOutBuffer);
+	} else {
+		// Scale the frame according to the renderer
+		scaleFrameKernelHDR << <m_grid8x8x1, m_threads8x8x2 >> > (bUseFrame2 ? m_frame2.arrayPtrGPU : m_frame1.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimY, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
 
 		// Download the output frame
 		m_outputFrame.download(pOutBuffer);
@@ -490,32 +508,17 @@ void OpticalFlowCalcHDR::blurFrameArray(const unsigned char kernelSize, const bo
 	dim3 gridBF(NUM_BLOCKS_X, NUM_BLOCKS_Y, 2);
 	dim3 threadsBF(kernelSize, kernelSize, 1);
 
-	if (!m_bBisNewest) {
-		// No need to blur the frame if the kernel size is less than 4
-		if (kernelSize < 4) {
-			cudaMemcpy(m_blurredFrame1.arrayPtrGPU, m_frame1.arrayPtrGPU, m_frame1.bytes, cudaMemcpyDeviceToDevice);
-		} else {
-			// Launch kernel
-			blurFrameKernelHDR << <gridBF, threadsBF, sharedMemSize >> > (m_frame1.arrayPtrGPU, m_blurredFrame1.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, lumStart, lumEnd, lumPixelCount, chromStart, chromEnd, chromPixelCount, m_iDimY, m_iDimX);
-		}
-
-		// Convert the NV12 frame to P010 if we are doing direct output
-		if (directOutput) {
-			scaleFrameKernelHDR << <m_grid8x8x1, m_threads8x8x2 >> > (m_blurredFrame1.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimY, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
-		}
+	// No need to blur the frame if the kernel size is less than 4
+	if (kernelSize < 4) {
+		cudaMemcpy(m_bBisNewest ? m_blurredFrame2.arrayPtrGPU : m_blurredFrame1.arrayPtrGPU, m_bBisNewest ? m_frame2.arrayPtrGPU : m_frame1.arrayPtrGPU, m_frame2.bytes, cudaMemcpyDeviceToDevice);
 	} else {
-		// No need to blur the frame if the kernel size is less than 4
-		if (kernelSize < 4) {
-			cudaMemcpy(m_blurredFrame2.arrayPtrGPU, m_frame2.arrayPtrGPU, m_frame2.bytes, cudaMemcpyDeviceToDevice);
-		} else {
-			// Launch kernel
-			blurFrameKernelHDR << <gridBF, threadsBF, sharedMemSize >> > (m_frame2.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, lumStart, lumEnd, lumPixelCount, chromStart, chromEnd, chromPixelCount, m_iDimY, m_iDimX);
-		}
+		// Launch kernel
+		blurFrameKernelHDR << <gridBF, threadsBF, sharedMemSize >> > (m_bBisNewest ? m_frame2.arrayPtrGPU : m_frame1.arrayPtrGPU, m_bBisNewest ? m_blurredFrame2.arrayPtrGPU : m_blurredFrame1.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, lumStart, lumEnd, lumPixelCount, chromStart, chromEnd, chromPixelCount, m_iDimY, m_iDimX);
+	}
 
-		// Convert the NV12 frame to P010 if we are doing direct output
-		if (directOutput) {
-			scaleFrameKernelHDR << <m_grid8x8x1, m_threads8x8x2 >> > (m_blurredFrame2.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimY, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
-		}
+	// Convert the NV12 frame to P010 if we are doing direct output
+	if (directOutput) {
+		scaleFrameKernelHDR << <m_grid8x8x1, m_threads8x8x2 >> > (m_bBisNewest ? m_blurredFrame2.arrayPtrGPU : m_blurredFrame1.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimY, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
 	}
 }
 
@@ -590,6 +593,16 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
                                                                  m_bBisNewest ? m_blurredFrame2.arrayPtrGPU : m_blurredFrame1.arrayPtrGPU,
 																m_offsetArray12.arrayPtrGPU, m_iLayerIdxOffset, m_iDirectionIdxOffset,
 																	m_iDimY, m_iDimX, m_iLowDimY, m_iLowDimX, windowDim, m_fResolutionScalar);
+			
+				// Check if interpolation is appropriate
+				if (m_iSceneChangeThreshold != 0 && (iter == 0 && step == 0)) {
+					cudaMemcpy(&m_iCurrentSceneChange, m_summedUpDeltaArray.arrayPtrGPU, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+					m_iCurrentSceneChange >>= 14;
+					if (m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold) {
+						return;
+					}
+				}
+
 			} else if (windowDim == 4) {
 				calcDeltaSums4x4 << <gridCDS, threadsCDS, sharedMemSize>> > (m_summedUpDeltaArray.arrayPtrGPU, 
 																	m_bBisNewest ? m_blurredFrame1.arrayPtrGPU : m_blurredFrame2.arrayPtrGPU,

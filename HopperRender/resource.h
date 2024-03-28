@@ -22,6 +22,8 @@
 #define IDC_FRAMERES				    1023
 #define IDC_CALCRES				        1024
 #define IDC_BLURREDFRAMES 			    1025
+#define IDC_SCENECHANGETHRESHOLD        1026
+#define IDC_CURRFRAMEDIFF               1027
 
 // Next default values for new objects
 //

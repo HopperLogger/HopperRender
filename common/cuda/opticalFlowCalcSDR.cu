@@ -464,6 +464,20 @@ void OpticalFlowCalcSDR::copyFrame(const unsigned char* pInBuffer, unsigned char
 }
 
 /*
+* Copies a frame that is already on the GPU in the correct format to the output buffer
+*
+* @param bUseFrame2: Whether to use frame2 or frame1
+* @param pOutBuffer: Pointer to the output frame
+*/
+void OpticalFlowCalcSDR::copyOwnFrame(const bool bUseFrame2, unsigned char* pOutBuffer) {
+	// Convert the NV12 frame to P010
+	convertNV12toP010KernelSDR << <m_grid16x16x1, m_threads16x16x2>> > (bUseFrame2 ? m_frame2.arrayPtrGPU : m_frame1.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimY, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
+
+	// Download the output frame
+	m_outputFrame.download(pOutBuffer);
+}
+
+/*
 * Blurs a frame
 *
 * @param kernelSize: Size of the kernel to use for the blur
@@ -492,32 +506,17 @@ void OpticalFlowCalcSDR::blurFrameArray(const unsigned char kernelSize, const bo
 	dim3 gridBF(NUM_BLOCKS_X, NUM_BLOCKS_Y, 2);
 	dim3 threadsBF(kernelSize, kernelSize, 1);
 
-	if (!m_bBisNewest) {
-		// No need to blur the frame if the kernel size is less than 4
-		if (kernelSize < 4) {
-			cudaMemcpy(m_blurredFrame1.arrayPtrGPU, m_frame1.arrayPtrGPU, m_frame1.bytes, cudaMemcpyDeviceToDevice);
-		} else {
-			// Launch kernel
-			blurFrameKernelSDR << <gridBF, threadsBF, sharedMemSize >> > (m_frame1.arrayPtrGPU, m_blurredFrame1.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, lumStart, lumEnd, lumPixelCount, chromStart, chromEnd, chromPixelCount, m_iDimY, m_iDimX);
-		}
-
-		// Convert the NV12 frame to P010 if we are doing direct output
-		if (directOutput) {
-			convertNV12toP010KernelSDR << <m_grid16x16x1, m_threads16x16x2 >> > (m_blurredFrame1.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimY, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
-		}
+	// No need to blur the frame if the kernel size is less than 4
+	if (kernelSize < 4) {
+		cudaMemcpy(m_bBisNewest ? m_blurredFrame2.arrayPtrGPU : m_blurredFrame1.arrayPtrGPU, m_bBisNewest ? m_frame2.arrayPtrGPU : m_frame1.arrayPtrGPU, m_frame2.bytes, cudaMemcpyDeviceToDevice);
 	} else {
-		// No need to blur the frame if the kernel size is less than 4
-		if (kernelSize < 4) {
-			cudaMemcpy(m_blurredFrame2.arrayPtrGPU, m_frame2.arrayPtrGPU, m_frame1.bytes, cudaMemcpyDeviceToDevice);
-		} else {
-			// Launch kernel
-			blurFrameKernelSDR << <gridBF, threadsBF, sharedMemSize >> > (m_frame2.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, lumStart, lumEnd, lumPixelCount, chromStart, chromEnd, chromPixelCount, m_iDimY, m_iDimX);
-		}
+		// Launch kernel
+		blurFrameKernelSDR << <gridBF, threadsBF, sharedMemSize >> > (m_bBisNewest ? m_frame2.arrayPtrGPU : m_frame1.arrayPtrGPU, m_bBisNewest ? m_blurredFrame2.arrayPtrGPU : m_blurredFrame1.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, lumStart, lumEnd, lumPixelCount, chromStart, chromEnd, chromPixelCount, m_iDimY, m_iDimX);
+	}
 
-		// Convert the NV12 frame to P010 if we are doing direct output
-		if (directOutput) {
-			convertNV12toP010KernelSDR << <m_grid16x16x1, m_threads16x16x2 >> > (m_blurredFrame2.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimY, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
-		}
+	// Convert the NV12 frame to P010 if we are doing direct output
+	if (directOutput) {
+		convertNV12toP010KernelSDR << <m_grid16x16x1, m_threads16x16x2 >> > (m_bBisNewest ? m_blurredFrame2.arrayPtrGPU : m_blurredFrame1.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimY, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
 	}
 }
 
@@ -591,6 +590,15 @@ void OpticalFlowCalcSDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
                                                                  m_bBisNewest ? m_blurredFrame2.arrayPtrGPU : m_blurredFrame1.arrayPtrGPU,
 																m_offsetArray12.arrayPtrGPU, m_iLayerIdxOffset, m_iDirectionIdxOffset,
 																	m_iDimY, m_iDimX, m_iLowDimY, m_iLowDimX, windowDim, m_fResolutionScalar);
+				// Check if interpolation is appropriate
+				if (m_iSceneChangeThreshold != 0 && (iter == 0 && step == 0)) {
+					cudaMemcpy(&m_iCurrentSceneChange, m_summedUpDeltaArray.arrayPtrGPU, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+					m_iCurrentSceneChange >>= 14;
+					if (m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold) {
+						return;
+					}
+				}
+			
 			} else if (windowDim == 4) {
 				calcDeltaSums4x4 << <gridCDS, threadsCDS, sharedMemSize>> > (m_summedUpDeltaArray.arrayPtrGPU, 
 																	m_bBisNewest ? m_blurredFrame1.arrayPtrGPU : m_blurredFrame2.arrayPtrGPU,

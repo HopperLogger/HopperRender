@@ -139,6 +139,8 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_fResolutionScalar(1.0f),
 	m_fResolutionDivider(1.0f),
 	m_iNumSteps(4),
+	m_iSceneChangeThreshold(3000),
+	m_iCurrentSceneChange(0),
 
 	// Frame output
 	m_dDimScalar(1.0),
@@ -648,11 +650,25 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 
 	// Calculate the optical flow in both directions and blur it
 	if (iIntFrameNum == 0) {
+		// Update the scene change threshold
+		m_pofcOpticalFlowCalc->m_iSceneChangeThreshold = m_iSceneChangeThreshold;
+
 		// Calculate the optical flow (frame 1 to frame 2)
 		if (m_iFrameOutput != 4) {
 			m_pofcOpticalFlowCalc->calculateOpticalFlow(m_iNumIterations, m_iNumSteps);
 		}
 
+		// Get the latest frame difference
+		m_iCurrentSceneChange = m_pofcOpticalFlowCalc->m_iCurrentSceneChange;
+	}
+
+	// Disable interpolation as long as the scene change is too high
+	if (m_iSceneChangeThreshold != 0 && (m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold)) {
+		m_pofcOpticalFlowCalc->copyOwnFrame(!m_bBisNewest, pOutBuffer);
+		return NOERROR;
+	}
+
+	if (iIntFrameNum == 0) {
 		// Flip the flow array to frame 2 to frame 1
 		if (m_iFrameOutput == 1 || m_iFrameOutput == 2) {
 			m_pofcOpticalFlowCalc->flipFlow();
@@ -719,6 +735,7 @@ HRESULT CHopperRender::ScribbleToStream(IStream* pStream) const {
 	WRITEOUT(m_iNumIterations)
 	WRITEOUT(m_iFrameBlurKernelSize)
 	WRITEOUT(m_iFlowBlurKernelSize)
+	WRITEOUT(m_iSceneChangeThreshold)
 	WRITEOUT(m_rtCurrPlaybackFrameTime)
 	WRITEOUT(m_iNumSteps)
 
@@ -734,6 +751,7 @@ HRESULT CHopperRender::ReadFromStream(IStream* pStream) {
 	READIN(m_iNumIterations)
 	READIN(m_iFrameBlurKernelSize)
 	READIN(m_iFlowBlurKernelSize)
+	READIN(m_iSceneChangeThreshold)
 	READIN(m_rtCurrPlaybackFrameTime)
 	READIN(m_iNumSteps)
 
@@ -756,15 +774,18 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
 
 // Return the current settings selected
 STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated, int* piFrameOutput,
-										 int* piNumIterations, int* piFrameBlurKernelSize, int* piFlowBlurKernelSize, int* piIntActiveState, 
-										 double* pdSourceFPS, int* piNumSteps, int* piDimX,
-										 int* piDimY, int* piLowDimX, int* piLowDimY) {
+										 int* piNumIterations, int* piFrameBlurKernelSize, 
+										 int* piFlowBlurKernelSize, int* piSceneChangeThreshold, 
+										 int* piCurrentSceneChange, int* piIntActiveState, 
+										 double* pdSourceFPS, int* piNumSteps, 
+										 int* piDimX, int* piDimY, int* piLowDimX, int* piLowDimY) {
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 	CheckPointer(pbActivated, E_POINTER)
 	CheckPointer(piFrameOutput, E_POINTER)
 	CheckPointer(piNumIterations, E_POINTER)
 	CheckPointer(piFrameBlurKernelSize, E_POINTER)
 	CheckPointer(piFlowBlurKernelSize, E_POINTER)
+	CheckPointer(piCurrentSceneChange, E_POINTER)
 	CheckPointer(piIntActiveState, E_POINTER)
 	CheckPointer(pdSourceFPS, E_POINTER)
 	CheckPointer(piNumSteps, E_POINTER)
@@ -778,6 +799,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated, int* piFrameOu
 	*piNumIterations = m_iNumIterations;
 	*piFrameBlurKernelSize = m_iFrameBlurKernelSize;
 	*piFlowBlurKernelSize = m_iFlowBlurKernelSize;
+	*piSceneChangeThreshold = m_iSceneChangeThreshold;
+	*piCurrentSceneChange = m_iCurrentSceneChange;
 	*piIntActiveState = m_iIntActiveState;
 	*pdSourceFPS = 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime);
 	*piNumSteps = m_iNumSteps;
@@ -790,7 +813,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated, int* piFrameOu
 }
 
 // Apply the new settings
-STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, int iNumIterations, int iFrameBlurKernelSize, int iFlowBlurKernelSize) {
+STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, int iNumIterations, int iFrameBlurKernelSize, int iFlowBlurKernelSize, int iSceneChangeThreshold) {
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 
 	if (!bActivated) {
@@ -803,6 +826,7 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput
 	m_iNumIterations = iNumIterations;
 	m_iFrameBlurKernelSize = iFrameBlurKernelSize;
 	m_iFlowBlurKernelSize = iFlowBlurKernelSize;
+	m_iSceneChangeThreshold = iSceneChangeThreshold;
 
 	SetDirty(TRUE);
 	return NOERROR;
@@ -948,10 +972,15 @@ HRESULT CHopperRender::loadSettings() {
         LONG result5 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
 		m_iFlowBlurKernelSize = value;
 
+		// Load the scene change threshold
+		valueName = L"SceneChangeThreshold"; 
+        LONG result6 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
+		m_iSceneChangeThreshold = value;
+
 		RegCloseKey(hKey); // Close the registry key
 
 		// Check for errors
-        if (result1 || result2 || result3 || result4) {
+        if (result1 || result2 || result3 || result4 || result5 || result6) {
 			return E_FAIL;
         } else {
             return S_OK;
