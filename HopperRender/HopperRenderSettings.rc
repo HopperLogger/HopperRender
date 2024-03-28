@@ -60,26 +60,30 @@ BEGIN
         CONTROL         "HSV Flow", IDC_HSVFLOW, "Button", BS_AUTORADIOBUTTON, 11, 125, 80, 10
         CONTROL         "Blurred Frames", IDC_BLURREDFRAMES, "Button", BS_AUTORADIOBUTTON, 11, 140, 80, 10
 
-    GROUPBOX        "Parameters", IDS_STATIC, 125, 10, 130, 67
+    GROUPBOX        "Parameters", IDS_STATIC, 125, 10, 130, 85
         EDITTEXT        IDC_NUMITS, 200, 21, 40, 13, ES_AUTOHSCROLL
         EDITTEXT        IDC_FRAMEBLURKERNEL, 200, 39, 40, 13, ES_AUTOHSCROLL
         EDITTEXT        IDC_FLOWBLURKERNEL, 200, 57, 40, 13, ES_AUTOHSCROLL
+        EDITTEXT        IDC_SCENECHANGETHRESHOLD, 200, 75, 40, 13, ES_AUTOHSCROLL
         LTEXT           "Num Iterations", IDS_STATIC, 132, 24, 60, 9
         LTEXT           "Frame Blur Size", IDS_STATIC, 132, 42, 60, 9
         LTEXT           "Flow Blur Size", IDS_STATIC, 132, 60, 60, 9
+        LTEXT           "Scene Change Thr.", IDS_STATIC, 132, 78, 67, 9
 
-    GROUPBOX        "Status", IDS_STATIC, 125, 85, 130, 90
-        LTEXT           "Int Active", IDS_STATIC, 132, 100, 60, 9
-        LTEXT           "Source FPS", IDS_STATIC, 132, 115, 60, 9
-        LTEXT           "Num Steps", IDS_STATIC, 132, 130, 60, 9
-        LTEXT           "Frame Resolution", IDS_STATIC, 132, 145, 60, 9
-        LTEXT           "Calc Resolution", IDS_STATIC, 132, 160, 60, 9
-        LTEXT           "n/a", IDC_INTACTIVE, 200, 100, 50, 9
-        LTEXT           "n/a", IDC_SOURCEFPS, 200, 115, 50, 9
-        LTEXT           "n/a", IDC_NUMSTEPS, 200, 130, 50, 9
-        LTEXT           "n/a", IDC_FRAMERES, 200, 145, 50, 9
-        LTEXT           "n/a", IDC_CALCRES, 200, 160, 50, 9
-    LTEXT           "HopperRender V1.5.7.2", IDS_STATIC, 10, 165, 100, 9
+    GROUPBOX        "Status", IDS_STATIC, 125, 100, 130, 105
+        LTEXT           "Int Active", IDS_STATIC, 132, 115, 60, 9
+        LTEXT           "Source FPS", IDS_STATIC, 132, 130, 60, 9
+        LTEXT           "Num Steps", IDS_STATIC, 132, 145, 60, 9
+        LTEXT           "Curr Frame Diff", IDS_STATIC, 132, 160, 60, 9
+        LTEXT           "Frame Resolution", IDS_STATIC, 132, 175, 60, 9
+        LTEXT           "Calc Resolution", IDS_STATIC, 132, 190, 60, 9
+        LTEXT           "n/a", IDC_INTACTIVE, 200, 115, 50, 9
+        LTEXT           "n/a", IDC_SOURCEFPS, 200, 130, 50, 9
+        LTEXT           "n/a", IDC_NUMSTEPS, 200, 145, 50, 9
+        LTEXT           "n/a", IDC_CURRFRAMEDIFF, 200, 160, 50, 9
+        LTEXT           "n/a", IDC_FRAMERES, 200, 175, 50, 9
+        LTEXT           "n/a", IDC_CALCRES, 200, 190, 50, 9
+    LTEXT           "HopperRender V1.5.7.2", IDS_STATIC, 10, 195, 100, 9
 END
 
 STRINGTABLE DISCARDABLE

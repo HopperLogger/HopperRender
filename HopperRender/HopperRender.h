@@ -39,10 +39,10 @@ public:
 
 	// These implement the custom settings interface
 	STDMETHODIMP GetCurrentSettings(bool* pbActivated, int* piFrameOutput, int* piNumIterations,
-								    int* piFrameBlurKernelSize, int* piFlowBlurKernelSize, int* piIntActiveState, double* pdSourceFPS, int* piNumSteps, int* piDimX,
+								    int* piFrameBlurKernelSize, int* piFlowBlurKernelSize, int* piSceneChangeThreshold, int* piCurrentSceneChange, int* piIntActiveState, double* pdSourceFPS, int* piNumSteps, int* piDimX,
 								    int* piDimY, int* piLowDimX, int* piLowDimY) override;
 	STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, 
-							        int iNumIterations, int iFrameBlurKernelSize, int iFlowBlurKernelSize) override;
+							        int iNumIterations, int iFrameBlurKernelSize, int iFlowBlurKernelSize, int piSceneChangeThreshold) override;
 
 	// ISpecifyPropertyPages interface
 	STDMETHODIMP GetPages(CAUUID* pPages) override;
@@ -94,6 +94,8 @@ private:
 	float m_fResolutionScalar; // The scalar to scale the resolution with (only used in the optical flow calculation)
 	float m_fResolutionDivider; // The divider to scale the resolution with (only used in the optical flow calculation)
 	unsigned int m_iNumSteps; // Number of steps executed to find the ideal offset (limits the maximum offset distance per iteration)
+	unsigned int m_iSceneChangeThreshold; // The threshold used to determine whether a scene change has occurred
+	unsigned int m_iCurrentSceneChange; // How many pixel differences are currently detected
 
 	// Frame output
 	double m_dDimScalar; // The scalar to scale the frame dimensions with depending on the renderer used

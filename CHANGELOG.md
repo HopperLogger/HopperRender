@@ -225,6 +225,9 @@
 - Fixed settings page being drawn improperly in MPC-BE
 
 ## [Version 1.5.7.2] - 2024-03-28 - Fully functional
+### Added
+- Added scene change detection that disables the interpolation for a single frame if a user specified threshold is surpassed
+
 ### Changed
 - Merged calcImageDelta and calcDeltaSum kernel to improve performance by about 1.6x
 - Removed color channel consideration when calculating optical flow to save performance and since it did't provide added quality

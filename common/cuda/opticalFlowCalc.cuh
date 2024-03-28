@@ -92,6 +92,14 @@ public:
 	virtual void copyFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer) = 0;
 
 	/*
+	* Copies a frame that is already on the GPU in the correct format to the output buffer
+	*
+	* @param bUseFrame2: Whether to use frame2 or frame1
+	* @param pOutBuffer: Pointer to the output frame
+	*/
+	virtual void copyOwnFrame(const bool bUseFrame2, unsigned char* pOutBuffer) = 0;
+
+	/*
 	* Blurs a frame
 	*
 	* @param kernelSize: Size of the kernel to use for the blur
@@ -179,6 +187,8 @@ public:
 	unsigned int m_iScaledChannelIdxOffset; // m_iDimY * m_iDimX * m_dDimScalar
 	unsigned int m_iScaledDimX; // m_iDimX * m_dDimScalar;
 	unsigned int m_iScaledDimY; // m_iDimY * m_dDimScalar;
+	unsigned int m_iSceneChangeThreshold; // The threshold used to determine whether a scene change has occurred
+	unsigned int m_iCurrentSceneChange; // How many pixel differences are currently detected
 
 	// GPU Arrays
 	GPUArray<int> m_offsetArray12; // Array containing x,y offsets for each pixel of frame1

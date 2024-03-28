@@ -38,6 +38,14 @@ public:
 	void copyFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer) override;
 
 	/*
+	* Copies a frame that is already on the GPU in the correct format to the output buffer
+	*
+	* @param bUseFrame2: Whether to use frame2 or frame1
+	* @param pOutBuffer: Pointer to the output frame
+	*/
+	void copyOwnFrame(const bool bUseFrame2, unsigned char* pOutBuffer) override;
+
+	/*
 	* Blurs a frame
 	*
 	* @param kernelSize: Size of the kernel to use for the blur
