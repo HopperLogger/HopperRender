@@ -33,54 +33,6 @@ __global__ void setInitialOffset(int* offsetArray, const unsigned int numLayers,
 	}
 }
 
-// Kernel that calculates the absolute difference between two frames using the offset array
-template <typename T>
-__global__ void calcImageDelta(const T* frame1, const T* frame2, T* imageDeltaArray,
-							   const int* offsetArray, const unsigned int lowDimY, const unsigned int lowDimX, 
-							   const unsigned int dimY, const unsigned int dimX, const float resolutionScalar, const unsigned int directionIdxOffset, 
-							   const unsigned int channelIdxOffset) {
-	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
-
-	const bool isYChannel = threadIdx.z == 0 && cy < lowDimY && cx < lowDimX;
-	const bool isUVChannel = cy < (lowDimY >> 1) && cx < lowDimX;
-
-	// Is the current thread supposed to perform calculations
-	if (isYChannel || isUVChannel) {
-		const unsigned int layerOffset = blockIdx.z * lowDimY * lowDimX; // Offset to index the layer of the current thread
-		const unsigned int scaledCx = static_cast<unsigned int>(static_cast<float>(cx) * resolutionScalar); // The X-Index of the current thread in the input frames
-		const unsigned int scaledCy = static_cast<unsigned int>(static_cast<float>(cy) * resolutionScalar); // The Y-Index of the current thread in the input frames
-
-		const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
-		const unsigned int threadIndex3D = cz * lowDimY * lowDimX + threadIndex2D; // Standard thread index
-
-		// Y-Channel
-		if (isYChannel) {
-			const int offsetX = -offsetArray[layerOffset + threadIndex2D];
-			const int offsetY = -offsetArray[directionIdxOffset + layerOffset + threadIndex2D];
-			const int newCx = scaledCx + offsetX;
-			const int newCy = scaledCy + offsetY;
-
-			imageDeltaArray[threadIndex3D] = (newCy < 0 || newCx < 0 || newCy >= dimY || newCx >= dimX) ? 0 : 
-				abs(frame1[newCy * dimX + newCx] - frame2[scaledCy * dimX + scaledCx]);
-
-
-		// U/V-Channel
-		} else if (isUVChannel) {
-			const unsigned int evenCx = cx & ~1; // The X-Index of the current thread rounded to be even
-			const int offsetX = -offsetArray[layerOffset + (cy << 1) * lowDimX + evenCx];
-			const int offsetY = -offsetArray[directionIdxOffset + layerOffset + (cy << 1) * lowDimX + evenCx];
-			const int newCx = scaledCx + (offsetX & ~1);
-			const int newCy = scaledCy + (offsetY >> 1);
-
-			imageDeltaArray[threadIndex3D] = (newCy < 0 || newCx < 0 || newCy >= (dimY >> 1) || newCx >= dimX) ? 0 : 
-				abs(frame1[channelIdxOffset + newCy * dimX + newCx] - frame2[channelIdxOffset + scaledCy * dimX + scaledCx]) << 1;
-		}
-	}
-}
-
 // Helper kernel for the calcDeltaSums kernel
 __device__ void warpReduce8x8(volatile unsigned int* partial_sums, int tIdx) {
 	partial_sums[tIdx] += partial_sums[tIdx + 32];
@@ -107,8 +59,10 @@ __device__ void warpReduce2x2(volatile unsigned int* partial_sums, int tIdx) {
 
 // Kernel that sums up all the pixel deltas of each window for window sizes of at least 8x8
 template <typename T>
-__global__ void calcDeltaSums8x8(const T* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-						const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim) {
+__global__ void calcDeltaSums8x8(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
+							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
+								 const unsigned int windowDim, const float resolutionScalar) {
 	// Handle used to synchronize all threads
 	auto g = cooperative_groups::this_thread_block();
 
@@ -120,16 +74,22 @@ __global__ void calcDeltaSums8x8(const T* imageDeltaArray, unsigned int* summedU
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = blockIdx.z;
 	const unsigned int tIdx = threadIdx.y * blockDim.x + threadIdx.x;
-	const unsigned int chromX = cx & ~1;
-	const unsigned int chromY = cy >> 1;
+	const unsigned int layerOffset = blockIdx.z * lowDimY * lowDimX; // Offset to index the layer of the current thread
+	const unsigned int scaledCx = static_cast<unsigned int>(static_cast<float>(cx) * resolutionScalar); // The X-Index of the current thread in the input frames
+	const unsigned int scaledCy = static_cast<unsigned int>(static_cast<float>(cy) * resolutionScalar); // The Y-Index of the current thread in the input frames
+	const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
 	partial_sums[tIdx] = 0;
 
 	if (cy < lowDimY && cx < lowDimX) {
-		// Add the luminance and color channels together
-		partial_sums[tIdx] = 
-			imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + 
-			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX] +
-			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX + 1];
+		// Calculate the image delta
+		int offsetX = -offsetArray[layerOffset + threadIndex2D];
+		int offsetY = -offsetArray[directionIdxOffset + layerOffset + threadIndex2D];
+		int newCx = scaledCx + offsetX;
+		int newCy = scaledCy + offsetY;
+
+		partial_sums[tIdx] = (newCy < 0 || newCx < 0 || newCy >= dimY || newCx >= dimX) ? 0 : 
+			abs(frame1[newCy * dimX + newCx] - frame2[scaledCy * dimX + scaledCx]);
+
 		__syncthreads();
 
 		// Sum up the remaining pixels for the current window
@@ -152,15 +112,17 @@ __global__ void calcDeltaSums8x8(const T* imageDeltaArray, unsigned int* summedU
 		if (tIdx == 0) {
 			const unsigned int windowIndexX = cx / windowDim;
 			const unsigned int windowIndexY = cy / windowDim;
-			atomicAdd(&summedUpDeltaArray[cz * channelIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)], partial_sums[0]);
+			atomicAdd(&summedUpDeltaArray[cz * layerIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)], partial_sums[0]);
 		}
 	}
 }
 
 // Kernel that sums up all the pixel deltas of each window for window sizes of 4x4
 template <typename T>
-__global__ void calcDeltaSums4x4(const T* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-						const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim) {
+__global__ void calcDeltaSums4x4(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
+							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
+								 const unsigned int windowDim, const float resolutionScalar) {
 	// Handle used to synchronize all threads
 	auto g = cooperative_groups::this_thread_block();
 
@@ -172,16 +134,23 @@ __global__ void calcDeltaSums4x4(const T* imageDeltaArray, unsigned int* summedU
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 	const unsigned int tIdx = threadIdx.y * blockDim.x + threadIdx.x;
-	const unsigned int chromX = cx & ~1;
-	const unsigned int chromY = cy >> 1;
+	const unsigned int layerOffset = blockIdx.z * lowDimY * lowDimX; // Offset to index the layer of the current thread
+	const unsigned int scaledCx = static_cast<unsigned int>(static_cast<float>(cx) * resolutionScalar); // The X-Index of the current thread in the input frames
+	const unsigned int scaledCy = static_cast<unsigned int>(static_cast<float>(cy) * resolutionScalar); // The Y-Index of the current thread in the input frames
+
+	const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
 	partial_sums[tIdx] = 0;
 
 	if (cy < lowDimY && cx < lowDimX) {
-		// Add the luminance and color channels together
-		partial_sums[tIdx] = 
-			imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + 
-			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX] +
-			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX + 1];
+		// Calculate the image delta
+		int offsetX = -offsetArray[layerOffset + threadIndex2D];
+		int offsetY = -offsetArray[directionIdxOffset + layerOffset + threadIndex2D];
+		int newCx = scaledCx + offsetX;
+		int newCy = scaledCy + offsetY;
+
+		partial_sums[tIdx] = (newCy < 0 || newCx < 0 || newCy >= dimY || newCx >= dimX) ? 0 : 
+			abs(frame1[newCy * dimX + newCx] - frame2[scaledCy * dimX + scaledCx]);
+		
 		__syncthreads();
 
 		// Top 4x4 Blocks
@@ -199,15 +168,17 @@ __global__ void calcDeltaSums4x4(const T* imageDeltaArray, unsigned int* summedU
 		if (tIdx == 0 || tIdx == 4 || tIdx == 32 || tIdx == 36) {
 			const unsigned int windowIndexX = cx / windowDim;
 			const unsigned int windowIndexY = cy / windowDim;
-			atomicAdd(&summedUpDeltaArray[cz * channelIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)], partial_sums[tIdx]);
+			atomicAdd(&summedUpDeltaArray[cz * layerIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)], partial_sums[tIdx]);
 		}
 	}
 }
 
 // Kernel that sums up all the pixel deltas of each window for window sizes of 2x2
 template <typename T>
-__global__ void calcDeltaSums2x2(const T* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-						const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim) {
+__global__ void calcDeltaSums2x2(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
+							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
+								 const unsigned int windowDim, const float resolutionScalar) {
 	// Handle used to synchronize all threads
 	auto g = cooperative_groups::this_thread_block();
 
@@ -219,16 +190,23 @@ __global__ void calcDeltaSums2x2(const T* imageDeltaArray, unsigned int* summedU
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
 	const unsigned int tIdx = threadIdx.y * blockDim.x + threadIdx.x;
-	const unsigned int chromX = cx & ~1;
-	const unsigned int chromY = cy >> 1;
+	const unsigned int layerOffset = blockIdx.z * lowDimY * lowDimX; // Offset to index the layer of the current thread
+	const unsigned int scaledCx = static_cast<unsigned int>(static_cast<float>(cx) * resolutionScalar); // The X-Index of the current thread in the input frames
+	const unsigned int scaledCy = static_cast<unsigned int>(static_cast<float>(cy) * resolutionScalar); // The Y-Index of the current thread in the input frames
+
+	const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
 	partial_sums[tIdx] = 0;
 
 	if (cy < lowDimY && cx < lowDimX) {
-		// Add the luminance and color channels together
-		partial_sums[tIdx] = 
-			imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + 
-			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX] +
-			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX + 1];
+		// Calculate the image delta
+		int offsetX = -offsetArray[layerOffset + threadIndex2D];
+		int offsetY = -offsetArray[directionIdxOffset + layerOffset + threadIndex2D];
+		int newCx = scaledCx + offsetX;
+		int newCy = scaledCy + offsetY;
+
+		partial_sums[tIdx] = (newCy < 0 || newCx < 0 || newCy >= dimY || newCx >= dimX) ? 0 : 
+			abs(frame1[newCy * dimX + newCx] - frame2[scaledCy * dimX + scaledCx]);
+
 		__syncthreads();
 
 		if ((threadIdx.y & 1) == 0) {
@@ -242,28 +220,35 @@ __global__ void calcDeltaSums2x2(const T* imageDeltaArray, unsigned int* summedU
 		if ((tIdx & 1) == 0 && (threadIdx.y & 1) == 0) {
 			const unsigned int windowIndexX = cx / windowDim;
 			const unsigned int windowIndexY = cy / windowDim;
-			atomicAdd(&summedUpDeltaArray[cz * channelIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)], partial_sums[tIdx]);
+			atomicAdd(&summedUpDeltaArray[cz * layerIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)], partial_sums[tIdx]);
 		}
 	}
 }
 
 // Kernel that sums up all the pixel deltas of each window for window sizes of 1x1
 template <typename T>
-__global__ void calcDeltaSums1x1(const T* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-						const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim) {
+__global__ void calcDeltaSums1x1(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
+							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
+								 const float resolutionScalar) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	const unsigned int chromX = cx & ~1;
-	const unsigned int chromY = cy >> 1;
+	const unsigned int layerOffset = cz * lowDimY * lowDimX; // Offset to index the layer of the current thread
+	const unsigned int scaledCx = static_cast<unsigned int>(static_cast<float>(cx) * resolutionScalar); // The X-Index of the current thread in the input frames
+	const unsigned int scaledCy = static_cast<unsigned int>(static_cast<float>(cy) * resolutionScalar); // The Y-Index of the current thread in the input frames
+	const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
 
 	if (cy < lowDimY && cx < lowDimX) {
-		// Add the luminance and color channels together
-		summedUpDeltaArray[cz * channelIdxOffset + cy * lowDimX + cx] = 
-			imageDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] + 
-			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX] +
-			imageDeltaArray[cz * layerIdxOffset + channelIdxOffset + chromY * lowDimX + chromX + 1];
+		// Calculate the image delta
+		int offsetX = -offsetArray[layerOffset + threadIndex2D];
+		int offsetY = -offsetArray[directionIdxOffset + layerOffset + threadIndex2D];
+		int newCx = scaledCx + offsetX;
+		int newCy = scaledCy + offsetY;
+
+		summedUpDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] = (newCy < 0 || newCx < 0 || newCy >= dimY || newCx >= dimX) ? 0 : 
+			abs(frame1[newCy * dimX + newCx] - frame2[scaledCy * dimX + scaledCx]);
 	}
 }
 
@@ -854,34 +839,33 @@ void OpticalFlowCalc::blurFlowArrays(const int kernelSize) const {
 /*
 * Template instantiation
 */
-template __global__ void calcImageDelta<unsigned char>(const unsigned char* frame1, const unsigned char* frame2, unsigned char* imageDeltaArray,
-	const int* offsetArray, const unsigned int lowDimY, const unsigned int lowDimX,
-	const unsigned int dimY, const unsigned int dimX, const float resolutionScalar, const unsigned int directionIdxOffset,
-	const unsigned int channelIdxOffset);
-template __global__ void calcImageDelta<unsigned short>(const unsigned short* frame1, const unsigned short* frame2, unsigned short* imageDeltaArray,
-	const int* offsetArray, const unsigned int lowDimY, const unsigned int lowDimX,
-	const unsigned int dimY, const unsigned int dimX, const float resolutionScalar, const unsigned int directionIdxOffset,
-	const unsigned int channelIdxOffset);
+template __global__ void calcDeltaSums8x8<unsigned char>(unsigned int* summedUpDeltaArray, const unsigned char* frame1, const unsigned char* frame2,
+							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim, const float resolutionScalar);
+template __global__ void calcDeltaSums8x8<unsigned short>(unsigned int* summedUpDeltaArray, const unsigned short* frame1, const unsigned short* frame2,
+							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim, const float resolutionScalar);
 
-template __global__ void calcDeltaSums8x8<unsigned char>(const unsigned char* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
-template __global__ void calcDeltaSums8x8<unsigned short>(const unsigned short* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
+template __global__ void calcDeltaSums4x4<unsigned char>(unsigned int* summedUpDeltaArray, const unsigned char* frame1, const unsigned char* frame2,
+							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim, const float resolutionScalar);
+template __global__ void calcDeltaSums4x4<unsigned short>(unsigned int* summedUpDeltaArray, const unsigned short* frame1, const unsigned short* frame2,
+							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim, const float resolutionScalar);
 
-template __global__ void calcDeltaSums4x4<unsigned char>(const unsigned char* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
-template __global__ void calcDeltaSums4x4<unsigned short>(const unsigned short* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
+template __global__ void calcDeltaSums2x2<unsigned char>(unsigned int* summedUpDeltaArray, const unsigned char* frame1, const unsigned char* frame2,
+							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim, const float resolutionScalar);
+template __global__ void calcDeltaSums2x2<unsigned short>(unsigned int* summedUpDeltaArray, const unsigned short* frame1, const unsigned short* frame2,
+							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim, const float resolutionScalar);
 
-template __global__ void calcDeltaSums2x2<unsigned char>(const unsigned char* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
-template __global__ void calcDeltaSums2x2<unsigned short>(const unsigned short* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
-
-template __global__ void calcDeltaSums1x1<unsigned char>(const unsigned char* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
-template __global__ void calcDeltaSums1x1<unsigned short>(const unsigned short* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
+template __global__ void calcDeltaSums1x1<unsigned char>(unsigned int* summedUpDeltaArray, const unsigned char* frame1, const unsigned char* frame2,
+							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const float resolutionScalar);
+template __global__ void calcDeltaSums1x1<unsigned short>(unsigned int* summedUpDeltaArray, const unsigned short* frame1, const unsigned short* frame2,
+							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const float resolutionScalar);
 
 template __global__ void artifactRemovalKernelForBlending<unsigned char>(const unsigned char* frame1, const int* hitCount, unsigned char* warpedFrame,
 	const unsigned int dimY, const unsigned int dimX, const unsigned int channelIdxOffset);

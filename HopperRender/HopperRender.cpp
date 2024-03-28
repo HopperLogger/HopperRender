@@ -838,8 +838,6 @@ void CHopperRender::adjustFrameScalar(const unsigned char newResolutionStep) {
 	m_pofcOpticalFlowCalc->m_iLayerIdxOffset = m_pofcOpticalFlowCalc->m_iLowDimY * m_pofcOpticalFlowCalc->m_iLowDimX;
 	m_pofcOpticalFlowCalc->m_lowGrid32x32x1.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 32.0), 1.0));
 	m_pofcOpticalFlowCalc->m_lowGrid32x32x1.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 32.0), 1.0));
-	m_pofcOpticalFlowCalc->m_lowGrid16x16x5.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 16.0), 1.0));
-	m_pofcOpticalFlowCalc->m_lowGrid16x16x5.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 16.0), 1.0));
 	m_pofcOpticalFlowCalc->m_lowGrid16x16x4.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 16.0), 1.0));
 	m_pofcOpticalFlowCalc->m_lowGrid16x16x4.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 16.0), 1.0));
 	m_pofcOpticalFlowCalc->m_lowGrid8x8x1.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 8.0), 1.0));

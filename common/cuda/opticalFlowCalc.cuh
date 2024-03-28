@@ -8,32 +8,33 @@
 __global__ void setInitialOffset(int* offsetArray, const unsigned int numLayers, const unsigned int lowDimY, 
 								 const unsigned int lowDimX, const unsigned int layerIdxOffset);
 
-// Kernel that calculates the absolute difference between two frames using the offset array
-template <typename T>
-__global__ void calcImageDelta(const T* frame1, const T* frame2, T* imageDeltaArray,
-	const int* offsetArray, const unsigned int lowDimY, const unsigned int lowDimX,
-	const unsigned int dimY, const unsigned int dimX, const float resolutionScalar, const unsigned int directionIdxOffset,
-	const unsigned int channelIdxOffset);
-
 // Kernel that sums up all the pixel deltas of each window for window sizes of at least 8x8
 template <typename T>
-__global__ void calcDeltaSums8x8(const T* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
+__global__ void calcDeltaSums8x8(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
+							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
+								 const unsigned int windowDim, const float resolutionScalar);
 
 // Kernel that sums up all the pixel deltas of each window for window sizes of 4x4
 template <typename T>
-__global__ void calcDeltaSums4x4(const T* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
+__global__ void calcDeltaSums4x4(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
+							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
+								 const unsigned int windowDim, const float resolutionScalar);
 
 // Kernel that sums up all the pixel deltas of each window for window sizes of 2x2
 template <typename T>
-__global__ void calcDeltaSums2x2(const T* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
+__global__ void calcDeltaSums2x2(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
+							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
+								 const unsigned int windowDim, const float resolutionScalar);
 
 // Kernel that sums up all the pixel deltas of each window for window sizes of 1x1
 template <typename T>
-__global__ void calcDeltaSums1x1(const T* imageDeltaArray, unsigned int* summedUpDeltaArray, const unsigned int layerIdxOffset,
-	const unsigned int channelIdxOffset, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim);
+__global__ void calcDeltaSums1x1(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
+							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
+								 const float resolutionScalar);
 
 // Kernel that normalizes all the pixel deltas of each window
 __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsigned char* globalLowestLayerArray,
@@ -149,7 +150,6 @@ public:
 
 	// Grids
 	dim3 m_lowGrid32x32x1;
-	dim3 m_lowGrid16x16x5;
 	dim3 m_lowGrid16x16x4;
 	dim3 m_lowGrid16x16x1;
 	dim3 m_lowGrid8x8x1;
@@ -160,10 +160,8 @@ public:
 	dim3 m_threads32x32x1;
 	dim3 m_threads16x16x2;
 	dim3 m_threads16x16x1;
-	dim3 m_threads8x8x10;
 	dim3 m_threads8x8x5;
 	dim3 m_threads8x8x2;
-	dim3 m_threads8x8x1;
 
 	// Variables
 	bool m_bBisNewest = true; // Whether frame1 or frame2 is the newest frame
