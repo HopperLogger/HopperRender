@@ -139,12 +139,11 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_fResolutionScalar(1.0f),
 	m_fResolutionDivider(1.0f),
 	m_iNumSteps(4),
-	m_iSceneChangeThreshold(3000),
+	m_iSceneChangeThreshold(1000),
 	m_iCurrentSceneChange(0),
 
 	// Frame output
 	m_dDimScalar(1.0),
-	m_bBisNewest(true),
 	m_iFrameCounter(0),
 	m_iNumIntFrames(1),
 	m_lBufferRequest(1),
@@ -413,6 +412,10 @@ HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, d
 
 	UpdateInterpolationStatus();
 
+	m_bFirstFrame = true;
+	m_iFrameCounter = 0;
+	m_iNumIntFrames = 1;
+
 	return __super::NewSegment(tStart, tStop, dRate);
 }
 
@@ -629,14 +632,7 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 	// we always have the current frame and the previous frame
 	// And blur the newest frame for the calculation
 	if (iIntFrameNum == 0) {
-		if (m_bBisNewest) {
-			m_pofcOpticalFlowCalc->updateFrame1(pInBuffer);
-			m_pofcOpticalFlowCalc->blurFrameArray(m_iFrameBlurKernelSize, m_iFrameOutput == 4);
-		} else {
-			m_pofcOpticalFlowCalc->updateFrame2(pInBuffer);
-			m_pofcOpticalFlowCalc->blurFrameArray(m_iFrameBlurKernelSize, m_iFrameOutput == 4);
-		}
-		m_bBisNewest = !m_bBisNewest;
+		m_pofcOpticalFlowCalc->updateFrame(pInBuffer, m_iFrameBlurKernelSize, m_iFrameOutput == 4);
 	}
 
 	// If this is the very first frame, we can't interpolate
@@ -663,14 +659,14 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 	}
 
 	// Disable interpolation as long as the scene change is too high
-	if (m_iSceneChangeThreshold != 0 && (m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold)) {
-		m_pofcOpticalFlowCalc->copyOwnFrame(!m_bBisNewest, pOutBuffer);
+	if (m_iFrameOutput != 3 && m_iFrameOutput != 6 && m_iSceneChangeThreshold != 0 && (m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold)) {
+		m_pofcOpticalFlowCalc->copyOwnFrame(pOutBuffer);
 		return NOERROR;
 	}
 
 	if (iIntFrameNum == 0) {
 		// Flip the flow array to frame 2 to frame 1
-		if (m_iFrameOutput == 1 || m_iFrameOutput == 2) {
+		if (m_iFrameOutput == 1 || m_iFrameOutput == 2 || m_iFrameOutput == 5) {
 			m_pofcOpticalFlowCalc->flipFlow();
 		}
 
@@ -686,15 +682,20 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 	}
 
 	// Warp frames
-	if (m_iFrameOutput == 0 || m_iFrameOutput == 1) {
-		m_pofcOpticalFlowCalc->warpFramesForOutput(fScalar, m_iFrameOutput == 0);
-	} else if (m_iFrameOutput == 2) {
-		m_pofcOpticalFlowCalc->warpFramesForBlending(fScalar);
+	if (m_iFrameOutput != 3 && m_iFrameOutput != 4) {
+		m_pofcOpticalFlowCalc->warpFrames(fScalar, m_iFrameOutput);
 	}
 
 	// Blend the frames together
-	if (m_iFrameOutput == 2) {
+	if (m_iFrameOutput == 2 || m_iFrameOutput == 5) {
 		m_pofcOpticalFlowCalc->blendFrames(fScalar);
+	}
+
+	// Show side by side comparison
+	if (m_iFrameOutput == 5) {
+		m_pofcOpticalFlowCalc->insertFrame();
+	} else if (m_iFrameOutput == 6) {
+	    m_pofcOpticalFlowCalc->sideBySideFrame(fScalar);
 	}
 
 	// Download the result to the output buffer
@@ -850,7 +851,6 @@ void CHopperRender::adjustFrameScalar(const unsigned char newResolutionStep) {
 	// Re-Initialize the Optical Flow Calculator
 	m_bFirstFrame = true;
 	m_iFrameCounter = 0;
-	m_bBisNewest = true;
 	if (m_iIntActiveState == 3) m_iIntActiveState = 2;
 	m_dCurrCalcDuration = 0.0;
 	m_iNumSteps = MIN_NUM_STEPS;
@@ -862,8 +862,14 @@ void CHopperRender::adjustFrameScalar(const unsigned char newResolutionStep) {
 	m_pofcOpticalFlowCalc->m_iLayerIdxOffset = m_pofcOpticalFlowCalc->m_iLowDimY * m_pofcOpticalFlowCalc->m_iLowDimX;
 	m_pofcOpticalFlowCalc->m_lowGrid32x32x1.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 32.0), 1.0));
 	m_pofcOpticalFlowCalc->m_lowGrid32x32x1.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 32.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x5.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x5.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 16.0), 1.0));
 	m_pofcOpticalFlowCalc->m_lowGrid16x16x4.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 16.0), 1.0));
 	m_pofcOpticalFlowCalc->m_lowGrid16x16x4.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x1.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x1.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid8x8x5.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 8.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid8x8x5.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 8.0), 1.0));
 	m_pofcOpticalFlowCalc->m_lowGrid8x8x1.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 8.0), 1.0));
 	m_pofcOpticalFlowCalc->m_lowGrid8x8x1.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 8.0), 1.0));
 }
@@ -915,7 +921,7 @@ void CHopperRender::autoAdjustSettings() {
 			" NumSteps: " + std::to_string(m_iNumSteps), LOG_PERFORMANCE);
 
 		// Increase the frame scalar if we have enough leftover capacity
-		if (AUTO_FRAME_SCALE && m_cResolutionStep > 0 && (m_iNumSteps >= MIN_NUM_STEPS + 8 || m_iNumSteps >= MAX_NUM_STEPS)) {
+		if (AUTO_FRAME_SCALE && m_cResolutionStep > 0 && m_iNumSteps >= MAX_NUM_STEPS) {
 			m_cNumTimesTooSlow = 0;
 			adjustFrameScalar(m_cResolutionStep - 1);
 			m_iNumSteps = MIN_NUM_STEPS;

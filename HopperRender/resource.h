@@ -24,6 +24,8 @@
 #define IDC_BLURREDFRAMES 			    1025
 #define IDC_SCENECHANGETHRESHOLD        1026
 #define IDC_CURRFRAMEDIFF               1027
+#define IDC_SIDEBYSIDE1                 1028
+#define IDC_SIDEBYSIDE2                 1029
 
 // Next default values for new objects
 //

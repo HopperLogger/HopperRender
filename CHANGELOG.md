@@ -235,3 +235,17 @@
 
 ### Fixed
 - Fixed iteration dependent step calculation resulting in some iterations doing 0 steps instead of 1
+
+## [Version 1.5.7.3] - 2024-03-30 - Fully functional
+### Added
+- Added two side by side frame output options that lets you see the difference between no interpolation _(on the left)_ and active interpolation _(on the right)_
+
+### Changed
+- Merged calcDeltaSum kernel variants together
+- Simplified coordination of what frame is the newest by swapping the pointers instead of looking at a boolean
+- Merged a lot of HDR and SDR code together to reduce the number of cloned functions and kernels
+- Changed the switch-case based calculation for the number of steps for each iteration to a exponential based formula that exponentially decreases the number of steps as the window size gets smaller (improves performance by 1.3x)
+- General code clean-up
+
+### Fixed
+- Current frame difference is now calculated depending on the video resolution

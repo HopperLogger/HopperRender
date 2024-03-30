@@ -12,7 +12,7 @@ DEFINE_GUID(IID_SettingsInterface,
 DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 	STDMETHOD(GetCurrentSettings)(THIS_
 		bool* pbActivated, // Whether the filter is activated by the user
-		int* piFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames)
+		int* piFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
 		int* piNumIterations, // Number of iterations to use in the optical flow calculation (0: As many as possible)
 		int* piFrameBlurKernelSize, // The size of the blur kernel used to blur the source frames before calculating the optical flow
 		int* piFlowBlurKernelSize, // The size of the blur kernel used to blur the offset calculated by the optical flow
@@ -29,7 +29,7 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 
 	STDMETHOD(UpdateUserSettings)(THIS_
 		bool bActivated, // Whether the filter is activated by the user
-		int iFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames)
+		int iFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
 		int iNumIterations, // Number of iterations to use in the optical flow calculation (0: As many as possible)
 		int iFrameBlurKernelSize, // The size of the blur kernel used to blur the source frames before calculating the optical flow
 		int iFlowBlurKernelSize, // The size of the blur kernel used to blur the offset calculated by the optical flow

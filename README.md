@@ -19,6 +19,7 @@ The filter can be added to a DirectShow media player like MPC-HC or MPC-BE.
 - Automatically adjusts internal settings to match the PC's performance
 - Compatible with madVR, Enhanced Video Renderer, MPC-Video Renderer, and more
 - Automatically detects the source frame rate (as well as playback speed) and disables interpolation if not needed
+- Automatic scene change detection to prevent them from being interpolated
 
 ## How to get started?
 To use this filter, you need to use a DirectShow player like [MPC-HC](https://github.com/clsid2/mpc-hc/releases) or [MPC-BE](https://sourceforge.net/projects/mpcbe).
@@ -54,7 +55,7 @@ That's it! You can now play a video with MPC-HC/BE and HopperRender will interpo
 You can access the settings when playing back a video with HopperRender by right clicking on the video in MPC-HC/BE, selecting the Filters menu and then HopperRender.
 
 <div align="center">
-  <img alt="properties" height="300px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/6f894224-1c55-4c3a-8468-d6156bbee9b2">
+  <img alt="properties" height="300px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/bcf2a089-1da8-4077-b177-b7ea4d886e69">
 </div>
 
 - You can activate and deactivate the interpolation
@@ -69,6 +70,8 @@ You can access the settings when playing back a video with HopperRender by right
     </div>
 
     - _Blurred Frames: Outputs the blurred source frames_
+    - _Side-by-side 1: Shows the difference between no interpolation on the left, and interpolation on the right (split in the middle)_
+    - _Side-by-side 2: Shows the difference between no interpolation on the left, and interpolation on the right (scaled down side by side)_
 - You can set the number of iterations (0 will automatically do as many iterations as possible)
 - You can set the Frame and Flow blur kernel sizes which controls how much the frames or the flow will be blurred _(Values between 0-32)_
 - You can choose a scene change detection threshold that disables interpolation if a certain amount of movement is detected _(A value of 0 disables the feature. You can see the current frame difference in the Status section for reference)_

@@ -3,6 +3,88 @@
 #include <cooperative_groups.h>
 #include "opticalFlowCalc.cuh"
 
+// Kernel that blurs a frame
+template <typename T>
+__global__ void blurFrameKernel(const T* frameArray, T* blurredFrameArray, 
+								const unsigned char kernelSize, const unsigned char chacheSize, const unsigned char boundsOffset, 
+								const unsigned char avgEntriesPerThread, const unsigned short remainder, const char lumStart,
+								const unsigned char lumEnd, const unsigned short lumPixelCount, const char chromStart, 
+								const unsigned char chromEnd, const unsigned short chromPixelCount, const unsigned short dimY, const unsigned short dimX) {
+	// Shared memory for the frame to prevent multiple global memory accesses
+	extern __shared__ unsigned short sharedFrameArray[];
+
+	// Current entry to be computed by the thread
+	const unsigned short cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned short cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned char cz = blockIdx.z;
+
+	// Check if the current thread is supposed to perform calculations
+	if (cz == 1 && (cy >= dimY / 2 || cx >= dimX)) {
+		return;
+	}
+
+	const unsigned short trX = blockIdx.x * blockDim.x;
+	const unsigned short trY = blockIdx.y * blockDim.y;
+	unsigned char offsetX;
+	unsigned char offsetY;
+
+    // Calculate the number of entries to fill for this thread
+    const unsigned short threadIndex = threadIdx.y * blockDim.x + threadIdx.x;
+    const unsigned char entriesToFill = avgEntriesPerThread + (threadIndex < remainder ? 1 : 0);
+
+    // Calculate the starting index for this thread
+    unsigned short startIndex = 0;
+    for (unsigned short i = 0; i < threadIndex; ++i) {
+        startIndex += avgEntriesPerThread + (i < remainder ? 1 : 0);
+    }
+
+    // Fill the shared memory for this thread
+    for (unsigned short i = 0; i < entriesToFill; ++i) {
+		offsetX = (startIndex + i) % chacheSize;
+		offsetY = (startIndex + i) / chacheSize;
+		if ((trY - boundsOffset + offsetY) < dimY && (trX - boundsOffset + offsetX) < dimX) {
+			sharedFrameArray[startIndex + i] = frameArray[cz * dimY * dimX + (trY - boundsOffset + offsetY) * dimX + (trX - boundsOffset + offsetX)];
+		} else {
+			sharedFrameArray[startIndex + i] = 0;
+		}
+	}
+
+    // Ensure all threads have finished loading before continuing
+    __syncthreads();
+
+	// Calculate the x and y boundaries of the kernel
+	unsigned int blurredPixel = 0;
+
+	// Collect the sum of the surrounding pixels
+	// Y-Channel
+	if (cz == 0 && cy < dimY && cx < dimX) {
+		for (char y = lumStart; y < lumEnd; y++) {
+			for (char x = lumStart; x < lumEnd; x++) {
+				if ((cy + y) < dimY && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
+					blurredPixel += sharedFrameArray[(threadIdx.y + boundsOffset + y) * chacheSize + threadIdx.x + boundsOffset + x];
+				} else {
+					blurredPixel += sharedFrameArray[(threadIdx.y + boundsOffset) * chacheSize + threadIdx.x + boundsOffset];
+				}
+			}
+		}
+		blurredPixel /= lumPixelCount;
+		blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = blurredPixel;
+	// U/V-Channel
+	} else if (cz == 1 && cy < dimY / 2 && cx < dimX) {
+		for (char y = chromStart; y < chromEnd; y++) {
+			for (char x = chromStart; x < chromEnd; x++) {
+				if ((cy + y) < dimY / 2 && (cy + y) >= 0 && (cx + x) < dimX && (cx + x) >= 0) {
+					blurredPixel += sharedFrameArray[(threadIdx.y + boundsOffset + y) * chacheSize + threadIdx.x + boundsOffset + x * 2];
+				} else {
+					blurredPixel += sharedFrameArray[(threadIdx.y + boundsOffset) * chacheSize + threadIdx.x + boundsOffset];
+				}
+			}
+		}
+		blurredPixel /= chromPixelCount;
+		blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = blurredPixel;
+	}
+}
+
 // Kernel that sets the initial offset array
 __global__ void setInitialOffset(int* offsetArray, const unsigned int numLayers, const unsigned int lowDimY, 
 								 const unsigned int lowDimX, const unsigned int layerIdxOffset) {
@@ -57,12 +139,12 @@ __device__ void warpReduce2x2(volatile unsigned int* partial_sums, int tIdx) {
 	partial_sums[tIdx] += partial_sums[tIdx + 1];
 }
 
-// Kernel that sums up all the pixel deltas of each window for window sizes of at least 8x8
+// Kernel that sums up all the pixel deltas of each window
 template <typename T>
-__global__ void calcDeltaSums8x8(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
-							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
-								 const unsigned int windowDim, const float resolutionScalar) {
+__global__ void calcDeltaSums(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
+							  const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						      const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
+							  const unsigned int windowDim, const float resolutionScalar) {
 	// Handle used to synchronize all threads
 	auto g = cooperative_groups::this_thread_block();
 
@@ -78,7 +160,6 @@ __global__ void calcDeltaSums8x8(unsigned int* summedUpDeltaArray, const T* fram
 	const unsigned int scaledCx = static_cast<unsigned int>(static_cast<float>(cx) * resolutionScalar); // The X-Index of the current thread in the input frames
 	const unsigned int scaledCy = static_cast<unsigned int>(static_cast<float>(cy) * resolutionScalar); // The Y-Index of the current thread in the input frames
 	const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
-	partial_sums[tIdx] = 0;
 
 	if (cy < lowDimY && cx < lowDimX) {
 		// Calculate the image delta
@@ -87,9 +168,17 @@ __global__ void calcDeltaSums8x8(unsigned int* summedUpDeltaArray, const T* fram
 		int newCx = scaledCx + offsetX;
 		int newCy = scaledCy + offsetY;
 
-		partial_sums[tIdx] = (newCy < 0 || newCx < 0 || newCy >= dimY || newCx >= dimX) ? 0 : 
-			abs(frame1[newCy * dimX + newCx] - frame2[scaledCy * dimX + scaledCx]);
-
+		// Window size of 1x1
+		if (windowDim == 1) {
+			summedUpDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] = (newCy < 0 || newCx < 0 || newCy >= dimY || newCx >= dimX) ? 0 : 
+				abs(frame1[newCy * dimX + newCx] - frame2[scaledCy * dimX + scaledCx]);
+		    return;
+		// All other window sizes
+		} else {
+			partial_sums[tIdx] = (newCy < 0 || newCx < 0 || newCy >= dimY || newCx >= dimX) ? 0 : 
+						abs(frame1[newCy * dimX + newCx] - frame2[scaledCy * dimX + scaledCx]);
+		}
+		
 		__syncthreads();
 
 		// Sum up the remaining pixels for the current window
@@ -101,154 +190,38 @@ __global__ void calcDeltaSums8x8(unsigned int* summedUpDeltaArray, const T* fram
 		}
 
 		// Loop over the remaining values
-		if (tIdx < 32) {
-			warpReduce8x8(partial_sums, tIdx);
+		// Window size of 8x8 or larger
+		if (windowDim >= 8) {
+			if (tIdx < 32) {
+				warpReduce8x8(partial_sums, tIdx);
+			}
+		// Window size of 4x4
+		} else if (windowDim == 4) {
+			// Top 4x4 Blocks
+			if (threadIdx.y < 2) {
+				warpReduce4x4(partial_sums, tIdx);
+			// Bottom 4x4 Blocks
+			} else if (threadIdx.y >= 4 && threadIdx.y < 6) {
+				warpReduce4x4(partial_sums, tIdx);
+			}
+		// Window size of 2x2
+		} else if (windowDim == 2) {
+			if ((threadIdx.y & 1) == 0) {
+				warpReduce2x2(partial_sums, tIdx);
+			}
 		}
-
-		// Sync all threads
-		g.sync();
-
-		// Sum up the results of all blocks
-		if (tIdx == 0) {
-			const unsigned int windowIndexX = cx / windowDim;
-			const unsigned int windowIndexY = cy / windowDim;
-			atomicAdd(&summedUpDeltaArray[cz * layerIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)], partial_sums[0]);
-		}
-	}
-}
-
-// Kernel that sums up all the pixel deltas of each window for window sizes of 4x4
-template <typename T>
-__global__ void calcDeltaSums4x4(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
-							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
-								 const unsigned int windowDim, const float resolutionScalar) {
-	// Handle used to synchronize all threads
-	auto g = cooperative_groups::this_thread_block();
-
-	// Shared memory for the partial sums of the current block
-	extern __shared__ unsigned int partial_sums[];
-
-	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	const unsigned int tIdx = threadIdx.y * blockDim.x + threadIdx.x;
-	const unsigned int layerOffset = blockIdx.z * lowDimY * lowDimX; // Offset to index the layer of the current thread
-	const unsigned int scaledCx = static_cast<unsigned int>(static_cast<float>(cx) * resolutionScalar); // The X-Index of the current thread in the input frames
-	const unsigned int scaledCy = static_cast<unsigned int>(static_cast<float>(cy) * resolutionScalar); // The Y-Index of the current thread in the input frames
-
-	const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
-	partial_sums[tIdx] = 0;
-
-	if (cy < lowDimY && cx < lowDimX) {
-		// Calculate the image delta
-		int offsetX = -offsetArray[layerOffset + threadIndex2D];
-		int offsetY = -offsetArray[directionIdxOffset + layerOffset + threadIndex2D];
-		int newCx = scaledCx + offsetX;
-		int newCy = scaledCy + offsetY;
-
-		partial_sums[tIdx] = (newCy < 0 || newCx < 0 || newCy >= dimY || newCx >= dimX) ? 0 : 
-			abs(frame1[newCy * dimX + newCx] - frame2[scaledCy * dimX + scaledCx]);
 		
-		__syncthreads();
-
-		// Top 4x4 Blocks
-		if (threadIdx.y < 2) {
-			warpReduce4x4(partial_sums, tIdx);
-		// Bottom 4x4 Blocks
-		} else if (threadIdx.y >= 4 && threadIdx.y < 6) {
-			warpReduce4x4(partial_sums, tIdx);
-		}
-
 		// Sync all threads
 		g.sync();
 
 		// Sum up the results of all blocks
-		if (tIdx == 0 || tIdx == 4 || tIdx == 32 || tIdx == 36) {
+		if ((windowDim >= 8 && tIdx == 0) || 
+			(windowDim == 4 && (tIdx == 0 || tIdx == 4 || tIdx == 32 || tIdx == 36)) || 
+			(windowDim == 2 && ((tIdx & 1) == 0 && (threadIdx.y & 1) == 0))) {
 			const unsigned int windowIndexX = cx / windowDim;
 			const unsigned int windowIndexY = cy / windowDim;
 			atomicAdd(&summedUpDeltaArray[cz * layerIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)], partial_sums[tIdx]);
 		}
-	}
-}
-
-// Kernel that sums up all the pixel deltas of each window for window sizes of 2x2
-template <typename T>
-__global__ void calcDeltaSums2x2(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
-							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
-								 const unsigned int windowDim, const float resolutionScalar) {
-	// Handle used to synchronize all threads
-	auto g = cooperative_groups::this_thread_block();
-
-	// Shared memory for the partial sums of the current block
-	extern __shared__ unsigned int partial_sums[];
-
-	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	const unsigned int tIdx = threadIdx.y * blockDim.x + threadIdx.x;
-	const unsigned int layerOffset = blockIdx.z * lowDimY * lowDimX; // Offset to index the layer of the current thread
-	const unsigned int scaledCx = static_cast<unsigned int>(static_cast<float>(cx) * resolutionScalar); // The X-Index of the current thread in the input frames
-	const unsigned int scaledCy = static_cast<unsigned int>(static_cast<float>(cy) * resolutionScalar); // The Y-Index of the current thread in the input frames
-
-	const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
-	partial_sums[tIdx] = 0;
-
-	if (cy < lowDimY && cx < lowDimX) {
-		// Calculate the image delta
-		int offsetX = -offsetArray[layerOffset + threadIndex2D];
-		int offsetY = -offsetArray[directionIdxOffset + layerOffset + threadIndex2D];
-		int newCx = scaledCx + offsetX;
-		int newCy = scaledCy + offsetY;
-
-		partial_sums[tIdx] = (newCy < 0 || newCx < 0 || newCy >= dimY || newCx >= dimX) ? 0 : 
-			abs(frame1[newCy * dimX + newCx] - frame2[scaledCy * dimX + scaledCx]);
-
-		__syncthreads();
-
-		if ((threadIdx.y & 1) == 0) {
-			warpReduce2x2(partial_sums, tIdx);
-		}
-
-		// Sync all threads
-		g.sync();
-
-		// Sum up the results of all blocks
-		if ((tIdx & 1) == 0 && (threadIdx.y & 1) == 0) {
-			const unsigned int windowIndexX = cx / windowDim;
-			const unsigned int windowIndexY = cy / windowDim;
-			atomicAdd(&summedUpDeltaArray[cz * layerIdxOffset + (windowIndexY * windowDim) * lowDimX + (windowIndexX * windowDim)], partial_sums[tIdx]);
-		}
-	}
-}
-
-// Kernel that sums up all the pixel deltas of each window for window sizes of 1x1
-template <typename T>
-__global__ void calcDeltaSums1x1(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
-							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
-								 const float resolutionScalar) {
-	// Current entry to be computed by the thread
-	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
-	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
-	const unsigned int cz = blockIdx.z * blockDim.z + threadIdx.z;
-	const unsigned int layerOffset = cz * lowDimY * lowDimX; // Offset to index the layer of the current thread
-	const unsigned int scaledCx = static_cast<unsigned int>(static_cast<float>(cx) * resolutionScalar); // The X-Index of the current thread in the input frames
-	const unsigned int scaledCy = static_cast<unsigned int>(static_cast<float>(cy) * resolutionScalar); // The Y-Index of the current thread in the input frames
-	const unsigned int threadIndex2D = cy * lowDimX + cx; // Standard thread index without Z-Dim
-
-	if (cy < lowDimY && cx < lowDimX) {
-		// Calculate the image delta
-		int offsetX = -offsetArray[layerOffset + threadIndex2D];
-		int offsetY = -offsetArray[directionIdxOffset + layerOffset + threadIndex2D];
-		int newCx = scaledCx + offsetX;
-		int newCy = scaledCy + offsetY;
-
-		summedUpDeltaArray[cz * layerIdxOffset + cy * lowDimX + cx] = (newCy < 0 || newCx < 0 || newCy >= dimY || newCx >= dimX) ? 0 : 
-			abs(frame1[newCy * dimX + newCx] - frame2[scaledCy * dimX + scaledCx]);
 	}
 }
 
@@ -747,26 +720,301 @@ __global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray,
 	
 }
 
+// Kernel that cleans a flow array
+__global__ void cleanFlowKernel(const int* flowArray, int* blurredFlowArray, 
+								const unsigned short lowDimY, const unsigned short lowDimX) {
+	// Current entry to be computed by the thread
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = threadIdx.z;
+
+	int offsetX = flowArray[cy * lowDimX + cx];
+	int offsetY = flowArray[lowDimY * lowDimX + cy * lowDimX + cx];
+
+    if (abs(offsetY) <= 2 && abs(offsetX <= 2)) {
+		blurredFlowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx] = flowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx];
+	}
+}
+
+// Kernel that warps a frame according to the offset array
+template <typename T, typename S>
+__global__ void warpFrameKernel(const T* frame1, const int* offsetArray, int* hitCount,
+								S* warpedFrame, const float frameScalar, const unsigned int lowDimY, const unsigned int lowDimX,
+								const unsigned int dimY, const int dimX, const float resolutionDivider,
+								const unsigned int directionIdxOffset, const unsigned int scaledDimX, const unsigned int channelIdxOffset, 
+								const unsigned int scaledChannelIdxOffset) {
+	// Current entry to be computed by the thread
+	const int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const int cz = blockIdx.z * blockDim.z + threadIdx.z;
+	const bool shift = sizeof(T) == 1 && sizeof(S) == 2; // SDR && DirectOutput
+
+	const int scaledCx = static_cast<int>(static_cast<float>(cx) * resolutionDivider); // The X-Index of the current thread in the offset array
+	const int scaledCy = static_cast<int>(static_cast<float>(cy) * resolutionDivider); // The Y-Index of the current thread in the offset array
+
+	// Y Channel
+	if (cz == 0 && cy < dimY && cx < dimX) {
+		// Get the current offsets to use
+		const int offsetX = static_cast<int>(static_cast<float>(offsetArray[scaledCy * lowDimX + scaledCx]) * frameScalar);
+		const int offsetY = static_cast<int>(static_cast<float>(offsetArray[directionIdxOffset + scaledCy * lowDimX + scaledCx]) * frameScalar);
+		const int newCx = cx + offsetX;
+		const int newCy = cy + offsetY;
+
+		// Check if the current pixel is inside the frame
+		if (newCy >= 0 && newCy < dimY && newCx >= 0 && newCx < dimX) {
+			warpedFrame[newCy * scaledDimX + newCx] = static_cast<S>(frame1[cy * dimX + cx]) << (shift ? 8 : 0);
+			atomicAdd(&hitCount[newCy * dimX + newCx], 1);
+		}
+
+	// U/V-Channel
+	} else if (cz == 1 && cy < (dimY >> 1) && cx < dimX) {
+		const int offsetX = static_cast<int>(static_cast<float>(offsetArray[(scaledCy << 1) * lowDimX + (scaledCx & ~1)]) * frameScalar);
+		const int offsetY = static_cast<int>(static_cast<float>(offsetArray[directionIdxOffset + (scaledCy << 1) * lowDimX + (scaledCx & ~1)]) * frameScalar) >> 1;
+		const int newCx = cx + offsetX;
+		const int newCy = cy + offsetY;
+
+		// Check if the current pixel is inside the frame
+		if (newCy >= 0 && newCy < (dimY >> 1) && newCx >= 0 && newCx < dimX) {
+			// U-Channel
+			if ((cx & 1) == 0) {
+				warpedFrame[scaledChannelIdxOffset + newCy * scaledDimX + (newCx & ~1)] = static_cast<S>(frame1[channelIdxOffset + cy * dimX + cx]) << (shift ? 8 : 0);
+
+			// V-Channel
+			} else {
+				warpedFrame[scaledChannelIdxOffset + newCy * scaledDimX + (newCx & ~1) + 1] = static_cast<S>(frame1[channelIdxOffset + cy * dimX + cx]) << (shift ? 8 : 0);
+			}
+		}
+	}
+}
+
 // Kernel that removes artifacts from the warped frame
-template <typename T>
-__global__ void artifactRemovalKernelForBlending(const T* frame1, const int* hitCount, T* warpedFrame,
-												 const unsigned int dimY, const unsigned int dimX, const unsigned int channelIdxOffset) {
+template <typename T, typename S>
+__global__ void artifactRemovalKernel(const T* frame1, const int* hitCount, S* warpedFrame,
+												 const unsigned int dimY, const unsigned int dimX, const int scaledDimX,
+												  const unsigned int channelIdxOffset, const unsigned int scaledChannelIdxOffset) {
 	// Current entry to be computed by the thread
 	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
 	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int cz = threadIdx.z;
 	const unsigned int threadIndex2D = cy * dimX + cx; // Standard thread index without Z-Dim
+	const bool shift = sizeof(T) == 1 && sizeof(S) == 2; // SDR && DirectOutput
 
 	// Y Channel
 	if (cz == 0 && cy < dimY && cx < dimX) {
 		if (hitCount[threadIndex2D] != 1) {
-			warpedFrame[threadIndex2D] = frame1[threadIndex2D];
+			warpedFrame[cy * scaledDimX + cx] = static_cast<S>(frame1[threadIndex2D]) << (shift ? 8 : 0);
 		}
 
 	// U/V Channels
 	} else if (cz == 1 && cy < (dimY >> 1) && cx < dimX) {
 		if (hitCount[threadIndex2D] != 1) {
-			warpedFrame[channelIdxOffset + threadIndex2D] = frame1[channelIdxOffset + threadIndex2D];
+			warpedFrame[scaledChannelIdxOffset + cy * scaledDimX + cx] = static_cast<S>(frame1[channelIdxOffset + threadIndex2D]) << (shift ? 8 : 0);
+		}
+	}
+}
+
+// Kernel that blends warpedFrame1 to warpedFrame2
+template <typename T>
+__global__ void blendFrameKernel(const T* warpedFrame1, const T* warpedFrame2, unsigned short* outputFrame,
+                                 const float frame1Scalar, const float frame2Scalar, const unsigned int dimY,
+                                 const unsigned int dimX, const int scaledDimX, const unsigned int channelIdxOffset) {
+	// Current entry to be computed by the thread
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = threadIdx.z;
+	const bool isHDR = sizeof(T) == 2;
+
+	// Y Channel
+	if (cz == 0 && cy < dimY && cx < dimX) {
+		outputFrame[cy * scaledDimX + cx] = 
+			static_cast<unsigned short>(
+				static_cast<float>(warpedFrame1[cy * dimX + cx]) * frame1Scalar + 
+				static_cast<float>(warpedFrame2[cy * dimX + cx]) * frame2Scalar
+			) << (isHDR ? 0 : 8);
+	// U/V Channels
+	} else if (cz == 1 && cy < (dimY >> 1) && cx < dimX) {
+		outputFrame[dimY * scaledDimX + cy * scaledDimX + cx] = 
+			static_cast<unsigned short>(
+				static_cast<float>(warpedFrame1[channelIdxOffset + cy * dimX + cx]) * frame1Scalar + 
+				static_cast<float>(warpedFrame2[channelIdxOffset + cy * dimX + cx]) * frame2Scalar
+			) << (isHDR ? 0 : 8);
+	}
+}
+
+// Kernel that places half of frame 1 over the outputFrame
+template <typename T>
+__global__ void insertFrameKernel(const T* frame1, unsigned short* outputFrame, const unsigned int dimY,
+                                  const unsigned int dimX, const int scaledDimX, const unsigned int channelIdxOffset) {
+	// Current entry to be computed by the thread
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = threadIdx.z;
+	const bool isHDR = sizeof(T) == 2;
+
+	// Y Channel
+	if (cz == 0 && cy < dimY && cx < (dimX >> 1)) {
+		outputFrame[cy * scaledDimX + cx] = static_cast<unsigned short>(frame1[cy * dimX + cx]) << (isHDR ? 0 : 8);
+	// U/V Channels
+	} else if (cz == 1 && cy < (dimY >> 1) && cx < (dimX >> 1)) {
+		outputFrame[dimY * scaledDimX + cy * scaledDimX + cx] = static_cast<unsigned short>(frame1[channelIdxOffset + cy * dimX + cx]) << (isHDR ? 0 : 8);
+	}
+}
+
+// Kernel that places frame 1 scaled down on the left side and the blendedFrame on the right side of the outputFrame
+template <typename T>
+__global__ void sideBySideFrameKernel(const T* frame1, const T* warpedFrame1, const T* warpedFrame2, unsigned short* outputFrame, 
+									  const float frame1Scalar, const float frame2Scalar, const unsigned int dimY,
+                                      const unsigned int dimX, const int scaledDimX, const unsigned int halfDimY, 
+									  const unsigned int halfDimX, const unsigned int channelIdxOffset) {
+	// Current entry to be computed by the thread
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = threadIdx.z;
+	const unsigned int verticalOffset = dimY >> 2;
+	const bool isYChannel = cz == 0 && cy < dimY && cx < dimX;
+	const bool isUVChannel = cz == 1 && cy < halfDimY && cx < dimX;
+	const bool isInLeftSideY = cy >= verticalOffset && cy < (verticalOffset + halfDimY) && cx < halfDimX;
+	const bool isInRightSideY = cy >= verticalOffset && cy < (verticalOffset + halfDimY) && cx >= halfDimX && cx < dimX;
+	const bool isInLeftSideUV = cy >= (verticalOffset >> 1) && cy < ((verticalOffset >> 1) + (dimY >> 2)) && cx < halfDimX;
+	const bool isInRightSideUV = cy >= (verticalOffset >> 1) && cy < ((verticalOffset >> 1) + (dimY >> 2)) && cx >= halfDimX && cx < dimX;
+	const bool isVChannel = (cx & 1) == 1;
+	const bool isHDR = sizeof(T) == 2;
+	unsigned short blendedFrameValue;
+
+	// --- Blending ---
+	// Y Channel
+	if (isYChannel && isInRightSideY) {
+		blendedFrameValue = 
+			static_cast<unsigned short>(
+				static_cast<float>(warpedFrame1[((cy - verticalOffset) << 1) * dimX + ((cx - halfDimX) << 1)]) * frame1Scalar + 
+				static_cast<float>(warpedFrame2[((cy - verticalOffset) << 1) * dimX + ((cx - halfDimX) << 1)]) * frame2Scalar
+			) << (isHDR ? 0 : 8);
+	// U/V Channels
+	} else if (isUVChannel && isInRightSideUV) {
+		blendedFrameValue = 
+			static_cast<unsigned short>(
+				static_cast<float>(warpedFrame1[channelIdxOffset + 2 * (cy - (verticalOffset >> 1)) * dimX + ((cx - halfDimX) << 1) + isVChannel]) * frame1Scalar + 
+				static_cast<float>(warpedFrame2[channelIdxOffset + 2 * (cy - (verticalOffset >> 1)) * dimX + ((cx - halfDimX) << 1) + isVChannel]) * frame2Scalar
+			) << (isHDR ? 0 : 8);
+	}
+
+	// Y Channel
+	if (isYChannel) {
+		if (isInLeftSideY) {
+			outputFrame[cy * scaledDimX + cx] = static_cast<unsigned short>(frame1[((cy - verticalOffset) << 1) * dimX + (cx << 1)]) << (isHDR ? 0 : 8);
+		} else if (isInRightSideY) {
+			outputFrame[cy * scaledDimX + cx] = blendedFrameValue;
+		} else {
+			outputFrame[cy * scaledDimX + cx] = 0;
+		}
+	} else if (isUVChannel) {
+		if (isInLeftSideUV) {
+			outputFrame[dimY * scaledDimX + cy * scaledDimX + cx] = static_cast<unsigned short>(frame1[channelIdxOffset + ((cy - (verticalOffset >> 1)) << 1) * dimX + (cx << 1) + isVChannel]) << (isHDR ? 0 : 8);
+		} else if (isInRightSideUV) {
+			outputFrame[dimY * scaledDimX + cy * scaledDimX + cx] = blendedFrameValue;
+		} else {
+			outputFrame[dimY * scaledDimX + cy * scaledDimX + cx] = static_cast<unsigned short>(128) << 8;
+		}
+	}
+}
+
+// Kernel that creates an HSV flow image from the offset array
+template <typename T>
+__global__ void convertFlowToHSVKernel(const int* flowArray, unsigned short* outputFrame, const T* frame1,
+                                       const float blendScalar, const unsigned int lowDimX, const unsigned int dimY, const unsigned int dimX, 
+									   const float resolutionDivider, const unsigned int directionIdxOffset, const unsigned int scaledDimX,
+									   const unsigned int scaledChannelIdxOffset) {
+	// Current entry to be computed by the thread
+	const unsigned int cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned int cz = threadIdx.z;
+	const bool isHDR = sizeof(T) == 2;
+
+	const unsigned int scaledCx = static_cast<unsigned int>(static_cast<float>(cx) * resolutionDivider); // The X-Index of the current thread in the offset array
+	const unsigned int scaledCy = static_cast<unsigned int>(static_cast<float>(cy) * resolutionDivider); // The Y-Index of the current thread in the offset array
+
+	// Get the current flow values
+	float x;
+	float y;
+	if (cz == 0) {
+		x = flowArray[scaledCy * lowDimX + scaledCx];
+		y = flowArray[directionIdxOffset + scaledCy * lowDimX + scaledCx];
+	} else {
+		x = flowArray[(scaledCy << 1) * lowDimX + scaledCx];
+		y = flowArray[directionIdxOffset + (scaledCy << 1) * lowDimX + scaledCx];
+	}
+
+	// RGB struct
+	struct RGB {
+		int r, g, b;
+	};
+
+	// Calculate the angle in radians
+	const float angle_rad = std::atan2(y, x);
+
+	// Convert radians to degrees
+	float angle_deg = angle_rad * (180.0f / 3.14159265359f);
+
+	// Ensure the angle is positive
+	if (angle_deg < 0) {
+		angle_deg += 360.0f;
+	}
+
+	// Normalize the angle to the range [0, 360]
+	angle_deg = fmodf(angle_deg, 360.0f);
+	if (angle_deg < 0) {
+		angle_deg += 360.0f;
+	}
+
+	// Map the angle to the hue value in the HSV model
+	const float hue = angle_deg / 360.0f;
+
+	// Convert HSV to RGB
+	const int h_i = static_cast<int>(hue * 6.0f);
+	const float f = hue * 6.0f - h_i;
+	const float q = 1.0f - f;
+
+	RGB rgb;
+	switch (h_i % 6) {
+		case 0: rgb = { static_cast<int>(255), static_cast<int>(f * 255), 0 }; break;
+		case 1: rgb = { static_cast<int>(q * 255), static_cast<int>(255), 0 }; break;
+		case 2: rgb = { 0, static_cast<int>(255), static_cast<int>(f * 255) }; break;
+		case 3: rgb = { 0, static_cast<int>(q * 255), static_cast<int>(255) }; break;
+		case 4: rgb = { static_cast<int>(f * 255), 0, static_cast<int>(255) }; break;
+		case 5: rgb = { static_cast<int>(255), 0, static_cast<int>(q * 255) }; break;
+		default: rgb = { 0, 0, 0 }; break;
+	}
+
+	// Prevent random colors when there is no flow
+	if (fabsf(x) < 1.0f && fabsf(y) < 1.0f) {
+		rgb = { 0, 0, 0 };
+	}
+
+	// Y Channel
+	if (cz == 0 && cy < dimY && cx < dimX) {
+		outputFrame[cy * scaledDimX + cx] = isHDR ?
+			(static_cast<unsigned short>(
+				(fmaxf(fminf(0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b, 255.0f), 0.0f)) * blendScalar) << 8) + 
+				frame1[cy * dimX + cx] * (1.0f - blendScalar)
+			:
+			static_cast<unsigned short>(
+				(fmaxf(fminf(0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b, 255.0f), 0.0f)) * blendScalar + 
+				frame1[cy * dimX + cx] * (1.0f - blendScalar)
+			) << 8;
+	// U/V Channels
+	} else if (cz == 1 && cy < (dimY >> 1) && cx < dimX) {
+		// U Channel
+		if ((cx & 1) == 0) {
+			outputFrame[scaledChannelIdxOffset + cy * scaledDimX + (cx & ~1)] = 
+				static_cast<unsigned short>(
+					fmaxf(fminf(0.492f * (rgb.b - (0.299f * rgb.r + 0.587f * rgb.g + 0.114 * rgb.b)) + 128.0f, 255.0f), 0.0f)
+				) << 8;
+		// V Channel
+		} else {
+			outputFrame[scaledChannelIdxOffset + cy * scaledDimX + (cx & ~1) + 1] = 
+				static_cast<unsigned short>(
+					fmaxf(fminf(0.877f * (rgb.r - (0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b)) + 128.0f, 255.0f), 0.0f)
+				) << 8;
 		}
 	}
 }
@@ -825,6 +1073,9 @@ void OpticalFlowCalc::blurFlowArrays(const int kernelSize) const {
 		// Launch kernels
 		blurFlowKernel << <gridBF, threadsBF, sharedMemSize, blurStream1 >> > (m_offsetArray12.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, start, end, pixelCount, m_iNumLayers, m_iLowDimY, m_iLowDimX);
 		blurFlowKernel << <gridBF, threadsBF, sharedMemSize, blurStream2 >> > (m_offsetArray21.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, start, end, pixelCount, 1, m_iLowDimY, m_iLowDimX);
+		//cleanFlowKernel << <m_lowGrid16x16x1, m_threads16x16x2, 0, blurStream1 >> > (m_offsetArray12.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU, m_iLowDimY, m_iLowDimX);
+		//cleanFlowKernel << <m_lowGrid16x16x1, m_threads16x16x2, 0, blurStream2 >> > (m_offsetArray21.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU, m_iLowDimY, m_iLowDimX);
+
 
 		// Synchronize streams to ensure completion
 		cudaStreamSynchronize(blurStream1);
@@ -839,35 +1090,113 @@ void OpticalFlowCalc::blurFlowArrays(const int kernelSize) const {
 /*
 * Template instantiation
 */
-template __global__ void calcDeltaSums8x8<unsigned char>(unsigned int* summedUpDeltaArray, const unsigned char* frame1, const unsigned char* frame2,
+template __global__ void blurFrameKernel(const unsigned char* frameArray, unsigned char* blurredFrameArray,
+		const unsigned char kernelSize, const unsigned char chacheSize,
+		const unsigned char boundsOffset,
+		const unsigned char avgEntriesPerThread,
+		const unsigned short remainder, const char lumStart,
+		const unsigned char lumEnd, const unsigned short lumPixelCount,
+		const char chromStart, const unsigned char chromEnd,
+		const unsigned short chromPixelCount, const unsigned short dimY,
+		const unsigned short dimX);
+template __global__ void blurFrameKernel(const unsigned short* frameArray, unsigned short* blurredFrameArray,
+		const unsigned char kernelSize, const unsigned char chacheSize,
+		const unsigned char boundsOffset,
+		const unsigned char avgEntriesPerThread,
+		const unsigned short remainder, const char lumStart,
+		const unsigned char lumEnd, const unsigned short lumPixelCount,
+		const char chromStart, const unsigned char chromEnd,
+		const unsigned short chromPixelCount, const unsigned short dimY,
+		const unsigned short dimX);
+template __global__ void calcDeltaSums(unsigned int* summedUpDeltaArray, const unsigned char* frame1, const unsigned char* frame2,
 							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
 						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim, const float resolutionScalar);
-template __global__ void calcDeltaSums8x8<unsigned short>(unsigned int* summedUpDeltaArray, const unsigned short* frame1, const unsigned short* frame2,
+template __global__ void calcDeltaSums(unsigned int* summedUpDeltaArray, const unsigned short* frame1, const unsigned short* frame2,
 							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
 						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim, const float resolutionScalar);
 
-template __global__ void calcDeltaSums4x4<unsigned char>(unsigned int* summedUpDeltaArray, const unsigned char* frame1, const unsigned char* frame2,
-							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim, const float resolutionScalar);
-template __global__ void calcDeltaSums4x4<unsigned short>(unsigned int* summedUpDeltaArray, const unsigned short* frame1, const unsigned short* frame2,
-							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim, const float resolutionScalar);
+template __global__ void warpFrameKernel(
+    const unsigned char* frame1, const int* offsetArray, int* hitCount,
+    unsigned char* warpedFrame, const float frameScalar, const unsigned int lowDimY,
+    const unsigned int lowDimX, const unsigned int dimY, const int dimX,
+    const float resolutionDivider, const unsigned int directionIdxOffset,
+    const unsigned int scaledDimX, const unsigned int channelIdxOffset,
+    const unsigned int scaledChannelIdxOffset);
+template __global__ void warpFrameKernel(
+    const unsigned short* frame1, const int* offsetArray, int* hitCount,
+    unsigned char* warpedFrame, const float frameScalar, const unsigned int lowDimY,
+    const unsigned int lowDimX, const unsigned int dimY, const int dimX,
+    const float resolutionDivider, const unsigned int directionIdxOffset,
+    const unsigned int scaledDimX, const unsigned int channelIdxOffset,
+    const unsigned int scaledChannelIdxOffset);
+template __global__ void warpFrameKernel(
+    const unsigned char* frame1, const int* offsetArray, int* hitCount,
+    unsigned short* warpedFrame, const float frameScalar, const unsigned int lowDimY,
+    const unsigned int lowDimX, const unsigned int dimY, const int dimX,
+    const float resolutionDivider, const unsigned int directionIdxOffset,
+    const unsigned int scaledDimX, const unsigned int channelIdxOffset,
+    const unsigned int scaledChannelIdxOffset);
+template __global__ void warpFrameKernel(
+    const unsigned short* frame1, const int* offsetArray, int* hitCount,
+    unsigned short* warpedFrame, const float frameScalar, const unsigned int lowDimY,
+    const unsigned int lowDimX, const unsigned int dimY, const int dimX,
+    const float resolutionDivider, const unsigned int directionIdxOffset,
+    const unsigned int scaledDimX, const unsigned int channelIdxOffset,
+    const unsigned int scaledChannelIdxOffset);
 
-template __global__ void calcDeltaSums2x2<unsigned char>(unsigned int* summedUpDeltaArray, const unsigned char* frame1, const unsigned char* frame2,
-							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim, const float resolutionScalar);
-template __global__ void calcDeltaSums2x2<unsigned short>(unsigned int* summedUpDeltaArray, const unsigned short* frame1, const unsigned short* frame2,
-							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const unsigned int windowDim, const float resolutionScalar);
+template __global__ void artifactRemovalKernel(const unsigned char* frame1, const int* hitCount, unsigned char* warpedFrame,
+		      const unsigned int dimY, const unsigned int dimX,
+		      const int scaledDimX, const unsigned int channelIdxOffset,
+		      const unsigned int scaledChannelIdxOffset);
+template __global__ void artifactRemovalKernel(const unsigned short* frame1, const int* hitCount, unsigned char* warpedFrame,
+		      const unsigned int dimY, const unsigned int dimX,
+		      const int scaledDimX, const unsigned int channelIdxOffset,
+		      const unsigned int scaledChannelIdxOffset);
+template __global__ void artifactRemovalKernel(const unsigned char* frame1, const int* hitCount, unsigned short* warpedFrame,
+		      const unsigned int dimY, const unsigned int dimX,
+		      const int scaledDimX, const unsigned int channelIdxOffset,
+		      const unsigned int scaledChannelIdxOffset);
+template __global__ void artifactRemovalKernel(const unsigned short* frame1, const int* hitCount, unsigned short* warpedFrame,
+		      const unsigned int dimY, const unsigned int dimX,
+		      const int scaledDimX, const unsigned int channelIdxOffset,
+		      const unsigned int scaledChannelIdxOffset);
 
-template __global__ void calcDeltaSums1x1<unsigned char>(unsigned int* summedUpDeltaArray, const unsigned char* frame1, const unsigned char* frame2,
-							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const float resolutionScalar);
-template __global__ void calcDeltaSums1x1<unsigned short>(unsigned int* summedUpDeltaArray, const unsigned short* frame1, const unsigned short* frame2,
-							   const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX, const float resolutionScalar);
+template __global__ void blendFrameKernel(const unsigned char* warpedFrame1, const unsigned char* warpedFrame2,
+		 unsigned short* outputFrame, const float frame1Scalar,
+		 const float frame2Scalar, const unsigned int dimY,
+		 const unsigned int dimX, const int scaledDimX,
+		 const unsigned int channelIdxOffset);
+template __global__ void blendFrameKernel(const unsigned short* warpedFrame1, const unsigned short* warpedFrame2,
+		 unsigned short* outputFrame, const float frame1Scalar,
+		 const float frame2Scalar, const unsigned int dimY,
+		 const unsigned int dimX, const int scaledDimX,
+		 const unsigned int channelIdxOffset);
 
-template __global__ void artifactRemovalKernelForBlending<unsigned char>(const unsigned char* frame1, const int* hitCount, unsigned char* warpedFrame,
-	const unsigned int dimY, const unsigned int dimX, const unsigned int channelIdxOffset);
-template __global__ void artifactRemovalKernelForBlending<unsigned short>(const unsigned short* frame1, const int* hitCount, unsigned short* warpedFrame,
-	const unsigned int dimY, const unsigned int dimX, const unsigned int channelIdxOffset);
+template __global__ void insertFrameKernel(const unsigned char* frame1, unsigned short* outputFrame,
+		  const unsigned int dimY, const unsigned int dimX,
+		  const int scaledDimX, const unsigned int channelIdxOffset);
+template __global__ void insertFrameKernel(const unsigned short* frame1, unsigned short* outputFrame,
+		  const unsigned int dimY, const unsigned int dimX,
+		  const int scaledDimX, const unsigned int channelIdxOffset);
+
+template __global__ void sideBySideFrameKernel(const unsigned char* frame1, const unsigned char* warpedFrame1, const unsigned char* warpedFrame2, unsigned short* outputFrame, 
+									  const float frame1Scalar, const float frame2Scalar, const unsigned int dimY,
+                                      const unsigned int dimX, const int scaledDimX, const unsigned int halfDimY, 
+									  const unsigned int halfDimX, const unsigned int channelIdxOffset);
+template __global__ void sideBySideFrameKernel(const unsigned short* frame1, const unsigned short* warpedFrame1, const unsigned short* warpedFrame2, unsigned short* outputFrame, 
+									  const float frame1Scalar, const float frame2Scalar, const unsigned int dimY,
+                                      const unsigned int dimX, const int scaledDimX, const unsigned int halfDimY, 
+									  const unsigned int halfDimX, const unsigned int channelIdxOffset);
+
+template __global__ void convertFlowToHSVKernel(
+    const int* flowArray, unsigned short* outputFrame, const unsigned char* frame1,
+    const float blendScalar, const unsigned int lowDimX,
+    const unsigned int dimY, const unsigned int dimX,
+    const float resolutionDivider, const unsigned int directionIdxOffset,
+    const unsigned int scaledDimX, const unsigned int scaledChannelIdxOffset);
+template __global__ void convertFlowToHSVKernel(
+    const int* flowArray, unsigned short* outputFrame, const unsigned short* frame1,
+    const float blendScalar, const unsigned int lowDimX,
+    const unsigned int dimY, const unsigned int dimX,
+    const float resolutionDivider, const unsigned int directionIdxOffset,
+    const unsigned int scaledDimX, const unsigned int scaledChannelIdxOffset);

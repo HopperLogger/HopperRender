@@ -12,6 +12,7 @@ private:
 	HRESULT OnDisconnect() override;
 	HRESULT OnActivate() override;
 	HRESULT OnDeactivate() override;
+	void ValidateParameter(int& parameter, int maxValue, int controlId);
 	HRESULT OnApplyChanges() override;
 	HRESULT saveSettings();
 
@@ -20,7 +21,7 @@ private:
 	CHopperRenderSettings(LPUNKNOWN lpunk, HRESULT* phr);
 
 	bool m_bActivated; // Whether the filter is activated by the user
-	int m_iFrameOutput; // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames)
+	int m_iFrameOutput; // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
 	int m_iNumIterations; // Number of iterations to use in the optical flow calculation (0: As many as possible)
 	int m_iFrameBlurKernelSize; // The size of the blur kernel used to blur the source frames before calculating the optical flow
 	int m_iFlowBlurKernelSize; // The size of the blur kernel used to blur the offset calculated by the optical flow
