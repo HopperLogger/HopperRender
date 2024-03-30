@@ -39,7 +39,7 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 	m_iNumIterations(0),
 	m_iFrameBlurKernelSize(16),
 	m_iFlowBlurKernelSize(32),
-	m_iSceneChangeThreshold(3000),
+	m_iSceneChangeThreshold(1000),
 	m_iIntActiveState(0),
 	m_dSourceFPS(0.0),
 	m_iNumSteps(0),
@@ -118,7 +118,6 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iCurrentSceneChange);
 			SetDlgItemText(m_Dlg, IDC_CURRFRAMEDIFF, sz);
 		}
-
 	}
 
 	return CBasePropertyPage::OnReceiveMessage(hwnd, uMsg, wParam, lParam);
@@ -171,19 +170,25 @@ HRESULT CHopperRenderSettings::OnActivate() {
 	// Update the selected frame output
 	switch (m_iFrameOutput) {
 		case 0:
-			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLURREDFRAMES, IDC_WARPEDFRAME12);
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_WARPEDFRAME12);
 			break;
 		case 1:
-			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLURREDFRAMES, IDC_WARPEDFRAME21);
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_WARPEDFRAME21);
 			break;
 		case 2:
-			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLURREDFRAMES, IDC_BLENDEDFRAME);
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_BLENDEDFRAME);
 			break;
 		case 3:
-			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLURREDFRAMES, IDC_HSVFLOW);
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_HSVFLOW);
 			break;
 		case 4:
-			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLURREDFRAMES, IDC_BLURREDFRAMES);
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_BLURREDFRAMES);
+			break;
+		case 5:
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_SIDEBYSIDE1);
+			break;
+		case 6:
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_SIDEBYSIDE2);
 			break;
 	}
 
@@ -218,25 +223,33 @@ HRESULT CHopperRenderSettings::OnDeactivate() {
 	return NOERROR;
 }
 
+// Validate the parameter values
+void CHopperRenderSettings::ValidateParameter(int& parameter, int maxValue, int controlId) {
+    if (parameter < 0) {
+        parameter = 0;
+    } else if (parameter > maxValue) {
+        parameter = maxValue;
+    }
+    TCHAR sz[60];
+    (void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), parameter);
+    Edit_SetText(GetDlgItem(m_Dlg, controlId), sz);
+}
+
 // Apply any changes so far made
 HRESULT CHopperRenderSettings::OnApplyChanges() {
 	GetControlValues();
 
 	CheckPointer(m_pSettingsInterface, E_POINTER)
 
-	// The kernel sizes should not be larger than 32, otherwise we will crash
-	if (m_iFrameBlurKernelSize > 32) {
-		m_iFrameBlurKernelSize = 32;
-		TCHAR sz[60];
-		(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iFrameBlurKernelSize);
-		Edit_SetText(GetDlgItem(m_Dlg, IDC_FRAMEBLURKERNEL), sz);
-	}
-	if (m_iFlowBlurKernelSize > 32) {
-		m_iFlowBlurKernelSize = 32;
-		TCHAR sz[60];
-		(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iFlowBlurKernelSize);
-		Edit_SetText(GetDlgItem(m_Dlg, IDC_FLOWBLURKERNEL), sz);
-	}
+	// The number of iterations should not be negative and only reasonably high
+	ValidateParameter(m_iNumIterations, 14, IDC_NUMITS);
+
+	// The kernel sizes should not be negative or larger than 32, otherwise we will crash
+	ValidateParameter(m_iFrameBlurKernelSize, 32, IDC_FRAMEBLURKERNEL);
+	ValidateParameter(m_iFlowBlurKernelSize, 32, IDC_FLOWBLURKERNEL);
+
+	// The scene change threshold should not be negative
+	ValidateParameter(m_iSceneChangeThreshold, INT_MAX, IDC_SCENECHANGETHRESHOLD);
 
 	// Tell the filter about the new settings
 	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_iNumIterations, m_iFrameBlurKernelSize, m_iFlowBlurKernelSize, m_iSceneChangeThreshold);
@@ -270,8 +283,12 @@ void CHopperRenderSettings::GetControlValues() {
 		m_iFrameOutput = 2;
 	} else if (IsDlgButtonChecked(m_Dlg, IDC_HSVFLOW)) {
 		m_iFrameOutput = 3;
-	} else {
+	} else if (IsDlgButtonChecked(m_Dlg, IDC_BLURREDFRAMES)) {
 		m_iFrameOutput = 4;
+	} else if (IsDlgButtonChecked(m_Dlg, IDC_SIDEBYSIDE1)) {
+		m_iFrameOutput = 5;
+	} else {
+		m_iFrameOutput = 6;
 	}
 
 	// Get the number of iterations

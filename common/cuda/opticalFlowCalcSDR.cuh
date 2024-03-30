@@ -16,18 +16,13 @@ public:
 	OpticalFlowCalcSDR(unsigned int dimY, unsigned int dimX, double dDimScalar, float fResolutionDivider);
 
 	/*
-	* Updates the frame1 array
+	* Updates the frame arrays and blurs them if necessary
 	*
 	* @param pInBuffer: Pointer to the input frame
+	* @param kernelSize: Size of the kernel to use for the blur
+	* @param directOutput: Whether to output the blurred frame directly
 	*/
-	void updateFrame1(const unsigned char* pInBuffer) override;
-
-	/*
-	* Updates the frame2 array
-	*
-	* @param pInBuffer: Pointer to the input frame
-	*/
-	void updateFrame2(const unsigned char* pInBuffer) override;
+	void updateFrame(const unsigned char* pInBuffer, const unsigned char kernelSize, const bool directOutput) override;
 
 	/*
 	* Copies the frame in the correct format to the output frame
@@ -40,18 +35,20 @@ public:
 	/*
 	* Copies a frame that is already on the GPU in the correct format to the output buffer
 	*
-	* @param bUseFrame2: Whether to use frame2 or frame1
 	* @param pOutBuffer: Pointer to the output frame
 	*/
-	void copyOwnFrame(const bool bUseFrame2, unsigned char* pOutBuffer) override;
+	void copyOwnFrame(unsigned char* pOutBuffer) override;
 
 	/*
 	* Blurs a frame
 	*
+	* @param frame: Pointer to the frame to blur
+	* @param blurredFrame: Pointer to the blurred frame
 	* @param kernelSize: Size of the kernel to use for the blur
 	* @param directOutput: Whether to output the blurred frame directly
 	*/
-	void blurFrameArray(const unsigned char kernelSize, const bool directOutput) override;
+	void blurFrameArray(const unsigned char* frame, unsigned char* blurredFrame,
+						const unsigned char kernelSize, const bool directOutput);
 
 	/*
 	* Calculates the optical flow between frame1 and frame2
@@ -65,16 +62,9 @@ public:
 	* Warps the frames according to the calculated optical flow
 	*
 	* @param fScalar: The scalar to blend the frames with
-	* @param bOutput12: Whether to output the warped frame 12 or 21
+	* @param outputMode: The mode to output the frames in (0: WarpedFrame 1->2, 1: WarpedFrame 2->1, 2: Both for blending)
 	*/
-	void warpFramesForOutput(float fScalar, bool bOutput12) override;
-
-	/*
-	* Warps the frames according to the calculated optical flow
-	*
-	* @param fScalar: The scalar to blend the frames with
-	*/
-	void warpFramesForBlending(float fScalar) override;
+	void warpFrames(float fScalar, const int outputMode) override;
 
 	/*
 	* Blends warpedFrame1 to warpedFrame2
@@ -82,6 +72,18 @@ public:
 	* @param dScalar: The scalar to blend the frames with
 	*/
 	void blendFrames(float fScalar) override;
+
+	/*
+	* Places left half of frame1 over the outputFrame
+	*/
+	void insertFrame() override;
+
+	/*
+	* Places frame 1 scaled down on the left side and the blendedFrame on the right side of the outputFrame
+	* 
+	* @param dScalar: The scalar to blend the frames with
+	*/
+	void sideBySideFrame(float fScalar) override;
 
 	/*
 	* Draws the flow as an RGB image

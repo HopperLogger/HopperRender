@@ -4,37 +4,27 @@
 
 #include "GPUArrayLib.cuh"
 
+// Kernel that blurs a frame
+template <typename T> __global__ void blurFrameKernel(const T* frameArray, T* blurredFrameArray,
+		const unsigned char kernelSize, const unsigned char chacheSize,
+		const unsigned char boundsOffset,
+		const unsigned char avgEntriesPerThread,
+		const unsigned short remainder, const char lumStart,
+		const unsigned char lumEnd, const unsigned short lumPixelCount,
+		const char chromStart, const unsigned char chromEnd,
+		const unsigned short chromPixelCount, const unsigned short dimY,
+		const unsigned short dimX);
+
 // Kernel that sets the initial offset array
 __global__ void setInitialOffset(int* offsetArray, const unsigned int numLayers, const unsigned int lowDimY, 
 								 const unsigned int lowDimX, const unsigned int layerIdxOffset);
 
-// Kernel that sums up all the pixel deltas of each window for window sizes of at least 8x8
+// Kernel that sums up all the pixel deltas of each window
 template <typename T>
-__global__ void calcDeltaSums8x8(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
-							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
-								 const unsigned int windowDim, const float resolutionScalar);
-
-// Kernel that sums up all the pixel deltas of each window for window sizes of 4x4
-template <typename T>
-__global__ void calcDeltaSums4x4(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
-							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
-								 const unsigned int windowDim, const float resolutionScalar);
-
-// Kernel that sums up all the pixel deltas of each window for window sizes of 2x2
-template <typename T>
-__global__ void calcDeltaSums2x2(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
-							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
-								 const unsigned int windowDim, const float resolutionScalar);
-
-// Kernel that sums up all the pixel deltas of each window for window sizes of 1x1
-template <typename T>
-__global__ void calcDeltaSums1x1(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
-							     const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
-						         const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
-								 const float resolutionScalar);
+__global__ void calcDeltaSums(unsigned int* summedUpDeltaArray, const T* frame1, const T* frame2,
+							  const int* offsetArray, const unsigned int layerIdxOffset, const unsigned int directionIdxOffset,
+						      const unsigned int dimY, const unsigned int dimX, const unsigned int lowDimY, const unsigned int lowDimX,
+							  const unsigned int windowDim, const float resolutionScalar);
 
 // Kernel that normalizes all the pixel deltas of each window
 __global__ void normalizeDeltaSums(const unsigned int* summedUpDeltaArray, unsigned char* globalLowestLayerArray,
@@ -54,15 +44,53 @@ __global__ void flipFlowKernel(const int* flowArray12, int* flowArray21, const i
 
 // Kernel that blurs a flow array
 __global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray, 
-								const unsigned char kernelSize, const unsigned char chacheSize, const unsigned char boundsOffset, 
-								const unsigned char avgEntriesPerThread, const unsigned short remainder, const char start,
-								const unsigned char end, const unsigned short pixelCount, const unsigned short numLayers,
-								const unsigned short lowDimY, const unsigned short lowDimX);
+							   const unsigned char kernelSize, const unsigned char chacheSize, const unsigned char boundsOffset, 
+							   const unsigned char avgEntriesPerThread, const unsigned short remainder, const char start,
+							   const unsigned char end, const unsigned short pixelCount, const unsigned short numLayers,
+							   const unsigned short lowDimY, const unsigned short lowDimX);
+
+// Kernel that warps a frame according to the offset array
+template <typename T, typename S> __global__ void warpFrameKernel(
+    const T* frame1, const int* offsetArray, int* hitCount,
+    S* warpedFrame, const float frameScalar, const unsigned int lowDimY,
+    const unsigned int lowDimX, const unsigned int dimY, const int dimX,
+    const float resolutionDivider, const unsigned int directionIdxOffset,
+    const unsigned int scaledDimX, const unsigned int channelIdxOffset,
+    const unsigned int scaledChannelIdxOffset);
 
 // Kernel that removes artifacts from the warped frame
+template <typename T, typename S> __global__ void artifactRemovalKernel(const T* frame1, const int* hitCount, S* warpedFrame,
+		      const unsigned int dimY, const unsigned int dimX,
+		      const int scaledDimX, const unsigned int channelIdxOffset,
+		      const unsigned int scaledChannelIdxOffset);
+
+// Kernel that blends warpedFrame1 to warpedFrame2
+template <typename T> __global__ void blendFrameKernel(const T* warpedFrame1, const T* warpedFrame2,
+		 unsigned short* outputFrame, const float frame1Scalar,
+		 const float frame2Scalar, const unsigned int dimY,
+		 const unsigned int dimX, const int scaledDimX,
+		 const unsigned int channelIdxOffset);
+
+// Kernel that places half of frame 1 over the outputFrame
+template <typename T> __global__ void insertFrameKernel(const T* frame1, unsigned short* outputFrame,
+				  const unsigned int dimY,
+				  const unsigned int dimX, const int scaledDimX,
+				  const unsigned int channelIdxOffset);
+
+// Kernel that places frame 1 scaled down on the left side and the blendedFrame on the right side of the outputFrame
+template <typename T> __global__ void sideBySideFrameKernel(const T* frame1, const T* warpedFrame1, const T* warpedFrame2, unsigned short* outputFrame, 
+									  const float frame1Scalar, const float frame2Scalar, const unsigned int dimY,
+                                      const unsigned int dimX, const int scaledDimX, const unsigned int halfDimY, 
+									  const unsigned int halfDimX,const unsigned int channelIdxOffset);
+
+// Kernel that creates an HSV flow image from the offset array
 template <typename T>
-__global__ void artifactRemovalKernelForBlending(const T* frame1, const int* hitCount, T* warpedFrame,
-	const unsigned int dimY, const unsigned int dimX, const unsigned int channelIdxOffset);
+__global__ void convertFlowToHSVKernel(
+    const int* flowArray, unsigned short* outputFrame, const T* frame1,
+    const float blendScalar, const unsigned int lowDimX,
+    const unsigned int dimY, const unsigned int dimX,
+    const float resolutionDivider, const unsigned int directionIdxOffset,
+    const unsigned int scaledDimX, const unsigned int scaledChannelIdxOffset);
 
 class OpticalFlowCalc {
 public:
@@ -70,18 +98,13 @@ public:
 	OpticalFlowCalc() = default;
 
 	/*
-	* Updates the frame1 array
+	* Updates the frame arrays and blurs them if necessary
 	*
 	* @param pInBuffer: Pointer to the input frame
+	* @param kernelSize: Size of the kernel to use for the blur
+	* @param directOutput: Whether to output the blurred frame directly
 	*/
-	virtual void updateFrame1(const unsigned char* pInBuffer) = 0;
-
-	/*
-	* Updates the frame2 array
-	*
-	* @param pInBuffer: Pointer to the input frame
-	*/
-	virtual void updateFrame2(const unsigned char* pInBuffer) = 0;
+	virtual void updateFrame(const unsigned char* pInBuffer, const unsigned char kernelSize, const bool directOutput) = 0;
 
 	/*
 	* Copies the frame in the correct format to the output frame
@@ -94,18 +117,9 @@ public:
 	/*
 	* Copies a frame that is already on the GPU in the correct format to the output buffer
 	*
-	* @param bUseFrame2: Whether to use frame2 or frame1
 	* @param pOutBuffer: Pointer to the output frame
 	*/
-	virtual void copyOwnFrame(const bool bUseFrame2, unsigned char* pOutBuffer) = 0;
-
-	/*
-	* Blurs a frame
-	*
-	* @param kernelSize: Size of the kernel to use for the blur
-	* @param directOutput: Whether to output the blurred frame directly
-	*/
-	virtual void blurFrameArray(const unsigned char kernelSize, const bool directOutput) = 0;
+	virtual void copyOwnFrame(unsigned char* pOutBuffer) = 0;
 
 	/*
 	* Calculates the optical flow between frame1 and frame2
@@ -131,16 +145,9 @@ public:
 	* Warps the frames according to the calculated optical flow
 	*
 	* @param fScalar: The scalar to blend the frames with
-	* @param bOutput12: Whether to output the warped frame 12 or 21
+	* @param outputMode: The mode to output the frames in (0: WarpedFrame 1->2, 1: WarpedFrame 2->1, 2: Both for blending)
 	*/
-	virtual void warpFramesForOutput(float fScalar, bool bOutput12) = 0;
-
-	/*
-	* Warps the frames according to the calculated optical flow
-	*
-	* @param fScalar: The scalar to blend the frames with
-	*/
-	virtual void warpFramesForBlending(float fScalar) = 0;
+	virtual void warpFrames(float fScalar, const int outputMode) = 0;
 
 	/*
 	* Blends warpedFrame1 to warpedFrame2
@@ -148,6 +155,18 @@ public:
 	* @param dScalar: The scalar to blend the frames with
 	*/
 	virtual void blendFrames(float fScalar) = 0;
+
+	/*
+	* Places left half of frame1 over the outputFrame
+	*/
+	virtual void insertFrame() = 0;
+
+	/*
+	* Places frame 1 scaled down on the left side and the blendedFrame on the right side of the outputFrame
+	* 
+	* @param dScalar: The scalar to blend the frames with
+	*/
+	virtual void sideBySideFrame(float fScalar) = 0;
 
 	/*
 	* Draws the flow as an RGB image
@@ -158,10 +177,13 @@ public:
 
 	// Grids
 	dim3 m_lowGrid32x32x1;
+	dim3 m_lowGrid16x16x5;
 	dim3 m_lowGrid16x16x4;
 	dim3 m_lowGrid16x16x1;
+	dim3 m_lowGrid8x8x5;
 	dim3 m_lowGrid8x8x1;
 	dim3 m_grid16x16x1;
+	dim3 m_halfGrid16x16x1;
 	dim3 m_grid8x8x1;
 	
 	// Threads
@@ -170,6 +192,7 @@ public:
 	dim3 m_threads16x16x1;
 	dim3 m_threads8x8x5;
 	dim3 m_threads8x8x2;
+	dim3 m_threads8x8x1;
 
 	// Variables
 	bool m_bBisNewest = true; // Whether frame1 or frame2 is the newest frame
@@ -197,10 +220,8 @@ public:
 	GPUArray<int> m_blurredOffsetArray21; // Array containing x,y offsets for each pixel of frame2
 	GPUArray<unsigned char> m_statusArray; // Array containing the calculation status of each pixel of frame1
 	GPUArray<unsigned int> m_summedUpDeltaArray; // Array containing the summed up delta values of each window
-	GPUArray<double> m_normalizedDeltaArray; // Array containing the normalized delta values of each window
 	GPUArray<unsigned char> m_lowestLayerArray; // Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
 	GPUArray<unsigned short> m_outputFrame; // Array containing the output frame
 	GPUArray<int> m_hitCount12; // Array containing the number of times a pixel was hit
 	GPUArray<int> m_hitCount21; // Array containing the number of times a pixel was hit
-	GPUArray<int> m_ones; // Array containing only ones for atomic add
 };

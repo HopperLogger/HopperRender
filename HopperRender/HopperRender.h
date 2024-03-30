@@ -66,7 +66,7 @@ private:
 	CCritSec m_csHopperRenderLock; // Private play critical section
 
 	// Settings
-	int m_iFrameOutput; // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames)
+	int m_iFrameOutput; // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
 	int m_iNumIterations; // Number of iterations to use in the optical flow calculation (0: As many as possible)
 	int m_iFrameBlurKernelSize; // The size of the blur kernel used to blur the source frames before calculating the optical flow
 	int m_iFlowBlurKernelSize; // The size of the blur kernel used to blur the offset calculated by the optical flow
@@ -99,7 +99,6 @@ private:
 
 	// Frame output
 	double m_dDimScalar; // The scalar to scale the frame dimensions with depending on the renderer used
-	bool m_bBisNewest; // Which frame order are we using (false: 2 -> 1 (B -> A), true: 1 -> 2 (A -> B))
 	unsigned int m_iFrameCounter; // Frame counter (relative! i.e. number of source frames received so far)
 	int m_iNumIntFrames; // Number of output samples (interpolated frames) for every input sample (source frame)
 	long m_lBufferRequest; // The number of buffers to use in the output buffer queue
