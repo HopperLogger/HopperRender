@@ -55,7 +55,7 @@ That's it! You can now play a video with MPC-HC/BE and HopperRender will interpo
 You can access the settings when playing back a video with HopperRender by right clicking on the video in MPC-HC/BE, selecting the Filters menu and then HopperRender.
 
 <div align="center">
-  <img alt="properties" height="300px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/bcf2a089-1da8-4077-b177-b7ea4d886e69">
+  <img alt="properties" height="300px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/828c1618-00ea-434a-8a1d-1537a2a7a29e">
 </div>
 
 - You can activate and deactivate the interpolation
