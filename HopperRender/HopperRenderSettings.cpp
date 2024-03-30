@@ -35,12 +35,12 @@ CUnknown* CHopperRenderSettings::CreateInstance(LPUNKNOWN lpunk, HRESULT* phr) {
 CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 	CBasePropertyPage(NAME("HopperRender Settings"), pUnk, IDD_HopperRenderSettings, IDS_TITLE),
 	m_bActivated(false),
-	m_iFrameOutput(2),
+	m_iFrameOutput(BlendedFrame),
 	m_iNumIterations(0),
 	m_iFrameBlurKernelSize(16),
 	m_iFlowBlurKernelSize(32),
 	m_iSceneChangeThreshold(1000),
-	m_iIntActiveState(0),
+	m_iIntActiveState(Active),
 	m_dSourceFPS(0.0),
 	m_iNumSteps(0),
 	m_iCurrentSceneChange(0),
@@ -74,21 +74,25 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 		int iDimY;
 		int iLowDimX;
 		int iLowDimY;
-		m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &m_iFrameOutput, &m_iNumIterations, &m_iFrameBlurKernelSize, &m_iFlowBlurKernelSize,
-										         &m_iSceneChangeThreshold, &m_iCurrentSceneChange, &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
+		int frameOutput;
+		int activeState;
+		m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_iNumIterations, &m_iFrameBlurKernelSize, &m_iFlowBlurKernelSize,
+										         &m_iSceneChangeThreshold, &m_iCurrentSceneChange, &activeState, &m_dSourceFPS, &m_iNumSteps, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
+		m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
+		m_iIntActiveState = static_cast<ActiveState>(activeState);
 
 		// Update the filter active status
 		switch (m_iIntActiveState) {
-			case 0:
+			case Deactivated:
 				SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Deactivated"));
 				break;
-			case 1:
+			case NotNeeded:
 				SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Not Needed"));
 				break;
-			case 2:
+			case Active:
 				SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Active"));
 				break;
-			case 3:
+			case TooSlow:
 				SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Too Slow"));
 				break;
 		}
@@ -138,9 +142,13 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 	int iDimY;
 	int iLowDimX;
 	int iLowDimY;
+	int frameOutput;
+	int activeState;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
-	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &m_iFrameOutput, &m_iNumIterations, &m_iFrameBlurKernelSize, &m_iFlowBlurKernelSize,
-	                                         &m_iSceneChangeThreshold, &m_iCurrentSceneChange, &m_iIntActiveState, &m_dSourceFPS, &m_iNumSteps, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
+	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_iNumIterations, &m_iFrameBlurKernelSize, &m_iFlowBlurKernelSize,
+	                                         &m_iSceneChangeThreshold, &m_iCurrentSceneChange, &activeState, &m_dSourceFPS, &m_iNumSteps, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
+	m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
+	m_iIntActiveState = static_cast<ActiveState>(activeState);
 
 	m_bIsInitialized = false;
 	return NOERROR;
@@ -169,25 +177,25 @@ HRESULT CHopperRenderSettings::OnActivate() {
 
 	// Update the selected frame output
 	switch (m_iFrameOutput) {
-		case 0:
+		case WarpedFrame12:
 			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_WARPEDFRAME12);
 			break;
-		case 1:
+		case WarpedFrame21:
 			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_WARPEDFRAME21);
 			break;
-		case 2:
+		case BlendedFrame:
 			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_BLENDEDFRAME);
 			break;
-		case 3:
+		case HSVFlow:
 			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_HSVFLOW);
 			break;
-		case 4:
+		case BlurredFrames:
 			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_BLURREDFRAMES);
 			break;
-		case 5:
+		case SideBySide1:
 			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_SIDEBYSIDE1);
 			break;
-		case 6:
+		case SideBySide2:
 			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_SIDEBYSIDE2);
 			break;
 	}
@@ -276,19 +284,19 @@ void CHopperRenderSettings::GetControlValues() {
 
 	// Find the frame output
 	if (IsDlgButtonChecked(m_Dlg, IDC_WARPEDFRAME12)) {
-		m_iFrameOutput = 0;
+		m_iFrameOutput = WarpedFrame12;
 	} else if (IsDlgButtonChecked(m_Dlg, IDC_WARPEDFRAME21)) {
-		m_iFrameOutput = 1;
+		m_iFrameOutput = WarpedFrame21;
 	} else if (IsDlgButtonChecked(m_Dlg, IDC_BLENDEDFRAME)) {
-		m_iFrameOutput = 2;
+		m_iFrameOutput = BlendedFrame;
 	} else if (IsDlgButtonChecked(m_Dlg, IDC_HSVFLOW)) {
-		m_iFrameOutput = 3;
+		m_iFrameOutput = HSVFlow;
 	} else if (IsDlgButtonChecked(m_Dlg, IDC_BLURREDFRAMES)) {
-		m_iFrameOutput = 4;
+		m_iFrameOutput = BlurredFrames;
 	} else if (IsDlgButtonChecked(m_Dlg, IDC_SIDEBYSIDE1)) {
-		m_iFrameOutput = 5;
+		m_iFrameOutput = SideBySide1;
 	} else {
-		m_iFrameOutput = 6;
+		m_iFrameOutput = SideBySide2;
 	}
 
 	// Get the number of iterations

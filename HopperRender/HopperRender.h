@@ -12,6 +12,23 @@
 #define MIN_NUM_STEPS 4 // The minimum number of calculation steps (if below this, resolution will be decreased or calculation disabled)
 #define MAX_NUM_STEPS 15 // The maximum number of calculation steps (if reached, resolution will be increased or steps will be kept at this number)
 
+typedef enum FrameOutput {
+    WarpedFrame12,
+    WarpedFrame21,
+	BlendedFrame,
+	HSVFlow,
+	BlurredFrames,
+	SideBySide1,
+	SideBySide2
+} FrameOutput;
+
+typedef enum ActiveState {
+    Deactivated,
+	NotNeeded,
+	Active,
+	TooSlow
+} ActiveState;
+
 class CHopperRender : public CTransformFilter,
                       public SettingsInterface,
                       public ISpecifyPropertyPages,
@@ -56,7 +73,6 @@ private:
 
 	HRESULT UpdateVideoInfoHeader(CMediaType* pMediaType);
 	HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut);
-	HRESULT CopyFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer) const;
 	HRESULT InterpolateFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer, float fScalar, int iIntFrameNum);
 	void adjustFrameScalar(const unsigned char newResolutionStep);
 	void autoAdjustSettings();
@@ -66,7 +82,7 @@ private:
 	CCritSec m_csHopperRenderLock; // Private play critical section
 
 	// Settings
-	int m_iFrameOutput; // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
+	FrameOutput m_iFrameOutput; // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
 	int m_iNumIterations; // Number of iterations to use in the optical flow calculation (0: As many as possible)
 	int m_iFrameBlurKernelSize; // The size of the blur kernel used to blur the source frames before calculating the optical flow
 	int m_iFlowBlurKernelSize; // The size of the blur kernel used to blur the offset calculated by the optical flow
@@ -105,5 +121,5 @@ private:
 
 	// Performance and activation status
 	unsigned char m_cNumTimesTooSlow; // The number of times the interpolation has been too slow
-	int m_iIntActiveState; // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
+	ActiveState m_iIntActiveState; // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
 };

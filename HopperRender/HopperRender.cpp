@@ -113,7 +113,7 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	CTransformFilter(tszName, punk, CLSID_HopperRender),
 	CPersistStream(punk, phr),
 	// Settings
-	m_iFrameOutput(2),
+	m_iFrameOutput(BlendedFrame),
 	m_iNumIterations(0),
 	m_iFrameBlurKernelSize(16),
 	m_iFlowBlurKernelSize(32),
@@ -150,7 +150,7 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 
 	// Performance and activation status
 	m_cNumTimesTooSlow(0),
-	m_iIntActiveState(2) {
+	m_iIntActiveState(Active) {
 	loadSettings();
 }
 
@@ -389,13 +389,13 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 void CHopperRender::UpdateInterpolationStatus() {
 	// Check if interpolation is necessary
 	if (m_iIntActiveState && m_rtCurrPlaybackFrameTime > FT_TARGET) {
-		m_iIntActiveState = 2; // Active
+		m_iIntActiveState = Active;
 	} else if (m_iIntActiveState) {
-		m_iIntActiveState = 1; // Not Needed
+		m_iIntActiveState = NotNeeded;
 	}
 
 	// Calculate the number of intermediate frames needed
-	if (m_iIntActiveState == 2) {
+	if (m_iIntActiveState == Active) {
 		m_rtCurrStartTime = -1; // Tells the DeliverToRenderer function that we are at the start of a new segment
 		m_iNumIntFrames = static_cast<int>(ceil(
 			static_cast<double>(m_rtCurrPlaybackFrameTime) / static_cast<double>(FT_TARGET))
@@ -442,7 +442,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 	}
 
 	// Reset our frame time if necessary and calculate the current number of intermediate frames needed
-	if (m_iIntActiveState == 2) {
+	if (m_iIntActiveState == Active) {
 		if (m_rtCurrStartTime == -1) {
 			// We are at the start of a new segment
 			m_rtCurrStartTime = rtStartTime;
@@ -478,7 +478,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 			return hr;
 		}
 
-		if (m_iIntActiveState == 2) {
+		if (m_iIntActiveState == Active) {
 			// Interpolation needed
 			// Set the new start and end times
 			rtStartTime = m_rtCurrStartTime;
@@ -586,13 +586,13 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		}
 
 		// Interpolate the frame if necessary
-		if (m_iIntActiveState == 2) {
+		if (m_iIntActiveState == Active) {
 			hr = InterpolateFrame(pInBuffer, pOutNewBuffer, fScalar, iIntFrameNum);
 			if (FAILED(hr)) {
 				return hr;
 			}
 		} else {
-			CopyFrame(pInBuffer, pOutNewBuffer);
+			m_pofcOpticalFlowCalc->copyFrame(pInBuffer, pOutNewBuffer);
 		}
 
 		// Deliver the new output sample downstream
@@ -611,12 +611,6 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 	return NOERROR;
 }
 
-// Copies the source frame to the output frame
-HRESULT CHopperRender::CopyFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer) const {
-	m_pofcOpticalFlowCalc->copyFrame(pInBuffer, pOutBuffer);
-	return NOERROR;
-}
-
 // Calculates the optical flow on the first frame and interpolates all subsequent frames
 HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer, const float fScalar, const int iIntFrameNum) {
 	if (TEST_MODE) {
@@ -632,16 +626,17 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 	// we always have the current frame and the previous frame
 	// And blur the newest frame for the calculation
 	if (iIntFrameNum == 0) {
-		m_pofcOpticalFlowCalc->updateFrame(pInBuffer, m_iFrameBlurKernelSize, m_iFrameOutput == 4);
+		m_pofcOpticalFlowCalc->updateFrame(pInBuffer, m_iFrameBlurKernelSize, m_iFrameOutput == BlurredFrames);
 	}
 
 	// If this is the very first frame, we can't interpolate
 	// Note: We did need to first fill the A/B frame so we have the necessary frames to interpolate next time
-	if (m_bFirstFrame) {
+	if (m_bFirstFrame && m_iFrameOutput != SideBySide2) {
 		if (m_iFrameCounter > 1) {
 			m_bFirstFrame = false;
 		}
-		return CopyFrame(pInBuffer, pOutBuffer);
+		m_pofcOpticalFlowCalc->copyFrame(pInBuffer, pOutBuffer);
+		return NOERROR;
 	}
 
 	// Calculate the optical flow in both directions and blur it
@@ -650,7 +645,7 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 		m_pofcOpticalFlowCalc->m_iSceneChangeThreshold = m_iSceneChangeThreshold;
 
 		// Calculate the optical flow (frame 1 to frame 2)
-		if (m_iFrameOutput != 4) {
+		if (m_iFrameOutput != BlurredFrames) {
 			m_pofcOpticalFlowCalc->calculateOpticalFlow(m_iNumIterations, m_iNumSteps);
 		}
 
@@ -659,42 +654,50 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 	}
 
 	// Disable interpolation as long as the scene change is too high
-	if (m_iFrameOutput != 3 && m_iFrameOutput != 6 && m_iSceneChangeThreshold != 0 && (m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold)) {
+	if (m_iFrameOutput != HSVFlow && 
+		m_iFrameOutput != SideBySide2 && 
+		m_iSceneChangeThreshold != 0 && 
+		(m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold)) {
 		m_pofcOpticalFlowCalc->copyOwnFrame(pOutBuffer);
 		return NOERROR;
 	}
 
 	if (iIntFrameNum == 0) {
 		// Flip the flow array to frame 2 to frame 1
-		if (m_iFrameOutput == 1 || m_iFrameOutput == 2 || m_iFrameOutput == 5) {
+		if (m_iFrameOutput == WarpedFrame21 || 
+			m_iFrameOutput == BlendedFrame || 
+			m_iFrameOutput == SideBySide1 || 
+			m_iFrameOutput == SideBySide2) {
 			m_pofcOpticalFlowCalc->flipFlow();
 		}
 
 		// Blur the flow arrays
-		if (m_iFrameOutput != 4) {
+		if (m_iFrameOutput != BlurredFrames) {
 			m_pofcOpticalFlowCalc->blurFlowArrays(m_iFlowBlurKernelSize);
 		}
 
 		// Draw the flow as an HSV image
-		if (m_iFrameOutput == 3) {
+		if (m_iFrameOutput == HSVFlow) {
 			m_pofcOpticalFlowCalc->drawFlowAsHSV(0.5f);
 		}
 	}
 
 	// Warp frames
-	if (m_iFrameOutput != 3 && m_iFrameOutput != 4) {
+	if (m_iFrameOutput != HSVFlow && 
+		m_iFrameOutput != BlurredFrames) {
 		m_pofcOpticalFlowCalc->warpFrames(fScalar, m_iFrameOutput);
 	}
 
 	// Blend the frames together
-	if (m_iFrameOutput == 2 || m_iFrameOutput == 5) {
+	if (m_iFrameOutput == BlendedFrame || 
+		m_iFrameOutput == SideBySide1) {
 		m_pofcOpticalFlowCalc->blendFrames(fScalar);
 	}
 
 	// Show side by side comparison
-	if (m_iFrameOutput == 5) {
+	if (m_iFrameOutput == SideBySide1) {
 		m_pofcOpticalFlowCalc->insertFrame();
-	} else if (m_iFrameOutput == 6) {
+	} else if (m_iFrameOutput == SideBySide2) {
 	    m_pofcOpticalFlowCalc->sideBySideFrame(fScalar);
 	}
 
@@ -702,7 +705,9 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 	m_pofcOpticalFlowCalc->m_outputFrame.download(pOutBuffer);
 
 	// Adjust the settings to process everything fast enough
-	if (m_iFrameOutput != 4 && iIntFrameNum == (m_iNumIntFrames - 1) && !TEST_MODE) {
+	if (m_iFrameOutput != BlurredFrames && 
+		iIntFrameNum == (m_iNumIntFrames - 1) && 
+		!TEST_MODE) {
 		autoAdjustSettings();
 	}
 
@@ -818,12 +823,12 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 
 	if (!bActivated) {
-		m_iIntActiveState = 0;
+		m_iIntActiveState = Deactivated;
 	} else if (!m_iIntActiveState) {
-		m_iIntActiveState = 2;
+		m_iIntActiveState = Active;
 		UpdateInterpolationStatus();
 	}
-	m_iFrameOutput = iFrameOutput;
+	m_iFrameOutput = static_cast<FrameOutput>(iFrameOutput);
 	m_iNumIterations = iNumIterations;
 	m_iFrameBlurKernelSize = iFrameBlurKernelSize;
 	m_iFlowBlurKernelSize = iFlowBlurKernelSize;
@@ -851,7 +856,7 @@ void CHopperRender::adjustFrameScalar(const unsigned char newResolutionStep) {
 	// Re-Initialize the Optical Flow Calculator
 	m_bFirstFrame = true;
 	m_iFrameCounter = 0;
-	if (m_iIntActiveState == 3) m_iIntActiveState = 2;
+	if (m_iIntActiveState == TooSlow) m_iIntActiveState = Active;
 	m_dCurrCalcDuration = 0.0;
 	m_iNumSteps = MIN_NUM_STEPS;
 	m_pofcOpticalFlowCalc->m_fResolutionScalar = m_fResolutionScalar;
@@ -909,7 +914,7 @@ void CHopperRender::autoAdjustSettings() {
 		}
 
 		// Disable Interpolation if we are too slow
-		m_iIntActiveState = 3;
+		m_iIntActiveState = TooSlow;
 
 	/*
 	* We have left over capacity
@@ -955,13 +960,13 @@ HRESULT CHopperRender::loadSettings() {
         // Load activated state
 		valueName = L"Activated"; 
         LONG result1 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (value) m_iIntActiveState = 2;
-		else m_iIntActiveState = 0;
+		if (value) m_iIntActiveState = Active;
+		else m_iIntActiveState = Deactivated;
 
 		// Load Frame Output
 		valueName = L"FrameOutput"; 
         LONG result2 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		m_iFrameOutput = value;
+		m_iFrameOutput = static_cast<FrameOutput>(value);
 
 		// Load the number of iterations
 		valueName = L"NumIterations"; 
