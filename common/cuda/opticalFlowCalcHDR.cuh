@@ -22,7 +22,7 @@ public:
 	* @param kernelSize: Size of the kernel to use for the blur
 	* @param directOutput: Whether to output the blurred frame directly
 	*/
-	void updateFrame(const unsigned char* pInBuffer, const unsigned char kernelSize, const bool directOutput) override;
+	void updateFrame(unsigned char* pInBuffer, const unsigned char kernelSize, const bool directOutput) override;
 
 	/*
 	* Copies the frame in the correct format to the output frame
@@ -36,8 +36,9 @@ public:
 	* Copies a frame that is already on the GPU in the correct format to the output buffer
 	*
 	* @param pOutBuffer: Pointer to the output frame
+	* @param exportMode: Whether the input frame is already on the GPU
 	*/
-	void copyOwnFrame(unsigned char* pOutBuffer) override;
+	void copyOwnFrame(unsigned char* pOutBuffer, const bool exportMode) override;
 
 	/*
 	* Blurs a frame

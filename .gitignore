@@ -17,3 +17,7 @@
 /x64
 /.testing
 /.releases
+/GUI/.vs
+/GUI/HopperRenderExporter/.vs
+/GUI/HopperRenderExporter/bin
+/GUI/HopperRenderExporter/obj

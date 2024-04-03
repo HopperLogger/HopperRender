@@ -67,13 +67,12 @@ public:
 	// CPersistStream override
 	STDMETHODIMP GetClassID(CLSID* pClsid) override;
 
-private:
 	// Constructor
 	CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr);
 
 	HRESULT UpdateVideoInfoHeader(CMediaType* pMediaType);
 	HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut);
-	HRESULT InterpolateFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer, float fScalar, int iIntFrameNum);
+	HRESULT InterpolateFrame(unsigned char* pInBuffer, unsigned char* pOutBuffer, float fScalar, int iIntFrameNum);
 	void adjustFrameScalar(const unsigned char newResolutionStep);
 	void autoAdjustSettings();
 	HRESULT loadSettings();
@@ -122,4 +121,5 @@ private:
 	// Performance and activation status
 	unsigned char m_cNumTimesTooSlow; // The number of times the interpolation has been too slow
 	ActiveState m_iIntActiveState; // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
+	bool m_bExportMode; // Whether the filter is in export mode or not
 };

@@ -20,6 +20,7 @@ The filter can be added to a DirectShow media player like MPC-HC or MPC-BE.
 - Compatible with madVR, Enhanced Video Renderer, MPC-Video Renderer, and more
 - Automatically detects the source frame rate (as well as playback speed) and disables interpolation if not needed
 - Automatic scene change detection to prevent them from being interpolated
+- Small Exporter GUI lets you render videos files with HopperRender
 
 ## How to get started?
 To use this filter, you need to use a DirectShow player like [MPC-HC](https://github.com/clsid2/mpc-hc/releases) or [MPC-BE](https://sourceforge.net/projects/mpcbe).
@@ -95,6 +96,12 @@ You can access the settings when playing back a video with HopperRender by right
 - We then blur both offset arrays depending on the user settings to get a more smooth warp
 - Then we use these offset arrays to generate intermediate frames by multiplying the offset values by certain scalars
 - We add a bit of artifact removal for the pixels that weren't ideally moved and blend the warped frames from both directions together
+
+## Exporter
+The exporter allows you to interpolate video files with custom settings instead of just watching it with the DirectShow Filter.
+<div align="center">
+    <img alt="color-circle" height="200px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/04cdac37-c3ed-49df-a919-cee70455596b">
+    </div>
 
 ## Acknowledgements
 

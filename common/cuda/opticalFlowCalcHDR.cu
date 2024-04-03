@@ -119,24 +119,33 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const unsigned int dimY, const unsigned i
 * @param kernelSize: Size of the kernel to use for the blur
 * @param directOutput: Whether to output the blurred frame directly
 */
-void OpticalFlowCalcHDR::updateFrame(const unsigned char* pInBuffer, const unsigned char kernelSize, const bool directOutput) {
-    unsigned short* temp;
+void OpticalFlowCalcHDR::updateFrame(unsigned char* pInBuffer, const unsigned char kernelSize, const bool directOutput) {
+    // We always want frame 2 to be the newest and frame 1 to be the oldest, so we swap the pointers accordingly
+	unsigned short* temp;
 	if (m_bBisNewest) {
 		m_frame1.fillData(pInBuffer);
 		blurFrameArray(m_frame1.arrayPtrGPU, m_blurredFrame1.arrayPtrGPU, kernelSize, directOutput);
+
+		// Swap the frame arrays
 		temp = m_frame1.arrayPtrGPU;
 		m_frame1.arrayPtrGPU = m_frame2.arrayPtrGPU;
 		m_frame2.arrayPtrGPU = temp;
+
+		// Swap the blurred frame arrays
 		temp = m_blurredFrame1.arrayPtrGPU;
 		m_blurredFrame1.arrayPtrGPU = m_blurredFrame2.arrayPtrGPU;
 		m_blurredFrame2.arrayPtrGPU = temp;
 	} else {
+		// Swap the frame arrays
 		temp = m_frame1.arrayPtrGPU;
 		m_frame1.arrayPtrGPU = m_frame2.arrayPtrGPU;
 		m_frame2.arrayPtrGPU = temp;
+
+		// Swap the blurred frame arrays
 		temp = m_blurredFrame1.arrayPtrGPU;
 		m_blurredFrame1.arrayPtrGPU = m_blurredFrame2.arrayPtrGPU;
 		m_blurredFrame2.arrayPtrGPU = temp;
+
 		m_frame2.fillData(pInBuffer);
 		blurFrameArray(m_frame2.arrayPtrGPU, m_blurredFrame2.arrayPtrGPU, kernelSize, directOutput);
 	}
@@ -168,8 +177,9 @@ void OpticalFlowCalcHDR::copyFrame(const unsigned char* pInBuffer, unsigned char
 * Copies a frame that is already on the GPU in the correct format to the output buffer
 *
 * @param pOutBuffer: Pointer to the output frame
+* @param exportMode: Whether the input frame is already on the GPU
 */
-void OpticalFlowCalcHDR::copyOwnFrame(unsigned char* pOutBuffer) {
+void OpticalFlowCalcHDR::copyOwnFrame(unsigned char* pOutBuffer, const bool exportMode) {
 	if (m_dDimScalar == 1.0) {
 		m_frame1.download(pOutBuffer);
 	} else {
@@ -177,7 +187,7 @@ void OpticalFlowCalcHDR::copyOwnFrame(unsigned char* pOutBuffer) {
 		scaleFrameKernelHDR << <m_grid8x8x1, m_threads8x8x2 >> > (m_frame1.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimY, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
 
 		// Download the output frame
-		m_outputFrame.download(pOutBuffer);
+		if (!exportMode) m_outputFrame.download(pOutBuffer);
 	}
 }
 

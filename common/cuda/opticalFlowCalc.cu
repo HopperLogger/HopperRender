@@ -3,6 +3,76 @@
 #include <cooperative_groups.h>
 #include "opticalFlowCalc.cuh"
 
+// Kernel that converts a BGR frame to a YUV NV12 frame
+__global__ void convertBGRtoNV12Kernel(const unsigned char* bgrArray, unsigned char* nv12Array, 
+								const unsigned short dimY, const unsigned short dimX) {
+	// Current entry to be computed by the thread
+	const unsigned short cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned short cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned char cz = blockIdx.z;
+
+	// Check if the current thread is supposed to perform calculations
+	if (cz == 1 && (cy >= (dimY >> 1) || cx >= dimX)) {
+		return;
+	}
+	float R;
+	float G;
+	float B;
+
+	if (cz == 0) {
+		R = bgrArray[3 * (cy * dimX + cx) + 2];
+		G = bgrArray[3 * (cy * dimX + cx) + 1];
+		B = bgrArray[3 * (cy * dimX + cx)];
+	} else {
+		R = bgrArray[3 * (2 * cy * dimX + cx) + 2];
+		G = bgrArray[3 * (2 * cy * dimX + cx) + 1];
+		B = bgrArray[3 * (2 * cy * dimX + cx)];
+	}
+
+	// Calculate the Y-Channel
+	if (cz == 0 && cy < dimY && cx < dimX) {
+		nv12Array[cy * dimX + cx] = min(max(static_cast<int>(R * 0.299f + G * 0.587f + B * 0.114f), 0), 255);
+	// Calculate the U-Channel
+	} else if ((cx & 1) == 0) {
+		nv12Array[dimY * dimX + cy * dimX + cx] = min(max(static_cast<int>(R * -0.168736f + G * -0.331264f + B * 0.5f) + 128, 0), 255);
+	// Calculate the V-Channel
+	} else {
+		nv12Array[dimY * dimX + cy * dimX + cx] = min(max(static_cast<int>(R * 0.5f + G * -0.418688f + B * -0.081312f) + 128, 0), 255);
+	}
+}
+
+// Kernel that converts a YUV NV12 frame to a BGR frame
+__global__ void convertP010toBGRKernel(const unsigned short* p010Array, unsigned char* bgrArray, 
+								const unsigned short dimY, const unsigned short dimX) {
+	// Current entry to be computed by the thread
+	const unsigned short cx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned short cy = blockIdx.y * blockDim.y + threadIdx.y;
+	const unsigned char cz = blockIdx.z;
+
+	// Check if the current thread is supposed to perform calculations
+	if (cy >= dimY || cx >= dimX) {
+		return;
+	}
+
+
+	unsigned char Y = p010Array[cy * dimX + cx] >> 8;
+	float U;
+	float V;
+    if (cz != 2) U = p010Array[dimY * dimX + (cy >> 1) * dimX + (cx & ~1)] >> 8;
+    if (cz != 0) V = p010Array[dimY * dimX + (cy >> 1) * dimX + (cx | 1)] >> 8;
+
+	// Calculate the B-Channel
+	if (cz == 0) {
+		bgrArray[3 * (cy * dimX + cx)] = min(max(static_cast<int>(Y + 1.7790f * (U - 128)), 0), 255);
+	// Calculate the G-Channel
+	} else if (cz == 1) {
+		bgrArray[3 * (cy * dimX + cx) + 1] = min(max(static_cast<int>(Y - 0.3455f * (U - 128) - (0.7169f * (V - 128))), 0), 255);
+	// Calculate the R-Channel
+	} else {
+		bgrArray[3 * (cy * dimX + cx) + 2] = min(max(static_cast<int>(Y + 1.4075f * (V - 128)), 0), 255);
+	}
+}
+
 // Kernel that blurs a frame
 template <typename T>
 __global__ void blurFrameKernel(const T* frameArray, T* blurredFrameArray, 
@@ -19,7 +89,7 @@ __global__ void blurFrameKernel(const T* frameArray, T* blurredFrameArray,
 	const unsigned char cz = blockIdx.z;
 
 	// Check if the current thread is supposed to perform calculations
-	if (cz == 1 && (cy >= dimY / 2 || cx >= dimX)) {
+	if (cz == 1 && (cy >= (dimY >> 1) || cx >= dimX)) {
 		return;
 	}
 
@@ -994,11 +1064,11 @@ __global__ void convertFlowToHSVKernel(const int* flowArray, unsigned short* out
 	if (cz == 0 && cy < dimY && cx < dimX) {
 		outputFrame[cy * scaledDimX + cx] = isHDR ?
 			(static_cast<unsigned short>(
-				(fmaxf(fminf(0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b, 255.0f), 0.0f)) * blendScalar) << 8) + 
+				(fmaxf(fminf(rgb.r * 0.299f + rgb.g * 0.587f + rgb.b * 0.114f, 255.0f), 0.0f)) * blendScalar) << 8) + 
 				frame1[cy * dimX + cx] * (1.0f - blendScalar)
 			:
 			static_cast<unsigned short>(
-				(fmaxf(fminf(0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b, 255.0f), 0.0f)) * blendScalar + 
+				(fmaxf(fminf(rgb.r * 0.299f + rgb.g * 0.587f + rgb.b * 0.114f, 255.0f), 0.0f)) * blendScalar + 
 				frame1[cy * dimX + cx] * (1.0f - blendScalar)
 			) << 8;
 	// U/V Channels
@@ -1007,16 +1077,46 @@ __global__ void convertFlowToHSVKernel(const int* flowArray, unsigned short* out
 		if ((cx & 1) == 0) {
 			outputFrame[scaledChannelIdxOffset + cy * scaledDimX + (cx & ~1)] = 
 				static_cast<unsigned short>(
-					fmaxf(fminf(0.492f * (rgb.b - (0.299f * rgb.r + 0.587f * rgb.g + 0.114 * rgb.b)) + 128.0f, 255.0f), 0.0f)
+					fmaxf(fminf(rgb.r * -0.168736f + rgb.g * -0.331264f + rgb.b * 0.5f + 128.0f, 255.0f), 0.0f)
 				) << 8;
 		// V Channel
 		} else {
 			outputFrame[scaledChannelIdxOffset + cy * scaledDimX + (cx & ~1) + 1] = 
 				static_cast<unsigned short>(
-					fmaxf(fminf(0.877f * (rgb.r - (0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b)) + 128.0f, 255.0f), 0.0f)
+					fmaxf(fminf(rgb.r * 0.5f + rgb.g * -0.418688f + rgb.b * -0.081312f + 128.0f, 255.0f), 0.0f)
 				) << 8;
 		}
 	}
+}
+
+void convertBGRtoNV12(const unsigned char* bgrArray, unsigned char* bgrArrayGPU, unsigned char* nv12Array, unsigned char* nv12ArrayGPU,
+				const unsigned short dimY, const unsigned short dimX) {
+	cudaMemcpy(bgrArrayGPU, bgrArray, 3 * dimY * dimX, cudaMemcpyHostToDevice);
+
+	dim3 grid16x16x2;
+	grid16x16x2.x = static_cast<int>(fmax(ceil(dimX / 16.0), 1.0));
+	grid16x16x2.y = static_cast<int>(fmax(ceil(dimY / 16.0), 1.0));
+	grid16x16x2.z = 2;
+
+	dim3 threads16x16x1(16, 16, 1);
+
+	convertBGRtoNV12Kernel << <grid16x16x2, threads16x16x1 >> > (bgrArrayGPU, nv12ArrayGPU, dimY, dimX);
+
+	cudaMemcpy(nv12Array, nv12ArrayGPU, static_cast<size_t>(1.5 * dimY * dimX), cudaMemcpyDeviceToHost);
+}
+
+void convertP010toBGR(const unsigned short* p010ArrayGPU, unsigned char* bgrArray, unsigned char* bgrArrayGPU,
+				const unsigned short dimY, const unsigned short dimX) {
+	dim3 grid16x16x3;
+	grid16x16x3.x = static_cast<int>(fmax(ceil(dimX / 16.0), 1.0));
+	grid16x16x3.y = static_cast<int>(fmax(ceil(dimY / 16.0), 1.0));
+	grid16x16x3.z = 3;
+
+	dim3 threads16x16x1(16, 16, 1);
+
+	convertP010toBGRKernel << <grid16x16x3, threads16x16x1 >> > (p010ArrayGPU, bgrArrayGPU, dimY, dimX);
+
+	cudaMemcpy(bgrArray, bgrArrayGPU, 3 * dimY * dimX, cudaMemcpyDeviceToHost);
 }
 
 /*
