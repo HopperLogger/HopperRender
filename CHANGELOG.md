@@ -249,3 +249,10 @@
 
 ### Fixed
 - Current frame difference is now calculated depending on the video resolution
+
+## [Version 1.5.7.4] - 2024-04-03 - Fully functional
+### Added
+- Added a little GUI Exporter that allows you to select an input file, set all the settings and then render the video with the HopperRender backend
+
+### Changed
+- Improved RGB to YUV formulas

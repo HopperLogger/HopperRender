@@ -4,6 +4,18 @@
 
 #include "GPUArrayLib.cuh"
 
+// Kernel that converts a BGR frame to a YUV NV12 frame
+__global__ void convertBGRtoNV12Kernel(const unsigned char* bgrArray,
+				 unsigned char* nv12Array,
+				 const unsigned short dimY,
+				 const unsigned short dimX);
+
+// Kernel that converts a YUV NV12 frame to a BGR frame
+__global__ void convertP010toBGRKernel(const unsigned short* p010Array,
+				 unsigned char* bgrArray,
+				 const unsigned short dimY,
+				 const unsigned short dimX);
+
 // Kernel that blurs a frame
 template <typename T> __global__ void blurFrameKernel(const T* frameArray, T* blurredFrameArray,
 		const unsigned char kernelSize, const unsigned char chacheSize,
@@ -92,6 +104,14 @@ __global__ void convertFlowToHSVKernel(
     const float resolutionDivider, const unsigned int directionIdxOffset,
     const unsigned int scaledDimX, const unsigned int scaledChannelIdxOffset);
 
+void convertBGRtoNV12(const unsigned char* bgrArray, unsigned char* bgrArrayGPU,
+		      unsigned char* nv12Array, unsigned char* nv12ArrayGPU,
+		      const unsigned short dimY, const unsigned short dimX);
+
+void convertP010toBGR(const unsigned short* p010ArrayGPU, unsigned char* bgrArray,
+		      unsigned char* bgrArrayGPU, const unsigned short dimY,
+		      const unsigned short dimX);
+
 class OpticalFlowCalc {
 public:
 	// Constructor
@@ -104,7 +124,7 @@ public:
 	* @param kernelSize: Size of the kernel to use for the blur
 	* @param directOutput: Whether to output the blurred frame directly
 	*/
-	virtual void updateFrame(const unsigned char* pInBuffer, const unsigned char kernelSize, const bool directOutput) = 0;
+	virtual void updateFrame(unsigned char* pInBuffer, const unsigned char kernelSize, const bool directOutput) = 0;
 
 	/*
 	* Copies the frame in the correct format to the output frame
@@ -118,8 +138,9 @@ public:
 	* Copies a frame that is already on the GPU in the correct format to the output buffer
 	*
 	* @param pOutBuffer: Pointer to the output frame
+	* @param exportMode: Whether the input frame is already on the GPU
 	*/
-	virtual void copyOwnFrame(unsigned char* pOutBuffer) = 0;
+	virtual void copyOwnFrame(unsigned char* pOutBuffer, const bool exportMode) = 0;
 
 	/*
 	* Calculates the optical flow between frame1 and frame2

@@ -167,5 +167,10 @@
       <Filter>Resource Files</Filter>
     </ResourceCompile>
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
   </ItemGroup>
 </Project>

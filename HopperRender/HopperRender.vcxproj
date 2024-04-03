@@ -9,6 +9,22 @@
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="DirectShow|Win32">
+      <Configuration>DirectShow</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="DirectShow|x64">
+      <Configuration>DirectShow</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Exporter|Win32">
+      <Configuration>Exporter</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Exporter|x64">
+      <Configuration>Exporter</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
@@ -38,6 +54,18 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='DirectShow'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Exporter'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="$(SolutionDir)common\common.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -56,6 +84,16 @@
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
     <CustomBuildAfterTargets>Build</CustomBuildAfterTargets>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='DirectShow'">
+    <TargetExt>.dll</TargetExt>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <CustomBuildAfterTargets>Build</CustomBuildAfterTargets>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Exporter'">
+    <TargetExt>.lib</TargetExt>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <CustomBuildAfterTargets>Build</CustomBuildAfterTargets>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>$(IncludePath)</IncludePath>
     <IntDir>$(SolutionDir)$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
@@ -65,7 +103,23 @@
     <IncludePath>$(IncludePath)</IncludePath>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
+    <IntDir>$(SolutionDir)$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IncludePath>$(IncludePath)</IncludePath>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">
+    <IntDir>$(SolutionDir)$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IncludePath>$(IncludePath)</IncludePath>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <VcpkgConfiguration>Release</VcpkgConfiguration>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'" Label="Vcpkg">
+    <VcpkgConfiguration>Release</VcpkgConfiguration>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'" Label="Vcpkg">
     <VcpkgConfiguration>Release</VcpkgConfiguration>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
@@ -107,7 +161,7 @@
     <ClCompile>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Release|x64'">None</DebugInformationFormat>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Release|x64'">ProgramDatabase</DebugInformationFormat>
       <SupportJustMyCode Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</SupportJustMyCode>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</WholeProgramOptimization>
@@ -162,6 +216,128 @@
     <CudaLink>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Release|x64'">None</DebugInformationFormat>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">O2</Optimization>
+    </CudaLink>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='DirectShow'">
+    <ClCompile>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">ProgramDatabase</DebugInformationFormat>
+      <SupportJustMyCode Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</SupportJustMyCode>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
+      </PrecompiledHeaderFile>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</WholeProgramOptimization>
+      <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Default</BasicRuntimeChecks>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">MultiThreadedDLL</RuntimeLibrary>
+      <FunctionLevelLinking Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</FunctionLevelLinking>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">MaxSpeed</Optimization>
+      <SDLCheck Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
+      </SDLCheck>
+      <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</IntrinsicFunctions>
+      <FavorSizeOrSpeed Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Speed</FavorSizeOrSpeed>
+      <OmitFramePointers Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</OmitFramePointers>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">stdcpp17</LanguageStandard>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">/Gw /Zo %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;cudart_static.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib</AdditionalDependencies>
+      <ModuleDefinitionFile>HopperRender.def</ModuleDefinitionFile>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <IgnoreSpecificDefaultLibraries Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">libcmt.lib</IgnoreSpecificDefaultLibraries>
+      <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">UseFastLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <OptimizeReferences Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</OptimizeReferences>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
+      </AdditionalOptions>
+      <SetChecksum Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</SetChecksum>
+    </Link>
+    <CustomBuildStep>
+      <Command>copy "$(TargetDir)\$(TargetName)$(TargetExt)" "$(OutDir).."</Command>
+      <Outputs>$(OutDir)..\$(TargetFileName)</Outputs>
+      <Inputs>$(TargetDir)\$(TargetName)$(TargetExt)</Inputs>
+    </CustomBuildStep>
+    <Manifest />
+    <CudaCompile>
+      <CompileOut Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">$(SolutionDir)$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
+      <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">compute_89,sm_89;compute_86,sm_86;compute_75,sm_75;compute_70,sm_70;compute_61,sm_61;compute_52,sm_52</CodeGeneration>
+      <FastMath Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</FastMath>
+      <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</GPUDebugInfo>
+      <HostDebugInfo Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</HostDebugInfo>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">EditAndContinue</DebugInformationFormat>
+      <SplitCompile Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">MaxThreads</SplitCompile>
+      <SplitCompileCustomThreads Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">16</SplitCompileCustomThreads>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">O2</Optimization>
+      <PtxAsOptionV Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</PtxAsOptionV>
+      <Runtime Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">MT</Runtime>
+      <RuntimeChecks Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Default</RuntimeChecks>
+    </CudaCompile>
+    <CudaLink>
+      <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">None</DebugInformationFormat>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">O2</Optimization>
+    </CudaLink>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Exporter'">
+    <ClCompile>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">ProgramDatabase</DebugInformationFormat>
+      <SupportJustMyCode Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">false</SupportJustMyCode>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">
+      </PrecompiledHeaderFile>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">true</WholeProgramOptimization>
+      <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">Default</BasicRuntimeChecks>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">MultiThreadedDLL</RuntimeLibrary>
+      <FunctionLevelLinking Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">true</FunctionLevelLinking>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">MaxSpeed</Optimization>
+      <SDLCheck Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">
+      </SDLCheck>
+      <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">true</IntrinsicFunctions>
+      <FavorSizeOrSpeed Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">Speed</FavorSizeOrSpeed>
+      <OmitFramePointers Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">true</OmitFramePointers>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">stdcpp17</LanguageStandard>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">/Gw /Zo %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;cudart_static.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib</AdditionalDependencies>
+      <ModuleDefinitionFile>HopperRender.def</ModuleDefinitionFile>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <IgnoreSpecificDefaultLibraries Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">libcmt.lib</IgnoreSpecificDefaultLibraries>
+      <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">UseFastLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <OptimizeReferences Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">true</OptimizeReferences>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">
+      </AdditionalOptions>
+      <SetChecksum Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">true</SetChecksum>
+    </Link>
+    <CustomBuildStep>
+      <Command>copy "$(TargetDir)\$(TargetName)$(TargetExt)" "$(OutDir).."</Command>
+      <Outputs>$(OutDir)..\$(TargetFileName)</Outputs>
+      <Inputs>$(TargetDir)\$(TargetName)$(TargetExt)</Inputs>
+    </CustomBuildStep>
+    <Manifest />
+    <CudaCompile>
+      <CompileOut Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">$(SolutionDir)$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
+      <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">compute_89,sm_89;compute_86,sm_86;compute_75,sm_75;compute_70,sm_70;compute_61,sm_61;compute_52,sm_52</CodeGeneration>
+      <FastMath Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">true</FastMath>
+      <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">false</GPUDebugInfo>
+      <HostDebugInfo Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">false</HostDebugInfo>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">EditAndContinue</DebugInformationFormat>
+      <SplitCompile Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">MaxThreads</SplitCompile>
+      <SplitCompileCustomThreads Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">16</SplitCompileCustomThreads>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">O2</Optimization>
+      <PtxAsOptionV Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">false</PtxAsOptionV>
+      <Runtime Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">MT</Runtime>
+      <RuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">Default</RuntimeChecks>
+    </CudaCompile>
+    <CudaLink>
+      <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">false</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">None</DebugInformationFormat>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">O2</Optimization>
     </CudaLink>
   </ItemDefinitionGroup>
   <ItemGroup>

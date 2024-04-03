@@ -150,7 +150,8 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 
 	// Performance and activation status
 	m_cNumTimesTooSlow(0),
-	m_iIntActiveState(Active) {
+	m_iIntActiveState(Active),
+	m_bExportMode(false) {
 	loadSettings();
 }
 
@@ -612,7 +613,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 }
 
 // Calculates the optical flow on the first frame and interpolates all subsequent frames
-HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned char* pOutBuffer, const float fScalar, const int iIntFrameNum) {
+HRESULT CHopperRender::InterpolateFrame(unsigned char* pInBuffer, unsigned char* pOutBuffer, const float fScalar, const int iIntFrameNum) {
 	if (TEST_MODE) {
 		m_iNumSteps = 1;
 	}
@@ -658,7 +659,7 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 		m_iFrameOutput != SideBySide2 && 
 		m_iSceneChangeThreshold != 0 && 
 		(m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold)) {
-		m_pofcOpticalFlowCalc->copyOwnFrame(pOutBuffer);
+		m_pofcOpticalFlowCalc->copyOwnFrame(pOutBuffer, m_bExportMode);
 		return NOERROR;
 	}
 
@@ -702,12 +703,15 @@ HRESULT CHopperRender::InterpolateFrame(const unsigned char* pInBuffer, unsigned
 	}
 
 	// Download the result to the output buffer
-	m_pofcOpticalFlowCalc->m_outputFrame.download(pOutBuffer);
+	if (!m_bExportMode) {
+		m_pofcOpticalFlowCalc->m_outputFrame.download(pOutBuffer);
+	}
 
 	// Adjust the settings to process everything fast enough
 	if (m_iFrameOutput != BlurredFrames && 
 		iIntFrameNum == (m_iNumIntFrames - 1) && 
-		!TEST_MODE) {
+		!TEST_MODE &&
+		!m_bExportMode) {
 		autoAdjustSettings();
 	}
 
@@ -863,20 +867,22 @@ void CHopperRender::adjustFrameScalar(const unsigned char newResolutionStep) {
 	m_pofcOpticalFlowCalc->m_fResolutionDivider = m_fResolutionDivider;
 	m_pofcOpticalFlowCalc->m_iLowDimX = static_cast<unsigned int>(static_cast<double>(m_iDimX) * m_fResolutionDivider);
 	m_pofcOpticalFlowCalc->m_iLowDimY = static_cast<unsigned int>(static_cast<double>(m_iDimY) * m_fResolutionDivider);
-	m_pofcOpticalFlowCalc->m_iDirectionIdxOffset = m_pofcOpticalFlowCalc->m_iNumLayers * m_pofcOpticalFlowCalc->m_iLowDimY * m_pofcOpticalFlowCalc->m_iLowDimX;
-	m_pofcOpticalFlowCalc->m_iLayerIdxOffset = m_pofcOpticalFlowCalc->m_iLowDimY * m_pofcOpticalFlowCalc->m_iLowDimX;
-	m_pofcOpticalFlowCalc->m_lowGrid32x32x1.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 32.0), 1.0));
-	m_pofcOpticalFlowCalc->m_lowGrid32x32x1.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 32.0), 1.0));
-	m_pofcOpticalFlowCalc->m_lowGrid16x16x5.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 16.0), 1.0));
-	m_pofcOpticalFlowCalc->m_lowGrid16x16x5.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 16.0), 1.0));
-	m_pofcOpticalFlowCalc->m_lowGrid16x16x4.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 16.0), 1.0));
-	m_pofcOpticalFlowCalc->m_lowGrid16x16x4.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 16.0), 1.0));
-	m_pofcOpticalFlowCalc->m_lowGrid16x16x1.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 16.0), 1.0));
-	m_pofcOpticalFlowCalc->m_lowGrid16x16x1.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 16.0), 1.0));
-	m_pofcOpticalFlowCalc->m_lowGrid8x8x5.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 8.0), 1.0));
-	m_pofcOpticalFlowCalc->m_lowGrid8x8x5.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 8.0), 1.0));
-	m_pofcOpticalFlowCalc->m_lowGrid8x8x1.x = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimX) / 8.0), 1.0));
-	m_pofcOpticalFlowCalc->m_lowGrid8x8x1.y = static_cast<int>(fmax(ceil(static_cast<double>(m_pofcOpticalFlowCalc->m_iLowDimY) / 8.0), 1.0));
+	const unsigned int lowDimX = m_pofcOpticalFlowCalc->m_iLowDimX;
+	const unsigned int lowDimY = m_pofcOpticalFlowCalc->m_iLowDimY;
+	m_pofcOpticalFlowCalc->m_iDirectionIdxOffset = m_pofcOpticalFlowCalc->m_iNumLayers * lowDimY * lowDimX;
+	m_pofcOpticalFlowCalc->m_iLayerIdxOffset = lowDimY * lowDimX;
+	m_pofcOpticalFlowCalc->m_lowGrid32x32x1.x = static_cast<int>(fmax(ceil(static_cast<double>(lowDimX) / 32.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid32x32x1.y = static_cast<int>(fmax(ceil(static_cast<double>(lowDimY) / 32.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x5.x = static_cast<int>(fmax(ceil(static_cast<double>(lowDimX) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x5.y = static_cast<int>(fmax(ceil(static_cast<double>(lowDimY) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x4.x = static_cast<int>(fmax(ceil(static_cast<double>(lowDimX) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x4.y = static_cast<int>(fmax(ceil(static_cast<double>(lowDimY) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x1.x = static_cast<int>(fmax(ceil(static_cast<double>(lowDimX) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid16x16x1.y = static_cast<int>(fmax(ceil(static_cast<double>(lowDimY) / 16.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid8x8x5.x = static_cast<int>(fmax(ceil(static_cast<double>(lowDimX) / 8.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid8x8x5.y = static_cast<int>(fmax(ceil(static_cast<double>(lowDimY) / 8.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid8x8x1.x = static_cast<int>(fmax(ceil(static_cast<double>(lowDimX) / 8.0), 1.0));
+	m_pofcOpticalFlowCalc->m_lowGrid8x8x1.y = static_cast<int>(fmax(ceil(static_cast<double>(lowDimY) / 8.0), 1.0));
 }
 
 // Adjust settings for optimal performance
@@ -949,7 +955,7 @@ void CHopperRender::autoAdjustSettings() {
 HRESULT CHopperRender::loadSettings() {
 	HKEY hKey;
     LPCWSTR subKey = L"SOFTWARE\\HopperRender";
-	DWORD value;
+	DWORD value = 0;
 	DWORD dataSize = sizeof(DWORD);
 	LPCWSTR valueName; 
 

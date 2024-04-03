@@ -210,7 +210,7 @@ template <typename T>
 void GPUArray<T>::changeDims(std::vector<unsigned int> arrayShape, T initializer, const size_t bytesRequest) {
 	// Set dimensions
 	shape = arrayShape;
-	dims = static_cast<int>(arrayShape.size());
+	dims = static_cast<unsigned int>(arrayShape.size());
 	if (dims == 0) {
 		fprintf(stderr, "ERROR: No array dimensions given!\n");
 		exit(-1);
@@ -249,10 +249,17 @@ void GPUArray<T>::changeDims(std::vector<unsigned int> arrayShape, T initializer
 		}
 	}
 
+	// Free device memory
+	if (isOnGPU && arrayPtrGPU != nullptr) {
+		cudaFree(arrayPtrGPU);
+	} else if (!isOnGPU && arrayPtrCPU != nullptr) {
+		free(arrayPtrCPU);
+	}
+
 	// Allocate host memory
 	arrayPtrCPU = static_cast<T*>(malloc(bytes));
 
-	// Set all array entries to 0
+	// Set all array entries to the initializer value
 	if (bytesRequest > 0) {
 		for (int i = 0; i < bytes / sizeof(T); i++) {
 			*(arrayPtrCPU + i) = initializer;

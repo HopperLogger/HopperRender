@@ -120,7 +120,7 @@ OpticalFlowCalcSDR::OpticalFlowCalcSDR(const unsigned int dimY, const unsigned i
 * @param kernelSize: Size of the kernel to use for the blur
 * @param directOutput: Whether to output the blurred frame directly
 */
-void OpticalFlowCalcSDR::updateFrame(const unsigned char* pInBuffer, const unsigned char kernelSize, const bool directOutput) {
+void OpticalFlowCalcSDR::updateFrame(unsigned char* pInBuffer, const unsigned char kernelSize, const bool directOutput) {
     // We always want frame 2 to be the newest and frame 1 to be the oldest, so we swap the pointers accordingly
 	unsigned char* temp;
 	if (m_bBisNewest) {
@@ -174,13 +174,14 @@ void OpticalFlowCalcSDR::copyFrame(const unsigned char* pInBuffer, unsigned char
 * Copies a frame that is already on the GPU in the correct format to the output buffer
 *
 * @param pOutBuffer: Pointer to the output frame
+* @param exportMode: Whether the input frame is already on the GPU
 */
-void OpticalFlowCalcSDR::copyOwnFrame(unsigned char* pOutBuffer) {
+void OpticalFlowCalcSDR::copyOwnFrame(unsigned char* pOutBuffer, const bool exportMode) {
 	// Convert the NV12 frame to P010
 	convertNV12toP010KernelSDR << <m_grid16x16x1, m_threads16x16x2>> > (m_frame1.arrayPtrGPU, m_outputFrame.arrayPtrGPU, m_iDimY, m_iDimX, m_iScaledDimY, m_iScaledDimX, m_iChannelIdxOffset, m_iScaledChannelIdxOffset);
 
 	// Download the output frame
-	m_outputFrame.download(pOutBuffer);
+	if (!exportMode) m_outputFrame.download(pOutBuffer);
 }
 
 /*
