@@ -56,7 +56,7 @@ That's it! You can now play a video with MPC-HC/BE and HopperRender will interpo
 You can access the settings when playing back a video with HopperRender by right clicking on the video in MPC-HC/BE, selecting the Filters menu and then HopperRender.
 
 <div align="center">
-  <img alt="properties" height="300px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/828c1618-00ea-434a-8a1d-1537a2a7a29e">
+  <img alt="properties" height="300px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/a5a91b3f-9116-40df-901a-da3c02e54dfe">
 </div>
 
 - You can activate and deactivate the interpolation
@@ -75,8 +75,7 @@ You can access the settings when playing back a video with HopperRender by right
     - _Side-by-side 2: Shows the difference between no interpolation on the left, and interpolation on the right (scaled down side by side)_
 - You can set the number of iterations (0 will automatically do as many iterations as possible)
 - You can set the Frame and Flow blur kernel sizes which controls how much the frames or the flow will be blurred _(Values between 0-32)_
-- You can choose a scene change detection threshold that disables interpolation if a certain amount of movement is detected _(A value of 0 disables the feature. You can see the current frame difference in the Status section for reference)_
-- In the status section, you can see the current state of HopperRender, the number of calculation steps that are currently performed, the source framerate, as well as the frame and calculation resolutions
+- In the status section, you can see the current state of HopperRender, the number of calculation steps that are currently performed, the source framerate, the frame and calculation resolutions, as well as the currently detected frame difference and scene change threshold
 - The settings will be automatically saved to the registry `HKEY_CURRENT_USER\Software\HopperRender` so next time the filter is used, it loads the settings automatically
 
 ## How it works

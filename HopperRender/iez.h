@@ -32,8 +32,7 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int iFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
 		int iNumIterations, // Number of iterations to use in the optical flow calculation (0: As many as possible)
 		int iFrameBlurKernelSize, // The size of the blur kernel used to blur the source frames before calculating the optical flow
-		int iFlowBlurKernelSize, // The size of the blur kernel used to blur the offset calculated by the optical flow
-		int iSceneChangeThreshold // The threshold used to determine whether a scene change has occurred
+		int iFlowBlurKernelSize // The size of the blur kernel used to blur the offset calculated by the optical flow
 	) PURE;
 };
 

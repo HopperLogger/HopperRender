@@ -83,8 +83,9 @@ public:
 	* Places frame 1 scaled down on the left side and the blendedFrame on the right side of the outputFrame
 	* 
 	* @param dScalar: The scalar to blend the frames with
+	* @param firstFrame: Whether the frame to be placed is the first frame
 	*/
-	void sideBySideFrame(float fScalar) override;
+	void sideBySideFrame(float fScalar, const bool firstFrame) override;
 
 	/*
 	* Draws the flow as an RGB image

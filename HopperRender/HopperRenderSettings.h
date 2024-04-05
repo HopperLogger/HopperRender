@@ -32,6 +32,5 @@ private:
 	int m_iNumSteps; // Number of steps executed to find the ideal offset (limits the maximum offset distance per iteration)
 	int m_iCurrentSceneChange; // How many pixel differences are currently detected
 	bool m_bIsInitialized; // Used to ignore startup messages
-	unsigned char m_cRefreshCounter; // Counts the number of times the settings page has been refreshed
 	SettingsInterface* m_pSettingsInterface; // The custom interface on the filter
 };

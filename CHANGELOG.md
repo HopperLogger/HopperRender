@@ -256,3 +256,12 @@
 
 ### Changed
 - Improved RGB to YUV formulas
+
+## [Version 1.5.7.5] - 2024-04-?? - Fully functional
+### Changed
+- Changed the current frame difference status in the property page to a progress bar for better visualization
+- The property page is now automatically refreshed for every source frame
+- Removed the scene change threshold option and made it automatically recognize the optimal threshold based on the scene (4x the average frame difference)
+
+### Fixed
+- Fixed a bug in the blurFrame kernel that caused the calcDeltaSum kernel to calculate wrong results at low resolutions

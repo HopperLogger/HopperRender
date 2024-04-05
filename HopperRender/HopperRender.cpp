@@ -138,9 +138,11 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_fResolutionDividers{ 1.0f, 0.75f, 0.5f, 0.25f, 0.125f, 0.0625f },
 	m_fResolutionScalar(1.0f),
 	m_fResolutionDivider(1.0f),
-	m_iNumSteps(4),
+	m_iNumSteps(MAX_NUM_STEPS),
 	m_iSceneChangeThreshold(1000),
 	m_iCurrentSceneChange(0),
+	m_iSceneChangeCounter(0),
+	m_iSceneChangeSum(0),
 
 	// Frame output
 	m_dDimScalar(1.0),
@@ -652,10 +654,21 @@ HRESULT CHopperRender::InterpolateFrame(unsigned char* pInBuffer, unsigned char*
 
 		// Get the latest frame difference
 		m_iCurrentSceneChange = m_pofcOpticalFlowCalc->m_iCurrentSceneChange;
+
+		// Calculate the average scene change
+		if (m_iSceneChangeCounter >= SCENE_CHANGE_AVERAGE) {
+			m_iSceneChangeThreshold = max(((m_iSceneChangeSum / m_iSceneChangeCounter) * 4), MINIMUM_SCENE_CHANGE);
+			m_iSceneChangeCounter = 0;
+			m_iSceneChangeSum = 0;
+		} else {
+			m_iSceneChangeCounter++;
+			m_iSceneChangeSum += m_iCurrentSceneChange;
+		}
 	}
 
 	// Disable interpolation as long as the scene change is too high
 	if (m_iFrameOutput != HSVFlow && 
+		m_iFrameOutput != BlurredFrames &&
 		m_iFrameOutput != SideBySide2 && 
 		m_iSceneChangeThreshold != 0 && 
 		(m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold)) {
@@ -699,7 +712,7 @@ HRESULT CHopperRender::InterpolateFrame(unsigned char* pInBuffer, unsigned char*
 	if (m_iFrameOutput == SideBySide1) {
 		m_pofcOpticalFlowCalc->insertFrame();
 	} else if (m_iFrameOutput == SideBySide2) {
-	    m_pofcOpticalFlowCalc->sideBySideFrame(fScalar);
+	    m_pofcOpticalFlowCalc->sideBySideFrame(fScalar, m_bFirstFrame);
 	}
 
 	// Download the result to the output buffer
@@ -823,7 +836,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated, int* piFrameOu
 }
 
 // Apply the new settings
-STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, int iNumIterations, int iFrameBlurKernelSize, int iFlowBlurKernelSize, int iSceneChangeThreshold) {
+STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, int iNumIterations, int iFrameBlurKernelSize, int iFlowBlurKernelSize) {
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 
 	if (!bActivated) {
@@ -836,7 +849,6 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput
 	m_iNumIterations = iNumIterations;
 	m_iFrameBlurKernelSize = iFrameBlurKernelSize;
 	m_iFlowBlurKernelSize = iFlowBlurKernelSize;
-	m_iSceneChangeThreshold = iSceneChangeThreshold;
 
 	SetDirty(TRUE);
 	return NOERROR;
@@ -920,7 +932,7 @@ void CHopperRender::autoAdjustSettings() {
 		}
 
 		// Disable Interpolation if we are too slow
-		m_iIntActiveState = TooSlow;
+		if (AUTO_FRAME_SCALE || AUTO_STEPS_ADJUST) m_iIntActiveState = TooSlow;
 
 	/*
 	* We have left over capacity
@@ -989,15 +1001,10 @@ HRESULT CHopperRender::loadSettings() {
         LONG result5 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
 		m_iFlowBlurKernelSize = value;
 
-		// Load the scene change threshold
-		valueName = L"SceneChangeThreshold"; 
-        LONG result6 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		m_iSceneChangeThreshold = value;
-
 		RegCloseKey(hKey); // Close the registry key
 
 		// Check for errors
-        if (result1 || result2 || result3 || result4 || result5 || result6) {
+        if (result1 || result2 || result3 || result4 || result5) {
 			return E_FAIL;
         } else {
             return S_OK;

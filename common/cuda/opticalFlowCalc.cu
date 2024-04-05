@@ -81,7 +81,7 @@ __global__ void blurFrameKernel(const T* frameArray, T* blurredFrameArray,
 								const unsigned char lumEnd, const unsigned short lumPixelCount, const char chromStart, 
 								const unsigned char chromEnd, const unsigned short chromPixelCount, const unsigned short dimY, const unsigned short dimX) {
 	// Shared memory for the frame to prevent multiple global memory accesses
-	extern __shared__ unsigned short sharedFrameArray[];
+	extern __shared__ unsigned int sharedFrameArray[];
 
 	// Current entry to be computed by the thread
 	const unsigned short cx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -122,7 +122,15 @@ __global__ void blurFrameKernel(const T* frameArray, T* blurredFrameArray,
     // Ensure all threads have finished loading before continuing
     __syncthreads();
 
-	// Calculate the x and y boundaries of the kernel
+	// Don't blur the edges of the frame
+	if (cz == 0 && (cy < kernelSize / 2 || cy >= dimY - kernelSize / 2 || cx < kernelSize / 2 || cx >= dimX - kernelSize / 2)) {
+		blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = 0;
+		return;
+	} else if (cz == 1 && (cy < kernelSize / 4 || cy >= dimY / 2 - kernelSize / 4 || cx < kernelSize / 4 || cx >= dimX - kernelSize / 4)) {
+		blurredFrameArray[cz * dimY * dimX + cy * dimX + cx] = 128;
+		return;
+	}
+
 	unsigned int blurredPixel = 0;
 
 	// Collect the sum of the surrounding pixels
@@ -802,7 +810,14 @@ __global__ void cleanFlowKernel(const int* flowArray, int* blurredFlowArray,
 	int offsetY = flowArray[lowDimY * lowDimX + cy * lowDimX + cx];
 
     if (abs(offsetY) <= 2 && abs(offsetX <= 2)) {
-		blurredFlowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx] = flowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx];
+		for (int y = -6; y < 6; y++) {
+			for (int x = -6; x < 6; x++) {
+				if ((cy + y) < lowDimY && (cy + y) >= 0 && (cx + x) < lowDimX && (cx + x) >= 0) {
+					blurredFlowArray[cz * lowDimY * lowDimX + (cy + y) * lowDimX + (cx + x)] = flowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx];
+				}
+			}
+		}
+		//blurredFlowArray[cz * lowDimY * lowDimX + cy * lowDimX + cx] = 0;
 	}
 }
 

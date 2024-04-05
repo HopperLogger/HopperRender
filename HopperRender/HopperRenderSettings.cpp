@@ -45,7 +45,6 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 	m_iNumSteps(0),
 	m_iCurrentSceneChange(0),
 	m_bIsInitialized(false),
-	m_cRefreshCounter(50),
 	m_pSettingsInterface(nullptr) {
 	ASSERT(phr);
 }
@@ -62,65 +61,65 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			}
 			return 1;
 		}
-	}
+		case WM_TIMER: {
+			// Get the current settings
+			int iDimX;
+			int iDimY;
+			int iLowDimX;
+			int iLowDimY;
+			int frameOutput;
+			int activeState;
+			double currentFPS = m_dSourceFPS;
+			m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_iNumIterations, &m_iFrameBlurKernelSize, &m_iFlowBlurKernelSize,
+														&m_iSceneChangeThreshold, &m_iCurrentSceneChange, &activeState, &m_dSourceFPS, &m_iNumSteps, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
+			m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
+			m_iIntActiveState = static_cast<ActiveState>(activeState);
 
-	// Only refresh the settings every 50 times to prevent flickering and ensure all elements are properly drawn
-	m_cRefreshCounter++;
-	if (m_cRefreshCounter > 50) {
-		m_cRefreshCounter = 0;
+			// Update the status for every frame
+			if (currentFPS != m_dSourceFPS) {
+				KillTimer(m_Dlg, 1);
+				int delay = (1.0 / m_dSourceFPS) * 1000.0;
+				SetTimer(m_Dlg, 1, delay, nullptr);
+			}
 
-		// Get the current settings
-		int iDimX;
-		int iDimY;
-		int iLowDimX;
-		int iLowDimY;
-		int frameOutput;
-		int activeState;
-		m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_iNumIterations, &m_iFrameBlurKernelSize, &m_iFlowBlurKernelSize,
-										         &m_iSceneChangeThreshold, &m_iCurrentSceneChange, &activeState, &m_dSourceFPS, &m_iNumSteps, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
-		m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
-		m_iIntActiveState = static_cast<ActiveState>(activeState);
+			// Update the filter active status
+			switch (m_iIntActiveState) {
+				case Deactivated:
+					SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Deactivated"));
+					break;
+				case NotNeeded:
+					SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Not Needed"));
+					break;
+				case Active:
+					SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Active"));
+					break;
+				case TooSlow:
+					SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Too Slow"));
+					break;
+			}
 
-		// Update the filter active status
-		switch (m_iIntActiveState) {
-			case Deactivated:
-				SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Deactivated"));
-				break;
-			case NotNeeded:
-				SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Not Needed"));
-				break;
-			case Active:
-				SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Active"));
-				break;
-			case TooSlow:
-				SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Too Slow"));
-				break;
-		}
+			// Update the source frames per second
+			TCHAR sz[60];
+			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f fps\0"), m_dSourceFPS);
+			SetDlgItemText(m_Dlg, IDC_SOURCEFPS, sz);
 
-		// Update the source frames per second
-		TCHAR sz[60];
-		(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f fps\0"), m_dSourceFPS);
-		SetDlgItemText(m_Dlg, IDC_SOURCEFPS, sz);
+			// Update the number of steps
+			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNumSteps);
+			SetDlgItemText(m_Dlg, IDC_NUMSTEPS, sz);
 
-		// Update the number of steps
-		(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNumSteps);
-		SetDlgItemText(m_Dlg, IDC_NUMSTEPS, sz);
+			// Update the frame resolution
+			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d x %d\0"), iDimX, iDimY);
+			SetDlgItemText(m_Dlg, IDC_FRAMERES, sz);
 
-		// Update the frame resolution
-		(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d x %d\0"), iDimX, iDimY);
-		SetDlgItemText(m_Dlg, IDC_FRAMERES, sz);
+			// Update the calculation resolution
+			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d x %d\0"), iLowDimX, iLowDimY);
+			SetDlgItemText(m_Dlg, IDC_CALCRES, sz);
 
-		// Update the calculation resolution
-		(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d x %d\0"), iLowDimX, iLowDimY);
-		SetDlgItemText(m_Dlg, IDC_CALCRES, sz);
-
-		// Update the current frame difference
-		if (m_iSceneChangeThreshold == 0) {
-			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("n/a\0"));
-			SetDlgItemText(m_Dlg, IDC_CURRFRAMEDIFF, sz);
-		} else {
-			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iCurrentSceneChange);
-			SetDlgItemText(m_Dlg, IDC_CURRFRAMEDIFF, sz);
+			// Update the current frame difference
+			SendDlgItemMessage(m_Dlg, IDC_CURRFRAMEDIFF, PBM_SETRANGE, 0, MAKELPARAM(0, m_iSceneChangeThreshold));
+			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d/%d\0"), m_iCurrentSceneChange, m_iSceneChangeThreshold);
+			SetDlgItemText(m_Dlg, IDC_CURRFRAMEDIFFDESC, sz);
+			SendDlgItemMessage(m_Dlg, IDC_CURRFRAMEDIFF, PBM_SETPOS, m_iCurrentSceneChange, 0);
 		}
 	}
 
@@ -216,6 +215,12 @@ HRESULT CHopperRenderSettings::OnActivate() {
 	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iSceneChangeThreshold);
 	Edit_SetText(GetDlgItem(m_Dlg, IDC_SCENECHANGETHRESHOLD), sz);
 
+	// Set the initial SceneChangeThreshold range
+	SendDlgItemMessage(m_Dlg, IDC_CURRFRAMEDIFF, PBM_SETRANGE, 0, MAKELPARAM(0, m_iSceneChangeThreshold));
+
+	// Update the status for every frame
+	int delay = (1.0 / m_dSourceFPS) * 1000.0;
+	SetTimer(m_Dlg, 1, delay, nullptr);
 	m_bIsInitialized = true;
 
 	return NOERROR;
@@ -259,8 +264,11 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 	// The scene change threshold should not be negative
 	ValidateParameter(m_iSceneChangeThreshold, INT_MAX, IDC_SCENECHANGETHRESHOLD);
 
+	// Set the new SceneChangeThreshold range
+	SendDlgItemMessage(m_Dlg, IDC_CURRFRAMEDIFF, PBM_SETRANGE, 0, MAKELPARAM(0, m_iSceneChangeThreshold));
+
 	// Tell the filter about the new settings
-	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_iNumIterations, m_iFrameBlurKernelSize, m_iFlowBlurKernelSize, m_iSceneChangeThreshold);
+	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_iNumIterations, m_iFrameBlurKernelSize, m_iFlowBlurKernelSize);
 
 	// Save the settings to the registry
 	if (saveSettings() != S_OK) {
@@ -373,14 +381,11 @@ HRESULT CHopperRenderSettings::saveSettings() {
 
 		// Save the flow blur kernel size
 		LONG result5 = RegSetValueEx(hKey, L"FlowBlurKernelSize", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iFlowBlurKernelSize), sizeof(DWORD));
-
-		// Save the scene change threshold
-		LONG result6 = RegSetValueEx(hKey, L"SceneChangeThreshold", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iSceneChangeThreshold), sizeof(DWORD));
 		
 		RegCloseKey(hKey); // Close the registry key
 
 		// Check for errors
-        if (result1 || result2 || result3 || result4 || result5 || result6) {
+        if (result1 || result2 || result3 || result4 || result5) {
 			return E_FAIL;
         } else {
             return S_OK;

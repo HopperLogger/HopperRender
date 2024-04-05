@@ -202,7 +202,7 @@ void OpticalFlowCalcHDR::copyOwnFrame(unsigned char* pOutBuffer, const bool expo
 void OpticalFlowCalcHDR::blurFrameArray(const unsigned short* frame, unsigned short* blurredFrame, const unsigned char kernelSize, const bool directOutput) {
 	const unsigned char boundsOffset = kernelSize >> 1;
 	const unsigned char chacheSize = kernelSize + (boundsOffset << 1);
-	const size_t sharedMemSize = chacheSize * chacheSize * sizeof(unsigned short);
+	const size_t sharedMemSize = chacheSize * chacheSize * sizeof(unsigned int);
 	const unsigned short totalThreads = max(kernelSize * kernelSize, 1);
     const unsigned short totalEntries = chacheSize * chacheSize;
     const unsigned char avgEntriesPerThread = totalEntries / totalThreads;
@@ -290,7 +290,7 @@ void OpticalFlowCalcHDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 																m_iDimY, m_iDimX, m_iLowDimY, m_iLowDimX, windowDim, m_fResolutionScalar);
 			
 			// Check if interpolation is appropriate
-			if (m_iSceneChangeThreshold != 0 && (iter == 0 && step == 0)) {
+			if (iter == 0 && step == 0) {
 				cudaMemcpy(&m_iCurrentSceneChange, m_summedUpDeltaArray.arrayPtrGPU, sizeof(unsigned int), cudaMemcpyDeviceToHost);
 				m_iCurrentSceneChange /= (m_iLowDimY * m_iLowDimX * 4);
 				if (m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold) {
@@ -423,18 +423,26 @@ void OpticalFlowCalcHDR::insertFrame() {
 * Places frame 1 scaled down on the left side and the blendedFrame on the right side of the outputFrame
 * 
 * @param dScalar: The scalar to blend the frames with
+* @param firstFrame: Whether the frame to be placed is the first frame
 */
-void OpticalFlowCalcHDR::sideBySideFrame(float fScalar) {
+void OpticalFlowCalcHDR::sideBySideFrame(float fScalar, const bool firstFrame) {
 	// Calculate the blend scalar
 	const float frame1Scalar = 1.0f - fScalar;
 	const float frame2Scalar = fScalar;
 	const unsigned int halfDimX = m_iDimX >> 1;
 	const unsigned int halfDimY = m_iDimY >> 1;
 
-	sideBySideFrameKernel << <m_grid16x16x1, m_threads16x16x2 >> >(m_frame1.arrayPtrGPU, m_warpedFrame12.arrayPtrGPU, 
-												 m_warpedFrame21.arrayPtrGPU,
-												 m_outputFrame.arrayPtrGPU, frame1Scalar, frame2Scalar,
-	                                             m_iDimY, m_iDimX, m_iScaledDimX, halfDimY, halfDimX, m_iChannelIdxOffset);
+	if (firstFrame) {
+		sideBySideFrameKernel << <m_grid16x16x1, m_threads16x16x2 >> >(m_frame2.arrayPtrGPU, m_warpedFrame21.arrayPtrGPU, 
+													 m_warpedFrame21.arrayPtrGPU,
+													 m_outputFrame.arrayPtrGPU, frame1Scalar, frame2Scalar,
+													 m_iDimY, m_iDimX, m_iScaledDimX, halfDimY, halfDimX, m_iChannelIdxOffset);
+	} else {
+		sideBySideFrameKernel << <m_grid16x16x1, m_threads16x16x2 >> >(m_frame1.arrayPtrGPU, m_warpedFrame12.arrayPtrGPU, 
+													 m_warpedFrame21.arrayPtrGPU,
+													 m_outputFrame.arrayPtrGPU, frame1Scalar, frame2Scalar,
+													 m_iDimY, m_iDimX, m_iScaledDimX, halfDimY, halfDimX, m_iChannelIdxOffset);
+	}
 }
 
 /*

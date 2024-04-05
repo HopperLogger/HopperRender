@@ -93,11 +93,10 @@ namespace HopperRenderExporter
             int startTimeSec = Convert.ToInt32(startTimeSecSelector.Value);
             int endTimeMin = Convert.ToInt32(endTimeMinSelector.Value);
             int endTimeSec = Convert.ToInt32(endTimeSecSelector.Value);
-            int sceneChangeThreshold = Convert.ToInt32(sceneChangeThresholdSelector.Value);
             bool showPreview = showPreviewCheckBox.Checked;
 
             // Command line arguments to pass to the executable
-            string arguments = "\"" + sourceVideoFilePath + "\" \"" + outputVideoFilePath + "\" " + targetFPS + " " + speed + " " + calcResDiv + " " + numIterations + " " + numSteps + " " + frameBlurKernel + " " + flowBlurKernel + " " + frameOutput + " " + startTimeMin + " " + startTimeSec + " " + endTimeMin + " " + endTimeSec + " " + sceneChangeThreshold + " " + showPreview;
+            string arguments = "\"" + sourceVideoFilePath + "\" \"" + outputVideoFilePath + "\" " + targetFPS + " " + speed + " " + calcResDiv + " " + numIterations + " " + numSteps + " " + frameBlurKernel + " " + flowBlurKernel + " " + frameOutput + " " + startTimeMin + " " + startTimeSec + " " + endTimeMin + " " + endTimeSec + " " + showPreview;
 
             // Start the process
             process.StartInfo.FileName = exePath;

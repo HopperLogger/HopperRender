@@ -195,7 +195,7 @@ void OpticalFlowCalcSDR::copyOwnFrame(unsigned char* pOutBuffer, const bool expo
 void OpticalFlowCalcSDR::blurFrameArray(const unsigned char* frame, unsigned char* blurredFrame, const unsigned char kernelSize, const bool directOutput) {
 	const unsigned char boundsOffset = kernelSize >> 1;
 	const unsigned char chacheSize = kernelSize + (boundsOffset << 1);
-	const size_t sharedMemSize = chacheSize * chacheSize * sizeof(unsigned short);
+	const size_t sharedMemSize = chacheSize * chacheSize * sizeof(unsigned int);
 	const unsigned short totalThreads = max(kernelSize * kernelSize, 1);
     const unsigned short totalEntries = chacheSize * chacheSize;
     const unsigned char avgEntriesPerThread = totalEntries / totalThreads;
@@ -208,11 +208,12 @@ void OpticalFlowCalcSDR::blurFrameArray(const unsigned char* frame, unsigned cha
 	const unsigned short chromPixelCount = (chromEnd - chromStart) * (chromEnd - chromStart);
 
 	// Calculate the number of blocks needed
-	const unsigned int NUM_BLOCKS_X = max(static_cast<int>(ceil(static_cast<float>(m_iDimX) / kernelSize)), 1);
-	const unsigned int NUM_BLOCKS_Y = max(static_cast<int>(ceil(static_cast<float>(m_iDimY) / kernelSize)), 1);
+	const unsigned int NUM_BLOCKS_X = max(static_cast<int>(ceil(static_cast<double>(m_iDimX) / kernelSize)), 1);
+	const unsigned int NUM_BLOCKS_Y = max(static_cast<int>(ceil(static_cast<double>(m_iDimY) / kernelSize)), 1);
 
 	// Use dim3 structs for block and grid size
 	dim3 gridBF(NUM_BLOCKS_X, NUM_BLOCKS_Y, 2);
+	if (!directOutput) gridBF.z = 1; // We only need the luminance channel if we are not doing direct output
 	dim3 threadsBF(kernelSize, kernelSize, 1);
 
 	// No need to blur the frame if the kernel size is less than 4
@@ -282,7 +283,7 @@ void OpticalFlowCalcSDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 															    m_offsetArray12.arrayPtrGPU, m_iLayerIdxOffset, m_iDirectionIdxOffset,
 																m_iDimY, m_iDimX, m_iLowDimY, m_iLowDimX, windowDim, m_fResolutionScalar);
 			// Check if interpolation is appropriate
-			if (m_iSceneChangeThreshold != 0 && (iter == 0 && step == 0)) {
+			if (iter == 0 && step == 0) {
 				cudaMemcpy(&m_iCurrentSceneChange, m_summedUpDeltaArray.arrayPtrGPU, sizeof(unsigned int), cudaMemcpyDeviceToHost);
 				m_iCurrentSceneChange /= ((m_iLowDimY * m_iLowDimX) / 30);
 				if (m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold) {
@@ -415,18 +416,26 @@ void OpticalFlowCalcSDR::insertFrame() {
 * Places frame 1 scaled down on the left side and the blendedFrame on the right side of the outputFrame
 * 
 * @param dScalar: The scalar to blend the frames with
+* @param firstFrame: Whether the frame to be placed is the first frame
 */
-void OpticalFlowCalcSDR::sideBySideFrame(float fScalar) {
+void OpticalFlowCalcSDR::sideBySideFrame(float fScalar, const bool firstFrame) {
 	// Calculate the blend scalar
 	const float frame1Scalar = 1.0f - fScalar;
 	const float frame2Scalar = fScalar;
 	const unsigned int halfDimX = m_iDimX >> 1;
 	const unsigned int halfDimY = m_iDimY >> 1;
 
-	sideBySideFrameKernel << <m_grid16x16x1, m_threads16x16x2 >> >(m_frame1.arrayPtrGPU, m_warpedFrame12.arrayPtrGPU, 
-												 m_warpedFrame21.arrayPtrGPU,
-												 m_outputFrame.arrayPtrGPU, frame1Scalar, frame2Scalar,
-	                                             m_iDimY, m_iDimX, m_iScaledDimX, halfDimY, halfDimX, m_iChannelIdxOffset);
+	if (firstFrame) {
+		sideBySideFrameKernel << <m_grid16x16x1, m_threads16x16x2 >> >(m_frame2.arrayPtrGPU, m_warpedFrame21.arrayPtrGPU, 
+													 m_warpedFrame21.arrayPtrGPU,
+													 m_outputFrame.arrayPtrGPU, frame1Scalar, frame2Scalar,
+													 m_iDimY, m_iDimX, m_iScaledDimX, halfDimY, halfDimX, m_iChannelIdxOffset);
+	} else {
+		sideBySideFrameKernel << <m_grid16x16x1, m_threads16x16x2 >> >(m_frame1.arrayPtrGPU, m_warpedFrame12.arrayPtrGPU, 
+													 m_warpedFrame21.arrayPtrGPU,
+													 m_outputFrame.arrayPtrGPU, frame1Scalar, frame2Scalar,
+													 m_iDimY, m_iDimX, m_iScaledDimX, halfDimY, halfDimX, m_iChannelIdxOffset);
+	}
 }
 
 /*
