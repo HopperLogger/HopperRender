@@ -69,7 +69,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="$(SolutionDir)common\common.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.3.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.4.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -264,7 +264,7 @@
       <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</GPUDebugInfo>
       <HostDebugInfo Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</HostDebugInfo>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">EditAndContinue</DebugInformationFormat>
-      <SplitCompile Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">MaxThreads</SplitCompile>
+      <SplitCompile Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Default</SplitCompile>
       <SplitCompileCustomThreads Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">16</SplitCompileCustomThreads>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">O2</Optimization>
       <PtxAsOptionV Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</PtxAsOptionV>
@@ -367,6 +367,6 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.3.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.4.targets" />
   </ImportGroup>
 </Project>
