@@ -100,7 +100,7 @@ You can access the settings when playing back a video with HopperRender by right
 The exporter allows you to interpolate video files with custom settings instead of just watching it with the DirectShow Filter.
 > Note: Showing the preview will negatively impact export performance and will not show a frame time accurate playback. The Exporter does not support HDR videos.
 <div align="center">
-    <img alt="color-circle" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/04cdac37-c3ed-49df-a919-cee70455596b">
+    <img alt="exporter" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/2c917bec-4b8a-43a4-a9e6-7835743b5b01">
     </div>
 
 ## Acknowledgements
