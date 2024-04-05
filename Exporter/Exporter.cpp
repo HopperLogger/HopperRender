@@ -11,8 +11,8 @@
 
 int main(int argc, char* argv[]) {
 	// Parse command-line arguments
-	if (argc < 16) {
-        std::cerr << "Usage: " << argv[0] << " sourceVideoFilePath outputVideoFilePath targetFPS speed calcResDiv numIterations numSteps frameBlurKernel flowBlurKernel frameOutput startTimeMin startTimeSec endTimeMin endTimeSec sceneChangeThreshold showPreview" << std::endl;
+	if (argc < 15) {
+        std::cerr << "Usage: " << argv[0] << " sourceVideoFilePath outputVideoFilePath targetFPS speed calcResDiv numIterations numSteps frameBlurKernel flowBlurKernel frameOutput startTimeMin startTimeSec endTimeMin endTimeSec showPreview" << std::endl;
         return 1;
     }
     std::string inputVideoPath = argv[1];
@@ -31,11 +31,7 @@ int main(int argc, char* argv[]) {
 	int startTimeSec = std::atoi(argv[12]);
 	int endTimeMin = std::atoi(argv[13]);
 	int endTimeSec = std::atoi(argv[14]);
-	int sceneChangeThreshold = std::atoi(argv[15]);
-	bool showPreview = (std::string(argv[16]) == "True");
-	if (endTimeMin == 0 && endTimeSec == 0) {
-		endTimeSec = INT32_MAX;
-	}
+	bool showPreview = (std::string(argv[15]) == "True");
 
 	// Initialize other needed variables
 	int quality = 100;
@@ -68,6 +64,9 @@ int main(int argc, char* argv[]) {
 	const double sourceFT = 1000.0 / fps;
 	const unsigned int totalNumFrames = inputVideo.get(cv::CAP_PROP_FRAME_COUNT);
 	cv::Size frameSize(dimX, dimY);
+	if (endTimeMin == 0 && endTimeSec == 0) {
+		endTimeSec = totalNumFrames;
+	}
 
 	// Check if the start time is valid
 	int startTime = (startTimeMin * 60 + startTimeSec) * inputVideo.get(cv::CAP_PROP_FPS);
@@ -99,7 +98,6 @@ int main(int argc, char* argv[]) {
 	hopperRender.m_iDimX = dimX;
 	hopperRender.m_iDimY = dimY;
 	hopperRender.m_fResolutionDivider = resolutionDivider;
-	hopperRender.m_iSceneChangeThreshold = sceneChangeThreshold;
 	hopperRender.m_bExportMode = true;
 	hopperRender.m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(dimY, dimX, 1.0, resolutionDivider);
 
@@ -131,7 +129,7 @@ int main(int argc, char* argv[]) {
 			remainingDuration = perfDuration * (endTime - startTime - hopperRender.m_iFrameCounter);
 			perfMinutes = remainingDuration / 60000;
             perfSeconds = (static_cast<int>(remainingDuration) % 60000) / 1000;
-			progress = (static_cast<double>(hopperRender.m_iFrameCounter) / static_cast<double>(totalNumFrames)) * 100.0;
+			progress = (static_cast<double>(hopperRender.m_iFrameCounter) / static_cast<double>(endTime - startTime)) * 100.0;
 			printf("Computing frame %d/%d (%d%%) - %.3f ms per frame - Estimated time remaining: %d min %d sec - Frame Diff: %d\n",
 				hopperRender.m_iFrameCounter, endTime - startTime, progress, perfDuration, perfMinutes, perfSeconds, hopperRender.m_iCurrentSceneChange);
 			perfStart = std::chrono::high_resolution_clock::now();

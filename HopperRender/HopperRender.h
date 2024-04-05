@@ -11,6 +11,8 @@
 #define LOG_PERFORMANCE 0 // Whether or not to print debug messages regarding calculation performance (0: Disabled, 1: Enabled)
 #define MIN_NUM_STEPS 4 // The minimum number of calculation steps (if below this, resolution will be decreased or calculation disabled)
 #define MAX_NUM_STEPS 15 // The maximum number of calculation steps (if reached, resolution will be increased or steps will be kept at this number)
+#define SCENE_CHANGE_AVERAGE 100 // The number of frames to average the scene change detection over
+#define MINIMUM_SCENE_CHANGE 300 // The lowest threshold for scene change detection
 
 typedef enum FrameOutput {
     WarpedFrame12,
@@ -59,7 +61,7 @@ public:
 								    int* piFrameBlurKernelSize, int* piFlowBlurKernelSize, int* piSceneChangeThreshold, int* piCurrentSceneChange, int* piIntActiveState, double* pdSourceFPS, int* piNumSteps, int* piDimX,
 								    int* piDimY, int* piLowDimX, int* piLowDimY) override;
 	STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, 
-							        int iNumIterations, int iFrameBlurKernelSize, int iFlowBlurKernelSize, int piSceneChangeThreshold) override;
+							        int iNumIterations, int iFrameBlurKernelSize, int iFlowBlurKernelSize) override;
 
 	// ISpecifyPropertyPages interface
 	STDMETHODIMP GetPages(CAUUID* pPages) override;
@@ -111,6 +113,8 @@ public:
 	unsigned int m_iNumSteps; // Number of steps executed to find the ideal offset (limits the maximum offset distance per iteration)
 	unsigned int m_iSceneChangeThreshold; // The threshold used to determine whether a scene change has occurred
 	unsigned int m_iCurrentSceneChange; // How many pixel differences are currently detected
+	unsigned int m_iSceneChangeCounter; // The number of frames since the last scene change
+	unsigned int m_iSceneChangeSum; // The current sum of scene change differences
 
 	// Frame output
 	double m_dDimScalar; // The scalar to scale the frame dimensions with depending on the renderer used

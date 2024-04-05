@@ -71,8 +71,6 @@
             endTimeMinLabel = new Label();
             endTimeMinSelector = new NumericUpDown();
             endTimeLabel = new Label();
-            sceneChangeThresholdLabel = new Label();
-            sceneChangeThresholdSelector = new NumericUpDown();
             ((System.ComponentModel.ISupportInitialize)targetFPSSelector).BeginInit();
             ((System.ComponentModel.ISupportInitialize)speedSelector).BeginInit();
             ((System.ComponentModel.ISupportInitialize)calcResDivSelector).BeginInit();
@@ -84,7 +82,6 @@
             ((System.ComponentModel.ISupportInitialize)startTimeSecSelector).BeginInit();
             ((System.ComponentModel.ISupportInitialize)endTimeSecSelector).BeginInit();
             ((System.ComponentModel.ISupportInitialize)endTimeMinSelector).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)sceneChangeThresholdSelector).BeginInit();
             SuspendLayout();
             // 
             // openSourceVideoFileDialog
@@ -483,7 +480,7 @@
             startTimeLabel.AutoSize = true;
             startTimeLabel.Font = new Font("Segoe UI", 12F);
             startTimeLabel.ForeColor = Color.White;
-            startTimeLabel.Location = new Point(55, 293);
+            startTimeLabel.Location = new Point(176, 292);
             startTimeLabel.Name = "startTimeLabel";
             startTimeLabel.Size = new Size(80, 21);
             startTimeLabel.TabIndex = 30;
@@ -495,7 +492,7 @@
             startTimeMinSelector.BackColor = Color.Gray;
             startTimeMinSelector.Font = new Font("Segoe UI", 12F);
             startTimeMinSelector.ForeColor = Color.White;
-            startTimeMinSelector.Location = new Point(29, 321);
+            startTimeMinSelector.Location = new Point(150, 320);
             startTimeMinSelector.Name = "startTimeMinSelector";
             startTimeMinSelector.Size = new Size(52, 29);
             startTimeMinSelector.TabIndex = 31;
@@ -506,7 +503,7 @@
             startTimeMinLabel.AutoSize = true;
             startTimeMinLabel.Font = new Font("Segoe UI", 12F);
             startTimeMinLabel.ForeColor = Color.White;
-            startTimeMinLabel.Location = new Point(80, 323);
+            startTimeMinLabel.Location = new Point(201, 322);
             startTimeMinLabel.Name = "startTimeMinLabel";
             startTimeMinLabel.Size = new Size(37, 21);
             startTimeMinLabel.TabIndex = 32;
@@ -518,7 +515,7 @@
             startTimeSecSelector.BackColor = Color.Gray;
             startTimeSecSelector.Font = new Font("Segoe UI", 12F);
             startTimeSecSelector.ForeColor = Color.White;
-            startTimeSecSelector.Location = new Point(112, 321);
+            startTimeSecSelector.Location = new Point(233, 320);
             startTimeSecSelector.Maximum = new decimal(new int[] { 59, 0, 0, 0 });
             startTimeSecSelector.Name = "startTimeSecSelector";
             startTimeSecSelector.Size = new Size(52, 29);
@@ -530,7 +527,7 @@
             startTimeSecLabel.AutoSize = true;
             startTimeSecLabel.Font = new Font("Segoe UI", 12F);
             startTimeSecLabel.ForeColor = Color.White;
-            startTimeSecLabel.Location = new Point(165, 323);
+            startTimeSecLabel.Location = new Point(286, 322);
             startTimeSecLabel.Name = "startTimeSecLabel";
             startTimeSecLabel.Size = new Size(32, 21);
             startTimeSecLabel.TabIndex = 34;
@@ -542,7 +539,7 @@
             endTimeSecLabel.AutoSize = true;
             endTimeSecLabel.Font = new Font("Segoe UI", 12F);
             endTimeSecLabel.ForeColor = Color.White;
-            endTimeSecLabel.Location = new Point(395, 323);
+            endTimeSecLabel.Location = new Point(516, 322);
             endTimeSecLabel.Name = "endTimeSecLabel";
             endTimeSecLabel.Size = new Size(32, 21);
             endTimeSecLabel.TabIndex = 39;
@@ -554,7 +551,7 @@
             endTimeSecSelector.BackColor = Color.Gray;
             endTimeSecSelector.Font = new Font("Segoe UI", 12F);
             endTimeSecSelector.ForeColor = Color.White;
-            endTimeSecSelector.Location = new Point(342, 321);
+            endTimeSecSelector.Location = new Point(463, 320);
             endTimeSecSelector.Maximum = new decimal(new int[] { 59, 0, 0, 0 });
             endTimeSecSelector.Name = "endTimeSecSelector";
             endTimeSecSelector.Size = new Size(52, 29);
@@ -566,7 +563,7 @@
             endTimeMinLabel.AutoSize = true;
             endTimeMinLabel.Font = new Font("Segoe UI", 12F);
             endTimeMinLabel.ForeColor = Color.White;
-            endTimeMinLabel.Location = new Point(309, 323);
+            endTimeMinLabel.Location = new Point(430, 322);
             endTimeMinLabel.Name = "endTimeMinLabel";
             endTimeMinLabel.Size = new Size(37, 21);
             endTimeMinLabel.TabIndex = 37;
@@ -578,7 +575,7 @@
             endTimeMinSelector.BackColor = Color.Gray;
             endTimeMinSelector.Font = new Font("Segoe UI", 12F);
             endTimeMinSelector.ForeColor = Color.White;
-            endTimeMinSelector.Location = new Point(258, 321);
+            endTimeMinSelector.Location = new Point(379, 320);
             endTimeMinSelector.Name = "endTimeMinSelector";
             endTimeMinSelector.Size = new Size(52, 29);
             endTimeMinSelector.TabIndex = 36;
@@ -589,36 +586,11 @@
             endTimeLabel.AutoSize = true;
             endTimeLabel.Font = new Font("Segoe UI", 12F);
             endTimeLabel.ForeColor = Color.White;
-            endTimeLabel.Location = new Point(300, 293);
+            endTimeLabel.Location = new Point(421, 292);
             endTimeLabel.Name = "endTimeLabel";
             endTimeLabel.Size = new Size(74, 21);
             endTimeLabel.TabIndex = 35;
             endTimeLabel.Text = "End Time";
-            // 
-            // sceneChangeThresholdLabel
-            // 
-            sceneChangeThresholdLabel.Anchor = AnchorStyles.Top;
-            sceneChangeThresholdLabel.AutoSize = true;
-            sceneChangeThresholdLabel.Font = new Font("Segoe UI", 12F);
-            sceneChangeThresholdLabel.ForeColor = Color.White;
-            sceneChangeThresholdLabel.Location = new Point(507, 293);
-            sceneChangeThresholdLabel.Name = "sceneChangeThresholdLabel";
-            sceneChangeThresholdLabel.Size = new Size(181, 21);
-            sceneChangeThresholdLabel.TabIndex = 40;
-            sceneChangeThresholdLabel.Text = "Scene Change Threshold";
-            // 
-            // sceneChangeThresholdSelector
-            // 
-            sceneChangeThresholdSelector.Anchor = AnchorStyles.Top;
-            sceneChangeThresholdSelector.BackColor = Color.Gray;
-            sceneChangeThresholdSelector.Font = new Font("Segoe UI", 12F);
-            sceneChangeThresholdSelector.ForeColor = Color.White;
-            sceneChangeThresholdSelector.Location = new Point(544, 321);
-            sceneChangeThresholdSelector.Maximum = new decimal(new int[] { 10000000, 0, 0, 0 });
-            sceneChangeThresholdSelector.Name = "sceneChangeThresholdSelector";
-            sceneChangeThresholdSelector.Size = new Size(120, 29);
-            sceneChangeThresholdSelector.TabIndex = 41;
-            sceneChangeThresholdSelector.Value = new decimal(new int[] { 1000, 0, 0, 0 });
             // 
             // mainWindow
             // 
@@ -626,8 +598,6 @@
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.FromArgb(64, 64, 64);
             ClientSize = new Size(698, 486);
-            Controls.Add(sceneChangeThresholdSelector);
-            Controls.Add(sceneChangeThresholdLabel);
             Controls.Add(endTimeSecLabel);
             Controls.Add(endTimeSecSelector);
             Controls.Add(endTimeMinLabel);
@@ -683,7 +653,6 @@
             ((System.ComponentModel.ISupportInitialize)startTimeSecSelector).EndInit();
             ((System.ComponentModel.ISupportInitialize)endTimeSecSelector).EndInit();
             ((System.ComponentModel.ISupportInitialize)endTimeMinSelector).EndInit();
-            ((System.ComponentModel.ISupportInitialize)sceneChangeThresholdSelector).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -725,7 +694,6 @@
         private NumericUpDown startTimeMinSelector;
         private Label startTimeLabel;
         private Label startTimeMinLabel;
-        private Label sceneChangeThresholdLabel;
         private Label endTimeSecLabel;
         private NumericUpDown endTimeSecSelector;
         private Label endTimeMinLabel;
@@ -733,6 +701,5 @@
         private Label endTimeLabel;
         private Label startTimeSecLabel;
         private NumericUpDown startTimeSecSelector;
-        private NumericUpDown sceneChangeThresholdSelector;
     }
 }
