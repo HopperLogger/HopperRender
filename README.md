@@ -24,10 +24,11 @@ The filter can be added to a DirectShow media player like MPC-HC or MPC-BE.
 
 ## How to get started?
 To use this filter, you need to use a DirectShow player like [MPC-HC](https://github.com/clsid2/mpc-hc/releases) or [MPC-BE](https://sourceforge.net/projects/mpcbe).
-This filter uses the CUDA API, so it requires a NVIDIA GPU (GTX 950 or newer).
+This filter uses the CUDA API, so it requires the [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads?target_os=Windows&target_arch=x86_64) to be installed as well as a NVIDIA GPU (GTX 950 or newer).
 The usage of [madVR](https://www.videohelp.com/software/madVR) is recommended, but not necessary.
 
 ### Installation
+0. Install the newest [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads?target_os=Windows&target_arch=x86_64) and [MPC-HC](https://github.com/clsid2/mpc-hc/releases) or [MPC-BE](https://sourceforge.net/projects/mpcbe).
 1. Open MPC-HC or MPC-BE's settings.
 2. Select the External Filters submenu.
 3. Click on Add Filter.
