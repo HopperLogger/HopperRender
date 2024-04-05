@@ -97,6 +97,8 @@ __global__ void blurFrameKernel(const T* frameArray, T* blurredFrameArray,
 	const unsigned short trY = blockIdx.y * blockDim.y;
 	unsigned char offsetX;
 	unsigned char offsetY;
+	int newX;
+	int newY;
 
     // Calculate the number of entries to fill for this thread
     const unsigned short threadIndex = threadIdx.y * blockDim.x + threadIdx.x;
@@ -112,8 +114,10 @@ __global__ void blurFrameKernel(const T* frameArray, T* blurredFrameArray,
     for (unsigned short i = 0; i < entriesToFill; ++i) {
 		offsetX = (startIndex + i) % chacheSize;
 		offsetY = (startIndex + i) / chacheSize;
-		if ((trY - boundsOffset + offsetY) < dimY && (trX - boundsOffset + offsetX) < dimX) {
-			sharedFrameArray[startIndex + i] = frameArray[cz * dimY * dimX + (trY - boundsOffset + offsetY) * dimX + (trX - boundsOffset + offsetX)];
+		newX = trX - boundsOffset + offsetX;
+		newY = trY - boundsOffset + offsetY;
+		if (newY < lowDimY && newY >= 0 && newX < lowDimX && newX >= 0) {
+			sharedFrameArray[startIndex + i] = frameArray[cz * dimY * dimX + newY * dimX + newX];
 		} else {
 			sharedFrameArray[startIndex + i] = 0;
 		}
@@ -752,6 +756,8 @@ __global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray,
 	const int trY = blockIdx.y * blockDim.y;
 	unsigned char offsetX;
 	unsigned char offsetY;
+	int newX;
+	int newY;
 
     // Calculate the number of entries to fill for this thread
     const unsigned short threadIndex = threadIdx.y * blockDim.x + threadIdx.x;
@@ -767,8 +773,10 @@ __global__ void blurFlowKernel(const int* flowArray, int* blurredFlowArray,
     for (unsigned short i = 0; i < entriesToFill; ++i) {
 		offsetX = (startIndex + i) % chacheSize;
 		offsetY = (startIndex + i) / chacheSize;
-		if ((trY - boundsOffset + offsetY) < lowDimY && (trX - boundsOffset + offsetX) < lowDimX) {
-			sharedFlowArray[startIndex + i] = flowArray[cz * numLayers * lowDimY * lowDimX + (trY - boundsOffset + offsetY) * lowDimX + (trX - boundsOffset + offsetX)];
+		newX = trX - boundsOffset + offsetX;
+		newY = trY - boundsOffset + offsetY;
+		if (newY < lowDimY && newY >= 0 && newX < lowDimX && newX >= 0) {
+			sharedFlowArray[startIndex + i] = flowArray[cz * numLayers * lowDimY * lowDimX + newY * lowDimX + newX];
 		} else {
 			sharedFlowArray[startIndex + i] = 0;
 		}

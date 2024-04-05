@@ -27,6 +27,12 @@ void DebugMessage(const std::string& logMessage, const bool showLog) {
 	if (showLog) OutputDebugStringA((logMessage + "\n").c_str());
 }
 
+DWORD WINAPI MessageBoxThread(LPVOID lpParam) {
+    LPCWSTR message = reinterpret_cast<LPCWSTR>(lpParam);
+    MessageBox(NULL, message, TEXT("CUDA Error"), MB_OK | MB_ICONERROR);
+    return 0;
+}
+
 // Input pin types
 constexpr AMOVIESETUP_MEDIATYPE sudPinTypesIn = 
 {
@@ -155,6 +161,24 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_iIntActiveState(Active),
 	m_bExportMode(false) {
 	loadSettings();
+
+	// Check if CUDA capable GPU is present
+    int deviceCount;
+    cudaGetDeviceCount(&deviceCount);
+	HANDLE hThread = nullptr;
+    
+    if (deviceCount == 0) {
+		LPCWSTR message = TEXT("CUDA capable GPU not found!");
+		hThread = CreateThread(NULL, 0, MessageBoxThread, (LPVOID)message, 0, NULL);
+    }
+
+    // Check if CUDA toolkit is properly recognized
+    cudaError_t cudaStatus = cudaGetLastError();
+    if (cudaStatus != cudaSuccess) {
+		LPCWSTR message = TEXT("CUDA Toolkit not properly recognized!");
+		hThread = CreateThread(NULL, 0, MessageBoxThread, (LPVOID)message, 0, NULL);
+    }
+	if (hThread != nullptr) CloseHandle(hThread);
 }
 
 // Provide the way for COM to create a HopperRender object
@@ -729,10 +753,19 @@ HRESULT CHopperRender::InterpolateFrame(unsigned char* pInBuffer, unsigned char*
 	}
 
 	// Check for CUDA errors
+	HANDLE hThread = nullptr;
 	const cudaError_t cudaError = cudaGetLastError();
 	if (cudaError != cudaSuccess) {
-		fprintf(stderr, "ERROR: %s\n", cudaGetErrorString(cudaError));
-		exit(-1);
+		const char* errorMessage = cudaGetErrorString(cudaError);
+		int numChars = MultiByteToWideChar(CP_UTF8, 0, errorMessage, -1, NULL, 0);
+		if (numChars > 0) {
+			std::wstring wideErrorMessage(numChars, L'\0');
+			MultiByteToWideChar(CP_UTF8, 0, errorMessage, -1, &wideErrorMessage[0], numChars);
+			std::wstring message = L"CUDA Toolkit encountered a runtime error!\n";
+			message += wideErrorMessage;
+			hThread = CreateThread(NULL, 0, MessageBoxThread, (LPVOID)message.c_str(), 0, NULL);
+			if (hThread != nullptr) CloseHandle(hThread);
+		}
 	}
 
 	return NOERROR;
