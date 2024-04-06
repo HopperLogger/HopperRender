@@ -269,4 +269,4 @@
 
 ### Fixed
 - Fixed a bug in the blurFrame kernel that caused the calcDeltaSum kernel to calculate wrong results at low resolutions
-- Fixed incomplete bouandary check in blurKernel that could cause illegal memory access
+- Fixed incomplete bouandary checks in some kernels that could cause illegal memory access

@@ -103,6 +103,12 @@ The exporter allows you to interpolate video files with custom settings instead 
     <img alt="exporter" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/2c917bec-4b8a-43a4-a9e6-7835743b5b01">
     </div>
 
+### Installation
+1. Download [OpenCV](https://github.com/opencv/opencv/releases) and extract it to `C:\opencv`.
+2. Add `C:\opencv\build\x64\vc16\bin` to the Path System/Enviornment Variable.
+3. Download [OpenH264 1.8.0](https://github.com/cisco/openh264/releases/download/v1.8.0/openh264-1.8.0-win64.dll.bz2), extract it and copy the .dll to `C:\opencv\build\x64\vc16\bin`.
+4. In the extracted release, launch `HopperRenderExporter.exe` and select the video you want to interpolate, as well as the desired settings.
+
 ## Acknowledgements
 
 This project is based on the [EZRGB24 Filter Sample](https://learn.microsoft.com/en-us/windows/win32/directshow/ezrgb24-filter-sample) and the DirectShow core parts were inspired by the [LAV Video Decoder](https://github.com/clsid2/LAVFilters).

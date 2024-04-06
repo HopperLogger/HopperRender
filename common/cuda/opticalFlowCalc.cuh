@@ -233,6 +233,7 @@ public:
 	unsigned int m_iScaledDimX; // m_iDimX * m_dDimScalar;
 	unsigned int m_iScaledDimY; // m_iDimY * m_dDimScalar;
 	unsigned int m_iSceneChangeThreshold; // The threshold used to determine whether a scene change has occurred
+	unsigned int m_iPreviousSceneChange; // How many pixel differences were detected in the previous frame
 	unsigned int m_iCurrentSceneChange; // How many pixel differences are currently detected
 
 	// GPU Arrays

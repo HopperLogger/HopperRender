@@ -287,7 +287,7 @@
       <SDLCheck>false</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)common\baseclasses;$(CUDA_PATH)\include;$(SolutionDir)common\cuda;$(SolutionDir)HopperRender;C:\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)common\baseclasses;$(CUDA_PATH_V12_4)\include;$(SolutionDir)common\cuda;$(SolutionDir)HopperRender;C:\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
@@ -297,7 +297,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(CUDA_PATH)\lib\x64;$(SolutionDir)x64\Exporter;C:\opencv\build\x64\vc16\lib;C:\opencv\build\x64\vc16\bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CUDA_PATH_V12_4)\lib\x64;$(SolutionDir)x64\Exporter;C:\opencv\build\x64\vc16\lib;C:\opencv\build\x64\vc16\bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;cudart_static.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib;cudart.lib;cudadevrt.lib;HopperRender.lib;opencv_world490.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Lib>

@@ -27,6 +27,8 @@ namespace HopperRenderExporter
                 MessageBox.Show("The Exporter executable was not found. Please make sure the executable is in the correct location.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 this.Close();
             }
+            frameOutputSelector.SelectedIndex = 2;
+            showPreviewCheckBox.Checked = true;
         }
 
         private void openFileDialog1_FileOk(object sender, System.ComponentModel.CancelEventArgs e)
@@ -45,7 +47,9 @@ namespace HopperRenderExporter
 
         private void sourceVideoFilePathTextBox_TextChanged(object sender, EventArgs e)
         {
-
+            string path = System.IO.Path.GetDirectoryName(sourceVideoFilePathTextBox.Text);
+            string extension = System.IO.Path.GetExtension(sourceVideoFilePathTextBox.Text);
+            outputVideoFilePathTextBox.Text = path + "\\output" + extension;
         }
 
         private void outputVideoBroseButton_Click(object sender, EventArgs e)

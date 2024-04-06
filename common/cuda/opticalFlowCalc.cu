@@ -116,7 +116,7 @@ __global__ void blurFrameKernel(const T* frameArray, T* blurredFrameArray,
 		offsetY = (startIndex + i) / chacheSize;
 		newX = trX - boundsOffset + offsetX;
 		newY = trY - boundsOffset + offsetY;
-		if (newY < lowDimY && newY >= 0 && newX < lowDimX && newX >= 0) {
+		if (newY < dimY && newY >= 0 && newX < dimX && newX >= 0) {
 			sharedFrameArray[startIndex + i] = frameArray[cz * dimY * dimX + newY * dimX + newX];
 		} else {
 			sharedFrameArray[startIndex + i] = 0;
@@ -1198,7 +1198,6 @@ void OpticalFlowCalc::blurFlowArrays(const int kernelSize) const {
 		blurFlowKernel << <gridBF, threadsBF, sharedMemSize, blurStream2 >> > (m_offsetArray21.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU, kernelSize, chacheSize, boundsOffset, avgEntriesPerThread, remainder, start, end, pixelCount, 1, m_iLowDimY, m_iLowDimX);
 		//cleanFlowKernel << <m_lowGrid16x16x1, m_threads16x16x2, 0, blurStream1 >> > (m_offsetArray12.arrayPtrGPU, m_blurredOffsetArray12.arrayPtrGPU, m_iLowDimY, m_iLowDimX);
 		//cleanFlowKernel << <m_lowGrid16x16x1, m_threads16x16x2, 0, blurStream2 >> > (m_offsetArray21.arrayPtrGPU, m_blurredOffsetArray21.arrayPtrGPU, m_iLowDimY, m_iLowDimX);
-
 
 		// Synchronize streams to ensure completion
 		cudaStreamSynchronize(blurStream1);

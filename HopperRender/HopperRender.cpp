@@ -146,6 +146,7 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_fResolutionDivider(1.0f),
 	m_iNumSteps(MAX_NUM_STEPS),
 	m_iSceneChangeThreshold(1000),
+	m_iPreviousSceneChange(0),
 	m_iCurrentSceneChange(0),
 	m_iSceneChangeCounter(0),
 	m_iSceneChangeSum(0),
@@ -159,7 +160,8 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	// Performance and activation status
 	m_cNumTimesTooSlow(0),
 	m_iIntActiveState(Active),
-	m_bExportMode(false) {
+	m_bExportMode(false),
+	m_bFirstErrorMessage(true) {
 	loadSettings();
 
 	// Check if CUDA capable GPU is present
@@ -167,14 +169,16 @@ CHopperRender::CHopperRender(TCHAR* tszName,
     cudaGetDeviceCount(&deviceCount);
 	HANDLE hThread = nullptr;
     
-    if (deviceCount == 0) {
+    if (deviceCount == 0 && m_bFirstErrorMessage) {
+	    m_bFirstErrorMessage = false;
 		LPCWSTR message = TEXT("CUDA capable GPU not found!");
 		hThread = CreateThread(NULL, 0, MessageBoxThread, (LPVOID)message, 0, NULL);
     }
 
     // Check if CUDA toolkit is properly recognized
     cudaError_t cudaStatus = cudaGetLastError();
-    if (cudaStatus != cudaSuccess) {
+    if (cudaStatus != cudaSuccess && m_bFirstErrorMessage) {
+		m_bFirstErrorMessage = false;
 		LPCWSTR message = TEXT("CUDA Toolkit not properly recognized!");
 		hThread = CreateThread(NULL, 0, MessageBoxThread, (LPVOID)message, 0, NULL);
     }
@@ -658,11 +662,11 @@ HRESULT CHopperRender::InterpolateFrame(unsigned char* pInBuffer, unsigned char*
 
 	// If this is the very first frame, we can't interpolate
 	// Note: We did need to first fill the A/B frame so we have the necessary frames to interpolate next time
-	if (m_bFirstFrame && m_iFrameOutput != SideBySide2) {
+	if (m_bFirstFrame) {
 		if (m_iFrameCounter > 1) {
 			m_bFirstFrame = false;
 		}
-		m_pofcOpticalFlowCalc->copyFrame(pInBuffer, pOutBuffer);
+		if (m_iFrameOutput != SideBySide2) m_pofcOpticalFlowCalc->copyFrame(pInBuffer, pOutBuffer);
 		return NOERROR;
 	}
 
@@ -681,7 +685,7 @@ HRESULT CHopperRender::InterpolateFrame(unsigned char* pInBuffer, unsigned char*
 
 		// Calculate the average scene change
 		if (m_iSceneChangeCounter >= SCENE_CHANGE_AVERAGE) {
-			m_iSceneChangeThreshold = max(((m_iSceneChangeSum / m_iSceneChangeCounter) * 4), MINIMUM_SCENE_CHANGE);
+			m_iSceneChangeThreshold = max(((m_iSceneChangeSum / m_iSceneChangeCounter) * 6), MINIMUM_SCENE_CHANGE);
 			m_iSceneChangeCounter = 0;
 			m_iSceneChangeSum = 0;
 		} else {
@@ -693,11 +697,17 @@ HRESULT CHopperRender::InterpolateFrame(unsigned char* pInBuffer, unsigned char*
 	// Disable interpolation as long as the scene change is too high
 	if (m_iFrameOutput != HSVFlow && 
 		m_iFrameOutput != BlurredFrames &&
-		m_iFrameOutput != SideBySide2 && 
-		m_iSceneChangeThreshold != 0 && 
-		(m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold)) {
-		m_pofcOpticalFlowCalc->copyOwnFrame(pOutBuffer, m_bExportMode);
-		return NOERROR;
+		m_iFrameOutput != SideBySide2) {
+		// 2 frames over threshold is unlikely a scene change
+		if (m_iPreviousSceneChange > m_iSceneChangeThreshold &&
+			m_iCurrentSceneChange > m_iSceneChangeThreshold) {
+			m_iSceneChangeThreshold = max(m_iPreviousSceneChange, m_iCurrentSceneChange) * 1.3;
+		// Exactly one frame over threshold is likely a scene change
+		} else if (m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold) {
+			m_pofcOpticalFlowCalc->copyOwnFrame(pOutBuffer, m_bExportMode);
+			return NOERROR;
+		}
+		m_iPreviousSceneChange = m_iCurrentSceneChange;
 	}
 
 	if (iIntFrameNum == 0) {
@@ -755,7 +765,8 @@ HRESULT CHopperRender::InterpolateFrame(unsigned char* pInBuffer, unsigned char*
 	// Check for CUDA errors
 	HANDLE hThread = nullptr;
 	const cudaError_t cudaError = cudaGetLastError();
-	if (cudaError != cudaSuccess) {
+	if (cudaError != cudaSuccess && m_bFirstErrorMessage) {
+		m_bFirstErrorMessage = false;
 		const char* errorMessage = cudaGetErrorString(cudaError);
 		int numChars = MultiByteToWideChar(CP_UTF8, 0, errorMessage, -1, NULL, 0);
 		if (numChars > 0) {
