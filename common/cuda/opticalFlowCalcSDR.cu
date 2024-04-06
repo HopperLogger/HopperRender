@@ -15,7 +15,7 @@ __global__ void convertNV12toP010KernelSDR(const unsigned char* nv12Array, unsig
 	const unsigned int cz = threadIdx.z;
 
 	// Check if the current thread is inside the Y-Channel or the U/V-Channel
-	if (cx < scaledDimX && ((cz == 0 && cy < scaledDimY) || (cz == 1 && cy < (scaledDimY >> 1)))) {
+	if (cx < dimX && ((cz == 0 && cy < dimY) || (cz == 1 && cy < (dimY >> 1)))) {
 		p010Array[cz * scaledChannelIdxOffset + cy * scaledDimX + cx] = static_cast<unsigned short>(nv12Array[cz * channelIdxOffset + cy * dimX + cx]) << 8;
 	}
 }
@@ -286,10 +286,16 @@ void OpticalFlowCalcSDR::calculateOpticalFlow(unsigned int iNumIterations, unsig
 			if (iter == 0 && step == 0) {
 				cudaMemcpy(&m_iCurrentSceneChange, m_summedUpDeltaArray.arrayPtrGPU, sizeof(unsigned int), cudaMemcpyDeviceToHost);
 				m_iCurrentSceneChange /= ((m_iLowDimY * m_iLowDimX) / 30);
-				if (m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold) {
+				// 2 frames over threshold is unlikely a scene change
+				if (m_iPreviousSceneChange > m_iSceneChangeThreshold &&
+					m_iCurrentSceneChange > m_iSceneChangeThreshold) {
+					m_iSceneChangeThreshold = max(m_iPreviousSceneChange, m_iCurrentSceneChange) * 1.3;
+				// Exactly one frame over threshold is likely a scene change
+				} else if (m_iCurrentSceneChange == 0 || m_iCurrentSceneChange > m_iSceneChangeThreshold) {
 					m_statusArray.zero();
 					return;
 				}
+				m_iPreviousSceneChange = m_iCurrentSceneChange;
 			}
 
 			// 2. Normalize the summed up delta array and find the best layer

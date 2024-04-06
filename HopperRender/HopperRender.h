@@ -11,8 +11,8 @@
 #define LOG_PERFORMANCE 0 // Whether or not to print debug messages regarding calculation performance (0: Disabled, 1: Enabled)
 #define MIN_NUM_STEPS 4 // The minimum number of calculation steps (if below this, resolution will be decreased or calculation disabled)
 #define MAX_NUM_STEPS 15 // The maximum number of calculation steps (if reached, resolution will be increased or steps will be kept at this number)
-#define SCENE_CHANGE_AVERAGE 100 // The number of frames to average the scene change detection over
-#define MINIMUM_SCENE_CHANGE 300 // The lowest threshold for scene change detection
+#define SCENE_CHANGE_AVERAGE 300 // The number of frames to average the scene change detection over
+#define MINIMUM_SCENE_CHANGE 1000 // The lowest threshold for scene change detection
 
 typedef enum FrameOutput {
     WarpedFrame12,
@@ -112,6 +112,7 @@ public:
 	float m_fResolutionDivider; // The divider to scale the resolution with (only used in the optical flow calculation)
 	unsigned int m_iNumSteps; // Number of steps executed to find the ideal offset (limits the maximum offset distance per iteration)
 	unsigned int m_iSceneChangeThreshold; // The threshold used to determine whether a scene change has occurred
+	unsigned int m_iPreviousSceneChange; // How many pixel differences were detected in the previous frame
 	unsigned int m_iCurrentSceneChange; // How many pixel differences are currently detected
 	unsigned int m_iSceneChangeCounter; // The number of frames since the last scene change
 	unsigned int m_iSceneChangeSum; // The current sum of scene change differences
@@ -126,4 +127,5 @@ public:
 	unsigned char m_cNumTimesTooSlow; // The number of times the interpolation has been too slow
 	ActiveState m_iIntActiveState; // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
 	bool m_bExportMode; // Whether the filter is in export mode or not
+	bool m_bFirstErrorMessage; // Whether the first error message has been displayed or not
 };

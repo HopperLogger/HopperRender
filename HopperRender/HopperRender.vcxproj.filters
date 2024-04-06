@@ -174,5 +174,6 @@
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
   </ItemGroup>
 </Project>

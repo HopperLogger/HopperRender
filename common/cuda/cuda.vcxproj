@@ -223,7 +223,7 @@
       <CodeGeneration>compute_89,sm_89;compute_86,sm_86;compute_75,sm_75;compute_70,sm_70;compute_61,sm_61;compute_52,sm_52</CodeGeneration>
       <FastMath>true</FastMath>
       <PtxAsOptionV>false</PtxAsOptionV>
-      <SplitCompile>MaxThreads</SplitCompile>
+      <SplitCompile>Default</SplitCompile>
       <SplitCompileCustomThreads>16</SplitCompileCustomThreads>
       <GPUDebugInfo>false</GPUDebugInfo>
       <HostDebugInfo>false</HostDebugInfo>

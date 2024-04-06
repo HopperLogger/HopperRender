@@ -325,7 +325,7 @@
       <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">false</GPUDebugInfo>
       <HostDebugInfo Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">false</HostDebugInfo>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">EditAndContinue</DebugInformationFormat>
-      <SplitCompile Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">MaxThreads</SplitCompile>
+      <SplitCompile Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">Default</SplitCompile>
       <SplitCompileCustomThreads Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">16</SplitCompileCustomThreads>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">O2</Optimization>
       <PtxAsOptionV Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">false</PtxAsOptionV>
