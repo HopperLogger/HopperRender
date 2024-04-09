@@ -257,7 +257,7 @@
 ### Changed
 - Improved RGB to YUV formulas
 
-## [Version 1.5.7.5] - 2024-04-?? - Fully functional
+## [Version 1.5.7.5] - 2024-04-09 - Fully functional
 ### Added
 - Added proper cuda compatibility checking and messageboxes if errors occur
 
@@ -265,7 +265,7 @@
 - Updated to CUDA 12.4.1
 - Changed the current frame difference status in the property page to a progress bar for better visualization
 - The property page is now automatically refreshed for every source frame
-- Removed the scene change threshold option and made it automatically recognize the optimal threshold based on the scene (4x the average frame difference)
+- Removed the scene change threshold option and made it automatically recognize the optimal threshold based on the scene
 
 ### Fixed
 - Fixed a bug in the blurFrame kernel that caused the calcDeltaSum kernel to calculate wrong results at low resolutions
