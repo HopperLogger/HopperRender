@@ -64,9 +64,6 @@ int main(int argc, char* argv[]) {
 	const double sourceFT = 1000.0 / fps;
 	const unsigned int totalNumFrames = inputVideo.get(cv::CAP_PROP_FRAME_COUNT);
 	cv::Size frameSize(dimX, dimY);
-	if (endTimeMin == 0 && endTimeSec == 0) {
-		endTimeSec = totalNumFrames;
-	}
 
 	// Check if the start time is valid
 	int startTime = (startTimeMin * 60 + startTimeSec) * inputVideo.get(cv::CAP_PROP_FPS);
@@ -74,6 +71,9 @@ int main(int argc, char* argv[]) {
 	if (startTime < 0 || startTime >= totalNumFrames) {
 		printf("Error: Invalid start time.");
 		return -1;
+	}
+	if (endTimeMin == 0 && endTimeSec == 0) {
+		endTime = totalNumFrames;
 	}
 	inputVideo.set(cv::CAP_PROP_POS_FRAMES, startTime);
 
