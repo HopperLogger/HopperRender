@@ -6,7 +6,7 @@
 An optical flow frame interpolator with DirectShow integration that allows you to watch any local media file in 60 fps.
 This is my first DirectShow and CUDA project. The goal is to achieve pretty decent frame interpolation with a variety of user customizable settings.
 The filter can be added to a DirectShow media player like MPC-HC or MPC-BE.
-> Please keep in mind that this project is still in ongoing development and there are very likely some bugs depending on the environment you're running and the setting you use. The interpolation quality is also not perfect yet, but pretty decent most of the time, especially for 24 fps -> 60 fps conversion.
+> Please note that this project is no longer in development and is superseded by my [mpv frame interpolator](https://github.com/HopperLogger/mpv-frame-interpolator). The newest improvements and cross-platform OpenCL version can be found there.
 
 ## Features
 - Realtime frame interpolation of any source framerate to 60fps
