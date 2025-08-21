@@ -3,28 +3,30 @@
 </div>
 
 # HopperRender
-An optical flow frame interpolator with DirectShow integration that allows you to watch any local media file in 60 fps.
-This is my first DirectShow and CUDA project. The goal is to achieve pretty decent frame interpolation with a variety of user customizable settings.
+An optical flow frame interpolator with DirectShow integration that allows you to watch any local media file at the native refresh rate of your monitor.
+This is my first project using DirectShow and CUDA, which has now transitioned to OpenCL for better cross-platform compatibility. The goal is to achieve pretty decent frame interpolation with a variety of user customizable settings.
 The filter can be added to a DirectShow media player like MPC-HC or MPC-BE.
-> Please note that this project is no longer in development and is superseded by my [mpv frame interpolator](https://github.com/HopperLogger/mpv-frame-interpolator). The newest improvements and cross-platform OpenCL version can be found there.
+> Please note that this project is no longer in development and is superseded by my [mpv frame interpolator](https://github.com/HopperLogger/mpv-frame-interpolator). However, I will occasionally port significant improvements over to this project.
 
 ## Features
-- Realtime frame interpolation of any source framerate to 60fps
+- Realtime frame interpolation of any source framerate to the native refresh rate of your monitor
 - Compatible with HDR video _(usage of madVR recommended)_
 - All resolutions _(even DVDs and 4K Blu-rays)_ are supported
 - No installation or internet connection required
+- Cross-platform compatible with most NVIDIA and AMD cards
 - Warps frames in both directions and blends them for the smoothest experience
-- User customizable settings to adjust the quality and performance of the interpolation
+- User customizable settings to adjust the quality and presentation of the interpolation
 - HSV Flow visualization lets you see the calculated movements of objects in a scene
 - Automatically adjusts internal settings to match the PC's performance
 - Compatible with madVR, Enhanced Video Renderer, MPC-Video Renderer, and more
 - Automatically detects the source frame rate (as well as playback speed) and disables interpolation if not needed
-- Automatic scene change detection to prevent them from being interpolated
 - Small Exporter GUI lets you render videos files with HopperRender
 
 ## How to get started?
 To use this filter, you need to use a DirectShow player like [MPC-HC](https://github.com/clsid2/mpc-hc/releases) or [MPC-BE](https://sourceforge.net/projects/mpcbe).
-This filter uses the CUDA API and requires a NVIDIA GPU (GTX 950 or newer).
+
+If you decide to use MPC-BE, please install [LAVFilters](https://github.com/Nevcairiel/LAVFilters/releases) and add the _LAV Video Filter_ to your filters in the player settings. This will ensure proper compatibility with HopperRender.
+
 The usage of [madVR](https://www.videohelp.com/software/madVR) is recommended, but not necessary.
 
 ### Installation
@@ -48,7 +50,7 @@ The usage of [madVR](https://www.videohelp.com/software/madVR) is recommended, b
   <img alt="install4" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/9cbc1894-8ff3-410a-bd0d-2f9e785bcac3">
 </div>
 
-That's it! You can now play a video with MPC-HC/BE and HopperRender will interpolate it to 60fps.
+That's it! You can now play a video with MPC-HC/BE and HopperRender will interpolate it to 60fps or more.
 
 > Note: Do not move or delete the folder containing the HopperRender.dll file, otherwise the media player won't find it.
 
@@ -70,12 +72,13 @@ You can access the settings when playing back a video with HopperRender by right
     <img alt="color-circle" height="200px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/b025d4ce-cfa2-4702-b184-2c09f4254246">
     </div>
 
-    - _Blurred Frames: Outputs the blurred source frames_
+    - _Grey Flow: Visualizes the optical flow as a black and white representation, where the brightness indicates the magnitude of movement_
     - _Side-by-side 1: Shows the difference between no interpolation on the left, and interpolation on the right (split in the middle)_
     - _Side-by-side 2: Shows the difference between no interpolation on the left, and interpolation on the right (scaled down side by side)_
-- You can set the number of iterations (0 will automatically do as many iterations as possible)
-- You can set the Frame and Flow blur kernel sizes which controls how much the frames or the flow will be blurred _(Values between 0-32)_
-- In the status section, you can see the current state of HopperRender, the number of calculation steps that are currently performed, the source framerate, the frame and calculation resolutions, as well as the currently detected frame difference and scene change threshold
+- You can set the Delta Scalar (controls how much the filter will try to move the frames to simulate the motion on screen
+- You can set the Neighbor Scalar (controls how much the filter will be biased by the surrounding motion, higher values will lead to more uniform interpolation but might miss small motions
+- You can set the Black and White levels which allows for level correction if the input has limited range (i.e. the blacks look grey, and the whites are not full brightness)
+- In the status section, you can see the current state of HopperRender, the source and target framerate, the frame and calculation resolutions, as well as the calculation times of the optical flow calulcation and frame warping pipeline *(both times combined should always be lower than 1/source framerate!)*
 - The settings will be automatically saved to the registry `HKEY_CURRENT_USER\Software\HopperRender` so next time the filter is used, it loads the settings automatically
 
 ## How it works
