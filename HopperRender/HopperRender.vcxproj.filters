@@ -7,6 +7,15 @@
     <ClCompile Include="HopperRenderSettings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="opticalFlowCalcSDR.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="opticalFlowCalcHDR.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="opticalFlowCalc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source Files">
@@ -17,6 +26,9 @@
     </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{7ec71394-4700-4438-8988-dc2b19d6c74b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Kernels">
+      <UniqueIdentifier>{7f955159-f47f-40a6-967b-2cfd27daf1a3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -34,6 +46,54 @@
     </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="opticalFlowCalc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="adjustOffsetArrayKernelSDR.h">
+      <Filter>Source Files\Kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="blurFlowKernelSDR.h">
+      <Filter>Source Files\Kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="calcDeltaSumsKernelSDR.h">
+      <Filter>Source Files\Kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="determineLowestLayerKernelSDR.h">
+      <Filter>Source Files\Kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="warpFrameKernelSDR.h">
+      <Filter>Source Files\Kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="copyFrameKernelSDR.h">
+      <Filter>Source Files\Kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="opticalFlowCalcSDR.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="opticalFlowCalcHDR.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="adjustOffsetArrayKernelHDR.h">
+      <Filter>Source Files\Kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="blurFlowKernelHDR.h">
+      <Filter>Source Files\Kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="calcDeltaSumsKernelHDR.h">
+      <Filter>Source Files\Kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="determineLowestLayerKernelHDR.h">
+      <Filter>Source Files\Kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="warpFrameKernelHDR.h">
+      <Filter>Source Files\Kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="copyFrameKernelHDR.h">
+      <Filter>Source Files\Kernels</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -166,6 +226,12 @@
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
