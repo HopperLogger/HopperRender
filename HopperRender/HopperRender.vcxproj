@@ -56,8 +56,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='DirectShow'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Exporter'" Label="Configuration">
@@ -222,28 +222,31 @@
     <ClCompile>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">ProgramDatabase</DebugInformationFormat>
-      <SupportJustMyCode Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</SupportJustMyCode>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">EditAndContinue</DebugInformationFormat>
+      <SupportJustMyCode Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</SupportJustMyCode>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
       </PrecompiledHeaderFile>
-      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</WholeProgramOptimization>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Default</BasicRuntimeChecks>
       <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">MultiThreadedDLL</RuntimeLibrary>
-      <FunctionLevelLinking Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</FunctionLevelLinking>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">MaxSpeed</Optimization>
+      <FunctionLevelLinking Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
+      </FunctionLevelLinking>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Disabled</Optimization>
       <SDLCheck Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
       </SDLCheck>
-      <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</IntrinsicFunctions>
-      <FavorSizeOrSpeed Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Speed</FavorSizeOrSpeed>
-      <OmitFramePointers Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</OmitFramePointers>
+      <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</IntrinsicFunctions>
+      <FavorSizeOrSpeed Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Neither</FavorSizeOrSpeed>
+      <OmitFramePointers Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
+      </OmitFramePointers>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">stdcpp17</LanguageStandard>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">/Gw /Zo %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;cudart_static.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;cudart_static.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib;OpenCL.lib</AdditionalDependencies>
       <ModuleDefinitionFile>HopperRender.def</ModuleDefinitionFile>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">$(CUDA_LIB_PATH);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">libcmt.lib</IgnoreSpecificDefaultLibraries>
       <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">UseFastLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <OptimizeReferences Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</OptimizeReferences>
@@ -343,21 +346,37 @@
   <ItemGroup>
     <ClCompile Include="HopperRender.cpp" />
     <ClCompile Include="HopperRenderSettings.cpp" />
+    <ClCompile Include="opticalFlowCalc.cpp" />
+    <ClCompile Include="opticalFlowCalcSDR.cpp" />
+    <ClCompile Include="opticalFlowCalcHDR.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\common\baseclasses\baseclasses.vcxproj">
       <Project>{e8a3f6fa-ae1c-4c8e-a0b6-9c8480324eaa}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\common\cuda\cuda.vcxproj">
-      <Project>{5553eda3-1846-420d-b630-698cdc139465}</Project>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="adjustOffsetArrayKernelHDR.h" />
+    <ClInclude Include="adjustOffsetArrayKernelSDR.h" />
+    <ClInclude Include="blurFlowKernelHDR.h" />
+    <ClInclude Include="blurFlowKernelSDR.h" />
+    <ClInclude Include="calcDeltaSumsKernelHDR.h" />
+    <ClInclude Include="calcDeltaSumsKernelSDR.h" />
+    <ClInclude Include="config.h" />
+    <ClInclude Include="copyFrameKernelHDR.h" />
+    <ClInclude Include="copyFrameKernelSDR.h" />
+    <ClInclude Include="determineLowestLayerKernelHDR.h" />
+    <ClInclude Include="determineLowestLayerKernelSDR.h" />
     <ClInclude Include="HopperRenderSettings.h" />
     <ClInclude Include="HopperRender.h" />
+    <ClInclude Include="opticalFlowCalc.h" />
+    <ClInclude Include="opticalFlowCalcHDR.h" />
+    <ClInclude Include="opticalFlowCalcSDR.h" />
     <ClInclude Include="uids.h" />
     <ClInclude Include="iez.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="warpFrameKernelHDR.h" />
+    <ClInclude Include="warpFrameKernelSDR.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="HopperRender.def" />
