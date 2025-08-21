@@ -36,14 +36,15 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 	CBasePropertyPage(NAME("HopperRender Settings"), pUnk, IDD_HopperRenderSettings, IDS_TITLE),
 	m_bActivated(false),
 	m_iFrameOutput(BlendedFrame),
-	m_iNumIterations(0),
-	m_iFrameBlurKernelSize(16),
-	m_iFlowBlurKernelSize(32),
-	m_iSceneChangeThreshold(1000),
+	m_iDeltaScalar(8),
+	m_iNeighborScalar(6),
+	m_iBlackLevel(0),
+	m_iWhiteLevel(255),
 	m_iIntActiveState(Active),
 	m_dSourceFPS(0.0),
-	m_iNumSteps(0),
-	m_iCurrentSceneChange(0),
+	m_dTargetFPS(0.0),
+	m_dOFCCalcTime(0.0),
+	m_dWarpCalcTime(0.0),
 	m_bIsInitialized(false),
 	m_pSettingsInterface(nullptr) {
 	ASSERT(phr);
@@ -70,8 +71,8 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			int frameOutput;
 			int activeState;
 			double currentFPS = m_dSourceFPS;
-			m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_iNumIterations, &m_iFrameBlurKernelSize, &m_iFlowBlurKernelSize,
-														&m_iSceneChangeThreshold, &m_iCurrentSceneChange, &activeState, &m_dSourceFPS, &m_iNumSteps, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
+			m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
+													 &activeState, &m_dSourceFPS, &m_dTargetFPS, &m_dOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
 			m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 			m_iIntActiveState = static_cast<ActiveState>(activeState);
 
@@ -103,9 +104,17 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f fps\0"), m_dSourceFPS);
 			SetDlgItemText(m_Dlg, IDC_SOURCEFPS, sz);
 
-			// Update the number of steps
-			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNumSteps);
-			SetDlgItemText(m_Dlg, IDC_NUMSTEPS, sz);
+			// Update the target frames per second
+			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f fps\0"), m_dTargetFPS);
+			SetDlgItemText(m_Dlg, IDC_TARGETFPS, sz);
+
+			// Update the OFC Calc Time
+			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f ms\0"), m_dOFCCalcTime);
+			SetDlgItemText(m_Dlg, IDC_OFCCALCTIME, sz);
+
+			// Update the Warp Calc Time
+			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f ms\0"), m_dWarpCalcTime);
+			SetDlgItemText(m_Dlg, IDC_WARPCALCTIME, sz);
 
 			// Update the frame resolution
 			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d x %d\0"), iDimX, iDimY);
@@ -114,12 +123,6 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			// Update the calculation resolution
 			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d x %d\0"), iLowDimX, iLowDimY);
 			SetDlgItemText(m_Dlg, IDC_CALCRES, sz);
-
-			// Update the current frame difference
-			SendDlgItemMessage(m_Dlg, IDC_CURRFRAMEDIFF, PBM_SETRANGE, 0, MAKELPARAM(0, m_iSceneChangeThreshold));
-			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d/%d\0"), m_iCurrentSceneChange, m_iSceneChangeThreshold);
-			SetDlgItemText(m_Dlg, IDC_CURRFRAMEDIFFDESC, sz);
-			SendDlgItemMessage(m_Dlg, IDC_CURRFRAMEDIFF, PBM_SETPOS, m_iCurrentSceneChange, 0);
 		}
 	}
 
@@ -144,8 +147,8 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 	int frameOutput;
 	int activeState;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
-	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_iNumIterations, &m_iFrameBlurKernelSize, &m_iFlowBlurKernelSize,
-	                                         &m_iSceneChangeThreshold, &m_iCurrentSceneChange, &activeState, &m_dSourceFPS, &m_iNumSteps, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
+	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
+	                                         &activeState, &m_dSourceFPS, &m_dTargetFPS, &m_dOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
 	m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 	m_iIntActiveState = static_cast<ActiveState>(activeState);
 
@@ -188,8 +191,8 @@ HRESULT CHopperRenderSettings::OnActivate() {
 		case HSVFlow:
 			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_HSVFLOW);
 			break;
-		case BlurredFrames:
-			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_BLURREDFRAMES);
+		case GreyFlow:
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_GREYFLOW);
 			break;
 		case SideBySide1:
 			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_SIDEBYSIDE1);
@@ -199,24 +202,21 @@ HRESULT CHopperRenderSettings::OnActivate() {
 			break;
 	}
 
-	// Set the initial NumIterations
-	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNumIterations);
-	Edit_SetText(GetDlgItem(m_Dlg, IDC_NUMITS), sz);
+	// Set the initial Delta Scalar
+	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iDeltaScalar);
+	Edit_SetText(GetDlgItem(m_Dlg, IDC_DELTASCALAR), sz);
 
-	// Set the initial FrameBlurKernelSize
-	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iFrameBlurKernelSize);
-	Edit_SetText(GetDlgItem(m_Dlg, IDC_FRAMEBLURKERNEL), sz);
+	// Set the initial Neighbor Scalar
+	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNeighborScalar);
+	Edit_SetText(GetDlgItem(m_Dlg, IDC_NEIGHBORSCALAR), sz);
 
-	// Set the initial FlowBlurKernelSize
-	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iFlowBlurKernelSize);
-	Edit_SetText(GetDlgItem(m_Dlg, IDC_FLOWBLURKERNEL), sz);
+	// Set the initial Black Level
+	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iBlackLevel);
+	Edit_SetText(GetDlgItem(m_Dlg, IDC_BLACKLEVEL), sz);
 
-	// Set the initial SceneChangeThreshold
-	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iSceneChangeThreshold);
-	Edit_SetText(GetDlgItem(m_Dlg, IDC_SCENECHANGETHRESHOLD), sz);
-
-	// Set the initial SceneChangeThreshold range
-	SendDlgItemMessage(m_Dlg, IDC_CURRFRAMEDIFF, PBM_SETRANGE, 0, MAKELPARAM(0, m_iSceneChangeThreshold));
+	// Set the initial White Level
+	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iWhiteLevel);
+	Edit_SetText(GetDlgItem(m_Dlg, IDC_WHITELEVEL), sz);
 
 	// Update the status for every frame
 	int delay = (1.0 / m_dSourceFPS) * 1000.0;
@@ -254,21 +254,13 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 
 	CheckPointer(m_pSettingsInterface, E_POINTER)
 
-	// The number of iterations should not be negative and only reasonably high
-	ValidateParameter(m_iNumIterations, 14, IDC_NUMITS);
-
-	// The kernel sizes should not be negative or larger than 32, otherwise we will crash
-	ValidateParameter(m_iFrameBlurKernelSize, 32, IDC_FRAMEBLURKERNEL);
-	ValidateParameter(m_iFlowBlurKernelSize, 32, IDC_FLOWBLURKERNEL);
-
-	// The scene change threshold should not be negative
-	ValidateParameter(m_iSceneChangeThreshold, INT_MAX, IDC_SCENECHANGETHRESHOLD);
-
-	// Set the new SceneChangeThreshold range
-	SendDlgItemMessage(m_Dlg, IDC_CURRFRAMEDIFF, PBM_SETRANGE, 0, MAKELPARAM(0, m_iSceneChangeThreshold));
+	ValidateParameter(m_iDeltaScalar, 10, IDC_DELTASCALAR);
+	ValidateParameter(m_iNeighborScalar, 10, IDC_NEIGHBORSCALAR);
+	ValidateParameter(m_iBlackLevel, 65535, IDC_BLACKLEVEL);
+	ValidateParameter(m_iWhiteLevel, 65535, IDC_WHITELEVEL);
 
 	// Tell the filter about the new settings
-	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_iNumIterations, m_iFrameBlurKernelSize, m_iFlowBlurKernelSize);
+	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_iDeltaScalar, m_iNeighborScalar, m_iBlackLevel, m_iWhiteLevel);
 
 	// Save the settings to the registry
 	if (saveSettings() != S_OK) {
@@ -299,16 +291,16 @@ void CHopperRenderSettings::GetControlValues() {
 		m_iFrameOutput = BlendedFrame;
 	} else if (IsDlgButtonChecked(m_Dlg, IDC_HSVFLOW)) {
 		m_iFrameOutput = HSVFlow;
-	} else if (IsDlgButtonChecked(m_Dlg, IDC_BLURREDFRAMES)) {
-		m_iFrameOutput = BlurredFrames;
+	} else if (IsDlgButtonChecked(m_Dlg, IDC_GREYFLOW)) {
+		m_iFrameOutput = GreyFlow;
 	} else if (IsDlgButtonChecked(m_Dlg, IDC_SIDEBYSIDE1)) {
 		m_iFrameOutput = SideBySide1;
 	} else {
 		m_iFrameOutput = SideBySide2;
 	}
 
-	// Get the number of iterations
-	Edit_GetText(GetDlgItem(m_Dlg, IDC_NUMITS), sz, STR_MAX_LENGTH);
+	// Get the delta scalar value
+	Edit_GetText(GetDlgItem(m_Dlg, IDC_DELTASCALAR), sz, STR_MAX_LENGTH);
 
 #ifdef UNICODE
 	// Convert Multibyte string to ANSI
@@ -319,19 +311,20 @@ void CHopperRenderSettings::GetControlValues() {
     tmp1 = atoi(sz);
 #endif
 
-	// Get the frame blur kernel size
-	Edit_GetText(GetDlgItem(m_Dlg, IDC_FRAMEBLURKERNEL), sz, STR_MAX_LENGTH);
+	// Get the neighbor scalar value
+	Edit_GetText(GetDlgItem(m_Dlg, IDC_NEIGHBORSCALAR), sz, STR_MAX_LENGTH);
 
 #ifdef UNICODE
 	// Convert Multibyte string to ANSI
+	szANSI[STR_MAX_LENGTH];
 	rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
 	tmp2 = atoi(szANSI);
 #else
     tmp2 = atoi(sz);
 #endif
 
-	// Get the flow blur kernel size
-	Edit_GetText(GetDlgItem(m_Dlg, IDC_FLOWBLURKERNEL), sz, STR_MAX_LENGTH);
+	// Get the black level
+	Edit_GetText(GetDlgItem(m_Dlg, IDC_BLACKLEVEL), sz, STR_MAX_LENGTH);
 
 #ifdef UNICODE
 	// Convert Multibyte string to ANSI
@@ -341,8 +334,8 @@ void CHopperRenderSettings::GetControlValues() {
     tmp3 = atoi(sz);
 #endif
 
-	// Get the scene change threshold
-	Edit_GetText(GetDlgItem(m_Dlg, IDC_SCENECHANGETHRESHOLD), sz, STR_MAX_LENGTH);
+	// Get the white level
+	Edit_GetText(GetDlgItem(m_Dlg, IDC_WHITELEVEL), sz, STR_MAX_LENGTH);
 
 #ifdef UNICODE
 	// Convert Multibyte string to ANSI
@@ -352,10 +345,10 @@ void CHopperRenderSettings::GetControlValues() {
     tmp4 = atoi(sz);
 #endif
 
-	m_iNumIterations = tmp1;
-	m_iFrameBlurKernelSize = tmp2;
-	m_iFlowBlurKernelSize = tmp3;
-	m_iSceneChangeThreshold = tmp4;
+	m_iDeltaScalar = tmp1;
+	m_iNeighborScalar = tmp2;
+	m_iBlackLevel = tmp3;
+	m_iWhiteLevel = tmp4;
 }
 
 // Saves the settings to the registry
@@ -373,19 +366,22 @@ HRESULT CHopperRenderSettings::saveSettings() {
 		// Save Frame Output
 		LONG result2 = RegSetValueEx(hKey, L"FrameOutput", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iFrameOutput), sizeof(DWORD));
 
-		// Save the number of iterations
-		LONG result3 = RegSetValueEx(hKey, L"NumIterations", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iNumIterations), sizeof(DWORD));
+		// Save the delta scalar
+		LONG result3 = RegSetValueEx(hKey, L"DeltaScalar", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iDeltaScalar), sizeof(DWORD));
 
-		// Save the flow blur kernel size
-		LONG result4 = RegSetValueEx(hKey, L"FrameBlurKernelSize", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iFrameBlurKernelSize), sizeof(DWORD));
+		// Save the neighbor scalar
+		LONG result4 = RegSetValueEx(hKey, L"NeighborScalar", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iNeighborScalar), sizeof(DWORD));
 
-		// Save the flow blur kernel size
-		LONG result5 = RegSetValueEx(hKey, L"FlowBlurKernelSize", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iFlowBlurKernelSize), sizeof(DWORD));
+		// Save the black level
+		LONG result5 = RegSetValueEx(hKey, L"BlackLevel", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iBlackLevel), sizeof(DWORD));
+
+		// Save the white level
+		LONG result6 = RegSetValueEx(hKey, L"WhiteLevel", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iWhiteLevel), sizeof(DWORD));
 		
 		RegCloseKey(hKey); // Close the registry key
 
 		// Check for errors
-        if (result1 || result2 || result3 || result4 || result5) {
+        if (result1 || result2 || result3 || result4 || result5 || result6) {
 			return E_FAIL;
         } else {
             return S_OK;
