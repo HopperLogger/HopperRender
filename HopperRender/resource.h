@@ -11,22 +11,23 @@
 #define IDC_WARPEDFRAME21			    1013
 #define IDC_BLENDEDFRAME			    1014
 #define IDC_HSVFLOW					    1015
-#define IDC_NUMITS                      1016
-#define IDC_FRAMEBLURKERNEL             1017
-#define IDC_FLOWBLURKERNEL              1018
+#define IDC_DELTASCALAR                 1016
+#define IDC_NEIGHBORSCALAR              1017
+#define IDC_BLACKLEVEL                  1018
+#define IDC_WHITELEVEL                  1019
 #define IDS_STATIC                      -1
-#define IDS_TITLE                       1019
-#define IDC_INTACTIVE				    1020
-#define IDC_SOURCEFPS				    1021
-#define IDC_NUMSTEPS				    1022
-#define IDC_FRAMERES				    1023
-#define IDC_CALCRES				        1024
-#define IDC_BLURREDFRAMES 			    1025
-#define IDC_SCENECHANGETHRESHOLD        1026
-#define IDC_CURRFRAMEDIFF               1027
-#define IDC_CURRFRAMEDIFFDESC           1028
-#define IDC_SIDEBYSIDE1                 1029
-#define IDC_SIDEBYSIDE2                 1030
+#define IDS_TITLE                       1020
+#define IDC_INTACTIVE				    1021
+#define IDC_SOURCEFPS				    1022
+#define IDC_TARGETFPS				    1023
+#define IDC_OFCCALCTIME                 1024
+#define IDC_WARPCALCTIME                1025
+#define IDC_FRAMERES				    1026
+#define IDC_CALCRES				        1027
+#define IDC_GREYFLOW    			    1028
+#define IDC_SCENECHANGETHRESHOLD        1029
+#define IDC_SIDEBYSIDE1                 1030
+#define IDC_SIDEBYSIDE2                 1031
 
 // Next default values for new objects
 //
