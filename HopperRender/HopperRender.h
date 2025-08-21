@@ -2,24 +2,18 @@
 
 #include <chrono>
 
-#include "opticalFlowCalc.cuh"
+#include "opticalFlowCalc.h"
 
 #define TEST_MODE 0 // Enables or disables automatic settings change to allow accurate performance testing (0: Disabled, 1: Enabled)
-#define AUTO_FRAME_SCALE 1 // Whether to automatically reduce/increase the calculation resolution depending on performance (0: Disabled, 1: Enabled)
-#define AUTO_STEPS_ADJUST 1 // Whether to automatically reduce/increase the number of calculation steps depending on performance (0: Disabled, 1: Enabled)
 #define FT_TARGET 166667 // The target frame rate in 100ns units (e.g., 166667 for 60 fps)
 #define LOG_PERFORMANCE 0 // Whether or not to print debug messages regarding calculation performance (0: Disabled, 1: Enabled)
-#define MIN_NUM_STEPS 4 // The minimum number of calculation steps (if below this, resolution will be decreased or calculation disabled)
-#define MAX_NUM_STEPS 15 // The maximum number of calculation steps (if reached, resolution will be increased or steps will be kept at this number)
-#define SCENE_CHANGE_AVERAGE 300 // The number of frames to average the scene change detection over
-#define MINIMUM_SCENE_CHANGE 1000 // The lowest threshold for scene change detection
 
 typedef enum FrameOutput {
     WarpedFrame12,
     WarpedFrame21,
 	BlendedFrame,
 	HSVFlow,
-	BlurredFrames,
+	GreyFlow,
 	SideBySide1,
 	SideBySide2
 } FrameOutput;
@@ -57,11 +51,23 @@ public:
 	HRESULT NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) override;
 
 	// These implement the custom settings interface
-	STDMETHODIMP GetCurrentSettings(bool* pbActivated, int* piFrameOutput, int* piNumIterations,
-								    int* piFrameBlurKernelSize, int* piFlowBlurKernelSize, int* piSceneChangeThreshold, int* piCurrentSceneChange, int* piIntActiveState, double* pdSourceFPS, int* piNumSteps, int* piDimX,
-								    int* piDimY, int* piLowDimX, int* piLowDimY) override;
+	STDMETHODIMP GetCurrentSettings(bool* pbActivated,
+		int* piFrameOutput,
+		int* piDeltaScalar,
+		int* piNeighborScalar,
+		int* piBlackLevel,
+		int* piWhiteLevel,
+		int* piIntActiveState,
+		double* pdSourceFPS,
+		double* pdTargetFPS,
+		double* pdOFCCalcTime,
+		double* pdWarpCalcTime,
+		int* piDimX,
+		int* piDimY,
+		int* piLowDimX,
+		int* piLowDimY) override;
 	STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, 
-							        int iNumIterations, int iFrameBlurKernelSize, int iFlowBlurKernelSize) override;
+							        int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel) override;
 
 	// ISpecifyPropertyPages interface
 	STDMETHODIMP GetPages(CAUUID* pPages) override;
@@ -74,8 +80,6 @@ public:
 
 	HRESULT UpdateVideoInfoHeader(CMediaType* pMediaType);
 	HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut);
-	HRESULT InterpolateFrame(unsigned char* pInBuffer, unsigned char* pOutBuffer, float fScalar, int iIntFrameNum);
-	void adjustFrameScalar(const unsigned char newResolutionStep);
 	void autoAdjustSettings();
 	HRESULT loadSettings();
 	void UpdateInterpolationStatus();
@@ -91,14 +95,13 @@ public:
 	// Video info
 	unsigned int m_iDimX; // The width of the frame
 	unsigned int m_iDimY; // The height of the frame
-	bool m_bFirstFrame; // Whether the current frame is the first frame of the video
 	bool m_bInterlaced; // Whether the video is interlaced or not
 	bool m_bHDR; // Whether the video has HDR (BT.2020) or not
 
 	// Timings
 	REFERENCE_TIME m_rtCurrStartTime; // The start time of the current interpolated frame
-	REFERENCE_TIME m_rtLastStartTime; // The start time of the previous interpolated frame
 	REFERENCE_TIME m_rtSourceFrameTime; // The average frame time of the source frames (at 1.0x speed)
+	REFERENCE_TIME m_rtTargetFrameTime;
 	REFERENCE_TIME m_rtCurrPlaybackFrameTime; // The current frame time of the source frames (accounting for the current playback speed)
 	std::chrono::time_point<std::chrono::high_resolution_clock> m_tpCurrCalcStart; // The start time of the current calculation
 	std::chrono::time_point<std::chrono::high_resolution_clock> m_tpCurrCalcEnd; // The end time of the current calculation
@@ -110,12 +113,6 @@ public:
 	float m_fResolutionDividers[6]; // The predefined resolution dividers
 	float m_fResolutionScalar; // The scalar to scale the resolution with (only used in the optical flow calculation)
 	float m_fResolutionDivider; // The divider to scale the resolution with (only used in the optical flow calculation)
-	unsigned int m_iNumSteps; // Number of steps executed to find the ideal offset (limits the maximum offset distance per iteration)
-	unsigned int m_iSceneChangeThreshold; // The threshold used to determine whether a scene change has occurred
-	unsigned int m_iPreviousSceneChange; // How many pixel differences were detected in the previous frame
-	unsigned int m_iCurrentSceneChange; // How many pixel differences are currently detected
-	unsigned int m_iSceneChangeCounter; // The number of frames since the last scene change
-	unsigned int m_iSceneChangeSum; // The current sum of scene change differences
 
 	// Frame output
 	double m_dDimScalar; // The scalar to scale the frame dimensions with depending on the renderer used
@@ -128,4 +125,7 @@ public:
 	ActiveState m_iIntActiveState; // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
 	bool m_bExportMode; // Whether the filter is in export mode or not
 	bool m_bFirstErrorMessage; // Whether the first error message has been displayed or not
+
+    double totalWarpDuration; // The total duration of the current frame warp
+	double blendingScalar;
 };
