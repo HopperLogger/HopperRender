@@ -270,3 +270,10 @@
 ### Fixed
 - Fixed a bug in the blurFrame kernel that caused the calcDeltaSum kernel to calculate wrong results at low resolutions
 - Fixed incomplete boundary checks in some kernels that could cause illegal memory access
+
+## [Version 2.0.0.8] - 2025-08-21 - Fully functional
+### Changed
+- Changed CUDA backend to OpenCL, allowing the filter to be used on any platform
+- Most improvements were merged from the most recent [mpv frame interpolator](https://github.com/HopperLogger/mpv-frame-interpolator), resulting in significant efficiency and quality improvements
+- The filter now automatically detects the display refresh rate and interpolates accordingly
+- The settings panel now displays the target frame rate and the calculation times for optical flow and frame warping. It also allows custom black and white output levels to be set, as well as configuration of the delta and neighbor scalar (see README for explanation)
