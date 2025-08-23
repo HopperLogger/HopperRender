@@ -277,3 +277,8 @@
 - Most improvements were merged from the most recent [mpv frame interpolator](https://github.com/HopperLogger/mpv-frame-interpolator), resulting in significant efficiency and quality improvements
 - The filter now automatically detects the display refresh rate and interpolates accordingly
 - The settings panel now displays the target frame rate and the calculation times for optical flow and frame warping. It also allows custom black and white output levels to be set, as well as configuration of the delta and neighbor scalar (see README for explanation)
+
+## [Version 2.0.0.9] - 2025-08-23 - Fully functional
+### Fixed
+- Fixed player crashing on some platforms
+- Fixed HDR metadata passthrough when using MPC Video Renderer
