@@ -285,6 +285,11 @@ HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType) {
 
 // Updates the video info header with the information for the output pin
 HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
+	// Check if the input media is HDR
+    if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
+		m_bHDR = true;
+    }
+
 	// Get the input media type information
 	CMediaType* mtIn = &m_pInput->CurrentMediaType();
 	auto pvi = (VIDEOINFOHEADER2*)mtIn->Format();
@@ -350,10 +355,6 @@ HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
 		m_rtSourceFrameTime = pvi->AvgTimePerFrame;
 		m_iDimX = pvi->bmiHeader.biWidth;
 		m_iDimY = pvi->bmiHeader.biHeight;
-
-		if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
-			m_bHDR = true;
-		}
 	}
 	return __super::CompleteConnect(dir, pReceivePin);
 }
