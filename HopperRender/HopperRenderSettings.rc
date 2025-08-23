@@ -87,7 +87,7 @@ BEGIN
         LTEXT           "n/a", IDC_WARPCALCTIME, 200, 170, 50, 9
         LTEXT           "n/a", IDC_FRAMERES, 200, 185, 50, 9
         LTEXT           "n/a", IDC_CALCRES, 200, 200, 50, 9
-    LTEXT           "HopperRender V2.0.0.8", IDS_STATIC, 10, 205, 100, 9
+    LTEXT           "HopperRender V2.0.0.9", IDS_STATIC, 10, 205, 100, 9
 END
 
 STRINGTABLE DISCARDABLE
