@@ -58,7 +58,7 @@ That's it! You can now play a video with MPC-HC/BE and HopperRender will interpo
 You can access the settings when playing back a video with HopperRender by right clicking on the video in MPC-HC/BE, selecting the Filters menu and then HopperRender.
 
 <div align="center">
-  <img alt="properties" height="300px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/a5a91b3f-9116-40df-901a-da3c02e54dfe">
+  <img alt="properties" height="300px" src="https://github.com/user-attachments/assets/be4efd96-9c23-4094-8beb-853ac2a2d707">
 </div>
 
 - You can activate and deactivate the interpolation
@@ -75,8 +75,9 @@ You can access the settings when playing back a video with HopperRender by right
     - _Grey Flow: Visualizes the optical flow as a black and white representation, where the brightness indicates the magnitude of movement_
     - _Side-by-side 1: Shows the difference between no interpolation on the left, and interpolation on the right (split in the middle)_
     - _Side-by-side 2: Shows the difference between no interpolation on the left, and interpolation on the right (scaled down side by side)_
-- You can set the Delta Scalar (controls how much the filter will try to move the frames to simulate the motion on screen
-- You can set the Neighbor Scalar (controls how much the filter will be biased by the surrounding motion, higher values will lead to more uniform interpolation but might miss small motions
+- You can set a custom target fps that should be interpolated to. Setting this to 0 will automatically use the display refresh rate.
+- You can set the Delta Scalar (controls how much the filter will try to move the frames to simulate the motion on screen)
+- You can set the Neighbor Scalar (controls how much the filter will be biased by the surrounding motion, higher values will lead to more uniform interpolation but might miss small motions)
 - You can set the Black and White levels which allows for level correction if the input has limited range (i.e. the blacks look grey, and the whites are not full brightness)
 - In the status section, you can see the current state of HopperRender, the source and target framerate, the frame and calculation resolutions, as well as the calculation times of the optical flow calulcation and frame warping pipeline *(both times combined should always be lower than 1/source framerate!)*
 - The settings will be automatically saved to the registry `HKEY_CURRENT_USER\Software\HopperRender` so next time the filter is used, it loads the settings automatically
