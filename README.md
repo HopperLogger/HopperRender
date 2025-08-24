@@ -29,6 +29,8 @@ If you decide to use MPC-BE, please install [LAVFilters](https://github.com/Nevc
 
 The usage of [madVR](https://www.videohelp.com/software/madVR) is recommended, but not necessary.
 
+MPC Video Renderer and madVR are officially supported. Using the Enhanced Video Renderer is not advised, as it doesn't support HDR and tends to be incompatible with HopperRender.
+
 ### Installation
 1. Open MPC-HC or MPC-BE's settings.
 2. Select the External Filters submenu.
