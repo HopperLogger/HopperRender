@@ -20,7 +20,6 @@ The filter can be added to a DirectShow media player like MPC-HC or MPC-BE.
 - Automatically adjusts internal settings to match the PC's performance
 - Compatible with madVR, Enhanced Video Renderer, MPC-Video Renderer, and more
 - Automatically detects the source frame rate (as well as playback speed) and disables interpolation if not needed
-- Small Exporter GUI lets you render videos files with HopperRender
 
 ## How to get started?
 To use this filter, you need to use a DirectShow player like [MPC-HC](https://github.com/clsid2/mpc-hc/releases) or [MPC-BE](https://sourceforge.net/projects/mpcbe).
@@ -102,19 +101,6 @@ You can access the settings when playing back a video with HopperRender by right
 - We then blur both offset arrays depending on the user settings to get a more smooth warp
 - Then we use these offset arrays to generate intermediate frames by multiplying the offset values by certain scalars
 - We add a bit of artifact removal for the pixels that weren't ideally moved and blend the warped frames from both directions together
-
-## Exporter
-The exporter allows you to interpolate video files with custom settings instead of just watching it with the DirectShow Filter.
-> Note: Showing the preview will negatively impact export performance and will not show a frame time accurate playback. The Exporter does not support HDR videos and will currently not encode any audio.
-<div align="center">
-    <img alt="exporter" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/2c917bec-4b8a-43a4-a9e6-7835743b5b01">
-    </div>
-
-### Installation
-1. Download [OpenCV](https://github.com/opencv/opencv/releases) and extract it to `C:\opencv`.
-2. Add `C:\opencv\build\x64\vc16\bin` to the Path System/Enviornment Variable.
-3. Download [OpenH264 1.8.0](https://github.com/cisco/openh264/releases/download/v1.8.0/openh264-1.8.0-win64.dll.bz2), extract it and copy the .dll to `C:\opencv\build\x64\vc16\bin`.
-4. In the extracted release, launch `HopperRenderExporter.exe` and select the video you want to interpolate, as well as the desired settings.
 
 ## Acknowledgements
 
