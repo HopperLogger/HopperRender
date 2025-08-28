@@ -62,32 +62,32 @@ BEGIN
         CONTROL         "Side-by-side 1", IDC_SIDEBYSIDE1, "Button", BS_AUTORADIOBUTTON, 11, 155, 80, 10
         CONTROL         "Side-by-side 2", IDC_SIDEBYSIDE2, "Button", BS_AUTORADIOBUTTON, 11, 170, 80, 10
 
-    GROUPBOX        "Parameters", IDS_STATIC, 125, 10, 130, 80
-        EDITTEXT        IDC_DELTASCALAR, 200, 25, 40, 13, ES_AUTOHSCROLL
-        EDITTEXT        IDC_NEIGHBORSCALAR, 200, 40, 40, 13, ES_AUTOHSCROLL
-        EDITTEXT        IDC_BLACKLEVEL, 200, 55, 40, 13, ES_AUTOHSCROLL
-        EDITTEXT        IDC_WHITELEVEL, 200, 70, 40, 13, ES_AUTOHSCROLL
-        LTEXT           "Delta Scalar", IDS_STATIC, 132, 25, 60, 9
-        LTEXT           "Neighbor Scalar", IDS_STATIC, 132, 40, 60, 9
-        LTEXT           "Black Level", IDS_STATIC, 132, 55, 60, 9
-        LTEXT           "White Level", IDS_STATIC, 132, 70, 60, 9
+    GROUPBOX        "Parameters", IDS_STATIC, 125, 10, 130, 95
+        EDITTEXT        IDC_TARGETFPS, 200, 25, 40, 13, ES_AUTOHSCROLL
+        EDITTEXT        IDC_DELTASCALAR, 200, 40, 40, 13, ES_AUTOHSCROLL
+        EDITTEXT        IDC_NEIGHBORSCALAR, 200, 55, 40, 13, ES_AUTOHSCROLL
+        EDITTEXT        IDC_BLACKLEVEL, 200, 70, 40, 13, ES_AUTOHSCROLL
+        EDITTEXT        IDC_WHITELEVEL, 200, 85, 40, 13, ES_AUTOHSCROLL
+        LTEXT           "Target FPS", IDS_STATIC, 132, 25, 60, 9
+        LTEXT           "Delta Scalar", IDS_STATIC, 132, 40, 60, 9
+        LTEXT           "Neighbor Scalar", IDS_STATIC, 132, 55, 60, 9
+        LTEXT           "Black Level", IDS_STATIC, 132, 70, 60, 9
+        LTEXT           "White Level", IDS_STATIC, 132, 85, 60, 9
 
-    GROUPBOX        "Status", IDS_STATIC, 125, 95, 130, 120
+    GROUPBOX        "Status", IDS_STATIC, 125, 110, 130, 90
         LTEXT           "Int Active", IDS_STATIC, 132, 110, 60, 9
         LTEXT           "Source FPS", IDS_STATIC, 132, 125, 60, 9
-        LTEXT           "Target FPS", IDS_STATIC, 132, 140, 60, 9
-        LTEXT           "OFC Calc Time", IDS_STATIC, 132, 155, 60, 9
-        LTEXT           "Warp Calc Time", IDS_STATIC, 132, 170, 60, 9
-        LTEXT           "Frame Resolution", IDS_STATIC, 132, 185, 60, 9
-        LTEXT           "Calc Resolution", IDS_STATIC, 132, 200, 60, 9
+        LTEXT           "OFC Calc Time", IDS_STATIC, 132, 140, 60, 9
+        LTEXT           "Warp Calc Time", IDS_STATIC, 132, 155, 60, 9
+        LTEXT           "Frame Resolution", IDS_STATIC, 132, 170, 60, 9
+        LTEXT           "Calc Resolution", IDS_STATIC, 132, 185, 60, 9
         LTEXT           "n/a", IDC_INTACTIVE, 200, 110, 50, 9
         LTEXT           "n/a", IDC_SOURCEFPS, 200, 125, 50, 9
-        LTEXT           "n/a", IDC_TARGETFPS, 200, 140, 50, 9
-        LTEXT           "n/a", IDC_OFCCALCTIME, 200, 155, 50, 9
-        LTEXT           "n/a", IDC_WARPCALCTIME, 200, 170, 50, 9
-        LTEXT           "n/a", IDC_FRAMERES, 200, 185, 50, 9
-        LTEXT           "n/a", IDC_CALCRES, 200, 200, 50, 9
-    LTEXT           "HopperRender V2.0.0.9", IDS_STATIC, 10, 205, 100, 9
+        LTEXT           "n/a", IDC_OFCCALCTIME, 200, 140, 50, 9
+        LTEXT           "n/a", IDC_WARPCALCTIME, 200, 155, 50, 9
+        LTEXT           "n/a", IDC_FRAMERES, 200, 170, 50, 9
+        LTEXT           "n/a", IDC_CALCRES, 200, 185, 50, 9
+    LTEXT           "HopperRender V2.0.1.0", IDS_STATIC, 10, 190, 100, 9
 END
 
 STRINGTABLE DISCARDABLE
