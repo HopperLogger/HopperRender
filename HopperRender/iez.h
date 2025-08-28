@@ -13,13 +13,13 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 	STDMETHOD(GetCurrentSettings)(THIS_
 		bool* pbActivated, // Whether the filter is activated by the user
 		int* piFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
+		double* pdTargetFPS,
 		int* piDeltaScalar,
 		int* piNeighborScalar,
 		int* piBlackLevel,
 		int* piWhiteLevel,
 		int* piIntActiveState, // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
 		double* pdSourceFPS, // The source frames per second
-		double* pdTargetFPS,
 		double* pdOFCCalcTime,
 		double* pdWarpCalcTime,
 		int* piDimX, // The width of the frame
@@ -31,6 +31,7 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 	STDMETHOD(UpdateUserSettings)(THIS_
 		bool bActivated, // Whether the filter is activated by the user
 		int iFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
+		double dTargetFPS,
 		int iDeltaScalar,
 		int iNeighborScalar,
 		int iBlackLevel,
