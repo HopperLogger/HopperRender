@@ -175,24 +175,33 @@ OpticalFlowCalcSDR::~OpticalFlowCalcSDR() {
     clReleaseDevice(m_clDeviceId);
 }
 
-OpticalFlowCalcSDR::OpticalFlowCalcSDR(const int frameHeight, const int frameWidth, const int actualWidth) {
+OpticalFlowCalcSDR::OpticalFlowCalcSDR(const int frameHeight,
+				       const int frameWidth,
+				       const int actualWidth, int deltaScalar,
+				       int neighborScalar, float blackLevel,
+				       float whiteLevel,
+				       float customResScalar) {
     // Set up variables
     m_frameWidth = frameWidth;
     m_frameHeight = frameHeight;
     m_actualWidth = actualWidth;
-    m_outputBlackLevel = 0.0f;
-    m_outputWhiteLevel = 65535.0f;
+    m_outputBlackLevel = blackLevel;
+    m_outputWhiteLevel = whiteLevel;
     m_opticalFlowSearchRadius = MIN_SEARCH_RADIUS;
-    m_opticalFlowResScalar = 0;
-    while (frameHeight >> m_opticalFlowResScalar > MAX_CALC_RES) {
-        m_opticalFlowResScalar++;
+    if (customResScalar >= 0 && customResScalar < 8) {
+	m_opticalFlowResScalar = customResScalar;
+    } else {
+	    m_opticalFlowResScalar = 0;
+	    while (frameHeight >> m_opticalFlowResScalar > MAX_CALC_RES) {
+	        m_opticalFlowResScalar++;
+	    }
     }
     m_opticalFlowFrameWidth = ceil(m_actualWidth / pow(2, m_opticalFlowResScalar));
     m_opticalFlowFrameHeight = ceil(m_frameHeight / pow(2, m_opticalFlowResScalar));
     m_ofcCalcTime = 0.0;
     m_warpCalcTime = 0.0;
-    m_deltaScalar = 8;
-    m_neighborBiasScalar = 6;
+    m_deltaScalar = deltaScalar;
+    m_neighborBiasScalar = neighborScalar;
 
     // Define the global and local work sizes
     m_lowGrid16x16x2[0] = ceil(m_opticalFlowFrameWidth / 16.0) * 16.0;
