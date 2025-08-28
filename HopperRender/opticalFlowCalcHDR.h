@@ -16,7 +16,9 @@ public:
      * @param frameWidth: The width of the video frame
      * @param actualWidth: The encoded width of the video frame
      */
-    OpticalFlowCalcHDR(const int frameHeight, const int frameWidth, const int actualWidth);
+  OpticalFlowCalcHDR(const int frameHeight, const int frameWidth,
+		     const int actualWidth, int deltaScalar, int neighborScalar,
+		     float blackLevel, float whiteLevel, float customResScalar);
 
     /*
      * Frees the memory of the optical flow calculator
