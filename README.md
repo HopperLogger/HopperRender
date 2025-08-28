@@ -41,7 +41,7 @@ MPC Video Renderer and madVR are officially supported. Using the Enhanced Video 
 <div align="left">
   <img alt="install2" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/59b27a26-8889-4549-a67b-bbdec7f7eec6">
 </div>
-5. Select the HopperRender.dll file from the extracted zip file.
+5. Select the HopperRender.dll file.
 <div align="left">
   <img alt="install3" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/be6dc452-2f4d-4570-8745-3d49102006ee">
 </div>
