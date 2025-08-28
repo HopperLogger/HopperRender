@@ -53,20 +53,20 @@ public:
 	// These implement the custom settings interface
 	STDMETHODIMP GetCurrentSettings(bool* pbActivated,
 		int* piFrameOutput,
+		double* pdTargetFPS,
 		int* piDeltaScalar,
 		int* piNeighborScalar,
 		int* piBlackLevel,
 		int* piWhiteLevel,
 		int* piIntActiveState,
 		double* pdSourceFPS,
-		double* pdTargetFPS,
 		double* pdOFCCalcTime,
 		double* pdWarpCalcTime,
 		int* piDimX,
 		int* piDimY,
 		int* piLowDimX,
 		int* piLowDimY) override;
-	STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, 
+	STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS,
 							        int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel) override;
 
 	// ISpecifyPropertyPages interface
@@ -81,8 +81,9 @@ public:
 	HRESULT UpdateVideoInfoHeader(CMediaType* pMediaType);
 	HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut);
 	void autoAdjustSettings();
-	HRESULT loadSettings();
+	HRESULT loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* customResScalar);
 	void UpdateInterpolationStatus();
+	void useDisplayRefreshRate();
 
 	CCritSec m_csHopperRenderLock; // Private play critical section
 
