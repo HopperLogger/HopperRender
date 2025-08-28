@@ -158,16 +158,17 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	totalWarpDuration(0.0),
 	blendingScalar(0.0)
 	{
+}
 
-	// Get the target refresh rate
-	DEVMODE devMode;
-	ZeroMemory(&devMode, sizeof(devMode));
-	devMode.dmSize = sizeof(devMode);
+void CHopperRender::useDisplayRefreshRate() {
+    DEVMODE devMode;
+    ZeroMemory(&devMode, sizeof(devMode));
+    devMode.dmSize = sizeof(devMode);
 
-	if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devMode)) {
-		DWORD refreshRate = devMode.dmDisplayFrequency;
-	    m_rtTargetFrameTime = (1.0 / (double)refreshRate) * 1e7;
-	}
+    if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devMode)) {
+	DWORD refreshRate = devMode.dmDisplayFrequency;
+	m_rtTargetFrameTime = (1.0 / (double)refreshRate) * 1e7;
+    }
 }
 
 // Provide the way for COM to create a HopperRender object
@@ -413,13 +414,18 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 
 	// Initialize the Optical Flow Calculator
 	if (m_pofcOpticalFlowCalc == nullptr) {
-		const long outputFrameWidth = lOutSize / (m_iDimY * 3);
+	    const long outputFrameWidth = lOutSize / (m_iDimY * 3);
+	    int deltaScalar;
+	    int neighborScalar;
+	    float blackLevel;
+	    float whiteLevel;
+	    int customResScalar;
+	    loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &customResScalar);
 		if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, outputFrameWidth, m_iDimX);
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
 		} else {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, outputFrameWidth, m_iDimX);
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
 		}
-		loadSettings();
 	}
 
 	// Get the presentation times for the new output sample
@@ -655,13 +661,13 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
 // Return the current settings selected
 STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		int* piFrameOutput,
+		double* pdTargetFPS,
 		int* piDeltaScalar,
 		int* piNeighborScalar,
 		int* piBlackLevel,
 		int* piWhiteLevel,
 		int* piIntActiveState,
 		double* pdSourceFPS,
-		double* pdTargetFPS,
 		double* pdOFCCalcTime,
 		double* pdWarpCalcTime,
 		int* piDimX,
@@ -671,13 +677,13 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 	CheckPointer(pbActivated, E_POINTER)
 	CheckPointer(piFrameOutput, E_POINTER)
+	CheckPointer(pdTargetFPS, E_POINTER)
 	CheckPointer(piDeltaScalar, E_POINTER)
 	CheckPointer(piNeighborScalar, E_POINTER)
 	CheckPointer(piBlackLevel, E_POINTER)
 	CheckPointer(piWhiteLevel, E_POINTER)
 	CheckPointer(piIntActiveState, E_POINTER)
 	CheckPointer(pdSourceFPS, E_POINTER)
-	CheckPointer(pdTargetFPS, E_POINTER)
 	CheckPointer(pdOFCCalcTime, E_POINTER)
 	CheckPointer(pdWarpCalcTime, E_POINTER)
 	CheckPointer(piDimX, E_POINTER)
@@ -687,13 +693,15 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 
 	*pbActivated = m_iIntActiveState != 0;
 	*piFrameOutput = m_iFrameOutput;
+	if (*pdTargetFPS == 0) {
+	    *pdTargetFPS = 10000000.0 / static_cast<double>(m_rtTargetFrameTime);
+	}
 	*piDeltaScalar = m_pofcOpticalFlowCalc->m_deltaScalar;
 	*piNeighborScalar = m_pofcOpticalFlowCalc->m_neighborBiasScalar;
 	*piBlackLevel = (int)(m_pofcOpticalFlowCalc->m_outputBlackLevel) >> 8;
 	*piWhiteLevel = (int)(m_pofcOpticalFlowCalc->m_outputWhiteLevel) >> 8;
 	*piIntActiveState = m_iIntActiveState;
 	*pdSourceFPS = 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime);
-	*pdTargetFPS = 10000000.0 / static_cast<double>(m_rtTargetFrameTime);
 	*pdOFCCalcTime = 1000.0 * m_pofcOpticalFlowCalc->m_ofcCalcTime;
 	*pdWarpCalcTime = 1000.0 * totalWarpDuration;
 	*piDimX = m_iDimX;
@@ -705,7 +713,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 }
 
 // Apply the new settings
-STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel) {
+STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel) {
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 
 	if (!bActivated) {
@@ -714,6 +722,11 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput
 		m_iIntActiveState = Active;
 	}
 	m_iFrameOutput = static_cast<FrameOutput>(iFrameOutput);
+	if (dTargetFPS != 0 && dTargetFPS >= 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime)) {
+	    m_rtTargetFrameTime = (1.0 / (double)dTargetFPS) * 1e7;
+	} else {
+	    useDisplayRefreshRate();
+	}
 	m_pofcOpticalFlowCalc->m_deltaScalar = iDeltaScalar;
 	m_pofcOpticalFlowCalc->m_neighborBiasScalar = iNeighborScalar;
 	m_pofcOpticalFlowCalc->m_outputBlackLevel = (float)(iBlackLevel << 8);
@@ -737,7 +750,7 @@ void CHopperRender::autoAdjustSettings() {
             m_pofcOpticalFlowCalc->m_opticalFlowSearchRadius--;
         } else {
             // Disable Interpolation if we are too slow
-            m_iIntActiveState = TooSlow;
+            //m_iIntActiveState = TooSlow;
         }
 
     } else if ((currMaxCalcDuration * LOWER_PERF_BUFFER) < dSourceFrameTimeMS) {
@@ -752,56 +765,88 @@ void CHopperRender::autoAdjustSettings() {
 }
 
 // Loads the settings from the registry
-HRESULT CHopperRender::loadSettings() {
+HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* customResScalar) {
 	HKEY hKey;
     LPCWSTR subKey = L"SOFTWARE\\HopperRender";
 	DWORD value = 0;
+    double value2 = 0.0;
 	DWORD dataSize = sizeof(DWORD);
-	LPCWSTR valueName; 
+	DWORD dataSize2 = sizeof(double);
+	LPCWSTR valueName;
+	LONG result;
 
     // Open the registry key
-    LONG result0 = RegOpenKeyEx(HKEY_CURRENT_USER, subKey, 0, KEY_READ, &hKey);
+    result = RegOpenKeyEx(HKEY_CURRENT_USER, subKey, 0, KEY_READ, &hKey);
     
-    if (result0 == ERROR_SUCCESS) {
+    if (result == ERROR_SUCCESS) {
         // Load activated state
 		valueName = L"Activated"; 
-        LONG result1 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (value) m_iIntActiveState = Active;
-		else m_iIntActiveState = Deactivated;
+        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+			if (value) m_iIntActiveState = Active;
+			else m_iIntActiveState = Deactivated;
+		}
 
 		// Load Frame Output
 		valueName = L"FrameOutput"; 
-        LONG result2 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		m_iFrameOutput = static_cast<FrameOutput>(value);
+        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) m_iFrameOutput = static_cast<FrameOutput>(value);
+
+		// Load the target fps
+		valueName = L"TargetFPS";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value2), &dataSize2);
+		if (value2 != 0 && result == 0 && value2 >= 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime)) {
+		    m_rtTargetFrameTime = (1.0 / (double)value2) * 1e7;
+		} else {
+		    useDisplayRefreshRate();
+		}
 
 		// Load the delta scalar
 		valueName = L"DeltaScalar"; 
-        LONG result3 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		m_pofcOpticalFlowCalc->m_deltaScalar = value;
+        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+		    *deltaScalar = value;
+		} else {
+		    *deltaScalar = 8;
+		}
 
 		// Load the neighbor scalar
 		valueName = L"NeighborScalar"; 
-        LONG result4 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		m_pofcOpticalFlowCalc->m_neighborBiasScalar = value;
+        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+		    *neighborScalar = value;
+		} else {
+		    *neighborScalar = 6;
+		}
 
 		// Load the black level
 		valueName = L"BlackLevel"; 
-        LONG result5 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		m_pofcOpticalFlowCalc->m_outputBlackLevel = (float)(value << 8);
+        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+		   *blackLevel = (float)(value << 8);
+		} else {
+		    *blackLevel = 0.0f;
+		}
 
 		// Load the white level
 		valueName = L"WhiteLevel"; 
-        LONG result6 = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		m_pofcOpticalFlowCalc->m_outputWhiteLevel = (float)(value << 8);
+        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+			*whiteLevel = (float)(value << 8);
+		} else {
+		    *whiteLevel = 65535.0f;
+		}
+
+		// Load the custom res scalar
+		valueName = L"CustomResScalar"; 
+        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+		    *customResScalar = value;
+		} else {
+		    *customResScalar = -1;
+		}
 
 		RegCloseKey(hKey); // Close the registry key
-
-		// Check for errors
-        if (result1 || result2 || result3 || result4 || result5 || result6) {
-			return E_FAIL;
-        } else {
-            return S_OK;
-        }
 
     } else {
         return E_FAIL;
