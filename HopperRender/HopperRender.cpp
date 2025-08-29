@@ -419,12 +419,12 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 	    int neighborScalar;
 	    float blackLevel;
 	    float whiteLevel;
-	    int customResScalar;
-	    loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &customResScalar);
+	    int maxCalcRes;
+	    loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &maxCalcRes);
 		if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, maxCalcRes);
 		} else {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, maxCalcRes);
 		}
 	}
 
@@ -765,7 +765,7 @@ void CHopperRender::autoAdjustSettings() {
 }
 
 // Loads the settings from the registry
-HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* customResScalar) {
+HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* maxCalcRes) {
 	HKEY hKey;
     LPCWSTR subKey = L"SOFTWARE\\HopperRender";
 	DWORD value = 0;
@@ -837,13 +837,13 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar, float
 		    *whiteLevel = 65535.0f;
 		}
 
-		// Load the custom res scalar
-		valueName = L"CustomResScalar"; 
+		// Load the maximum calculation resolution
+		valueName = L"MaxCalcRes"; 
         result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
 		if (result == 0) {
-		    *customResScalar = value;
+		    *maxCalcRes = value;
 		} else {
-		    *customResScalar = -1;
+		    *maxCalcRes = MAX_CALC_RES;
 		}
 
 		RegCloseKey(hKey); // Close the registry key
