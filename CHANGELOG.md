@@ -286,4 +286,4 @@
 ## [Version 2.0.1.0] - 2025-08-28 - Fully functional
 ### Added
 - Added a target fps setting in the settings pannel that allows the user to specify a custom framerate the video should be interpolated to
-- Added the option to configure a custom resolution scalar in the registry which controls the resolution used in the optical flow calculation
+- Added the option to configure a custom resolution limiter in the registry which controls the resolution used in the optical flow calculation
