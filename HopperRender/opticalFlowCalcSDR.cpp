@@ -179,8 +179,7 @@ OpticalFlowCalcSDR::OpticalFlowCalcSDR(const int frameHeight,
 				       const int frameWidth,
 				       const int actualWidth, int deltaScalar,
 				       int neighborScalar, float blackLevel,
-				       float whiteLevel,
-				       float customResScalar) {
+				       float whiteLevel, int maxCalcRes) {
     // Set up variables
     m_frameWidth = frameWidth;
     m_frameHeight = frameHeight;
@@ -188,14 +187,10 @@ OpticalFlowCalcSDR::OpticalFlowCalcSDR(const int frameHeight,
     m_outputBlackLevel = blackLevel;
     m_outputWhiteLevel = whiteLevel;
     m_opticalFlowSearchRadius = MIN_SEARCH_RADIUS;
-    if (customResScalar >= 0 && customResScalar < 8) {
-	m_opticalFlowResScalar = customResScalar;
-    } else {
-	    m_opticalFlowResScalar = 0;
-	    while (frameHeight >> m_opticalFlowResScalar > MAX_CALC_RES) {
-	        m_opticalFlowResScalar++;
-	    }
-    }
+	m_opticalFlowResScalar = 0;
+    while (frameHeight >> m_opticalFlowResScalar > maxCalcRes) {
+	    m_opticalFlowResScalar++;
+	}
     m_opticalFlowFrameWidth = ceil(m_actualWidth / pow(2, m_opticalFlowResScalar));
     m_opticalFlowFrameHeight = ceil(m_frameHeight / pow(2, m_opticalFlowResScalar));
     m_ofcCalcTime = 0.0;
