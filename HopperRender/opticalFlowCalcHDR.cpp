@@ -188,6 +188,7 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const int frameHeight,
     m_outputBlackLevel = blackLevel;
     m_outputWhiteLevel = whiteLevel;
     m_opticalFlowSearchRadius = MIN_SEARCH_RADIUS;
+	m_opticalFlowResScalar = 0;
     while (frameHeight >> m_opticalFlowResScalar > maxCalcRes) {
 	    m_opticalFlowResScalar++;
     }
