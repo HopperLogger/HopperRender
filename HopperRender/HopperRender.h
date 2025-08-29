@@ -81,7 +81,7 @@ public:
 	HRESULT UpdateVideoInfoHeader(CMediaType* pMediaType);
 	HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut);
 	void autoAdjustSettings();
-	HRESULT loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* customResScalar);
+	HRESULT loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* maxCalcRes);
 	void UpdateInterpolationStatus();
 	void useDisplayRefreshRate();
 
