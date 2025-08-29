@@ -18,7 +18,7 @@ public:
      */
   OpticalFlowCalcHDR(const int frameHeight, const int frameWidth,
 		     const int actualWidth, int deltaScalar, int neighborScalar,
-		     float blackLevel, float whiteLevel, float customResScalar);
+		     float blackLevel, float whiteLevel, int maxCalcRes);
 
     /*
      * Frees the memory of the optical flow calculator
@@ -57,3 +57,4 @@ public:
      */
     void copyFrame() override;
 };
+
