@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -69,7 +69,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="$(SolutionDir)common\common.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.4.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 13.0.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -344,11 +344,14 @@
     </CudaLink>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CustomAllocator.cpp" />
     <ClCompile Include="HopperRender.cpp" />
     <ClCompile Include="HopperRenderSettings.cpp" />
+    <ClCompile Include="MediaSampleSideData.cpp" />
     <ClCompile Include="opticalFlowCalc.cpp" />
     <ClCompile Include="opticalFlowCalcSDR.cpp" />
     <ClCompile Include="opticalFlowCalcHDR.cpp" />
+    <ClCompile Include="CustomInputPin.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\common\baseclasses\baseclasses.vcxproj">
@@ -365,16 +368,20 @@
     <ClInclude Include="config.h" />
     <ClInclude Include="copyFrameKernelHDR.h" />
     <ClInclude Include="copyFrameKernelSDR.h" />
+    <ClInclude Include="CustomAllocator.h" />
     <ClInclude Include="determineLowestLayerKernelHDR.h" />
     <ClInclude Include="determineLowestLayerKernelSDR.h" />
     <ClInclude Include="HopperRenderSettings.h" />
     <ClInclude Include="HopperRender.h" />
+    <ClInclude Include="IMediaSideData.h" />
+    <ClInclude Include="MediaSampleSideData.h" />
     <ClInclude Include="opticalFlowCalc.h" />
     <ClInclude Include="opticalFlowCalcHDR.h" />
     <ClInclude Include="opticalFlowCalcSDR.h" />
     <ClInclude Include="uids.h" />
     <ClInclude Include="iez.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="CustomInputPin.h" />
     <ClInclude Include="warpFrameKernelHDR.h" />
     <ClInclude Include="warpFrameKernelSDR.h" />
   </ItemGroup>
@@ -386,6 +393,6 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.4.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 13.0.targets" />
   </ImportGroup>
 </Project>
