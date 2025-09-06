@@ -458,7 +458,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 	    float whiteLevel;
 	    int customResScalar;
 	    loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &customResScalar);
-	    if (sideDataSize4 > 0) {
+	    if (sideDataSize4 > 0 || m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
 			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
 		} else {
 			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
