@@ -287,3 +287,9 @@
 ### Added
 - Added a target fps setting in the settings pannel that allows the user to specify a custom framerate the video should be interpolated to
 - Added the option to configure a custom resolution limiter in the registry which controls the resolution used in the optical flow calculation
+
+## [Version 2.0.1.1] - 2025-09-06 - Fully functional
+### Added
+- Added Dolby Vision metadata passthrough, enabling the MPC Video Renderer to process Dolby Vision content correctly
+### Fixed
+- Fixed 10bit BT.709 content being presented as BT.2020
