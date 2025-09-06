@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="HopperRender.cpp">
@@ -14,6 +14,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="opticalFlowCalc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CustomInputPin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MediaSampleSideData.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CustomAllocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -94,6 +103,18 @@
     </ClInclude>
     <ClInclude Include="copyFrameKernelHDR.h">
       <Filter>Source Files\Kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="CustomInputPin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CustomAllocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MediaSampleSideData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IMediaSideData.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -226,6 +247,8 @@
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
+    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
