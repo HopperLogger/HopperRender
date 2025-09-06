@@ -21,6 +21,9 @@
 #include "opticalFlowCalcSDR.h"
 #include "opticalFlowCalcHDR.h"
 #include "resource.h"
+#include "CustomInputPin.h"
+#include "IMediaSideData.h"
+#include <atlcomcli.h>
 
 // Debug message function
 void DebugMessage(const std::string& logMessage, const bool showLog) {
@@ -120,44 +123,32 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	CPersistStream(punk, phr),
 	// Settings
 	m_iFrameOutput(BlendedFrame),
-	m_iNumIterations(0),
-	m_iFrameBlurKernelSize(16),
-	m_iFlowBlurKernelSize(32),
 
 	// Video info
 	m_iDimX(1),
 	m_iDimY(1),
-	m_bInterlaced(false),
-	m_bHDR(false),
 
 	// Timings
 	m_rtCurrStartTime(-1),
 	m_rtSourceFrameTime(0),
 	m_rtTargetFrameTime(166667),
 	m_rtCurrPlaybackFrameTime(0),
-	m_dCurrCalcDuration(0),
 
 	// Optical Flow calculation
 	m_pofcOpticalFlowCalc(nullptr),
-	m_cResolutionStep(5),
-	m_fResolutionDividers{ 1.0f, 0.75f, 0.5f, 0.25f, 0.125f, 0.0625f },
-	m_fResolutionScalar(16.0f),
-	m_fResolutionDivider(0.0625f),
 
 	// Frame output
-	m_dDimScalar(1.0),
 	m_iFrameCounter(0),
 	m_iNumIntFrames(1),
-	m_lBufferRequest(1),
 
 	// Performance and activation status
-	m_cNumTimesTooSlow(0),
 	m_iIntActiveState(Active),
-	m_bExportMode(false),
-	m_bFirstErrorMessage(true),
-	totalWarpDuration(0.0),
+	m_dTotalWarpDuration(0.0),
 	blendingScalar(0.0)
 	{
+
+	m_pInput = new CCustomInputPin(phr, L"XForm In", this);
+	m_pOutput = new CTransformOutputPin(NAME("Transform output pin"), this, phr, L"XForm Out");
 }
 
 void CHopperRender::useDisplayRefreshRate() {
@@ -168,6 +159,13 @@ void CHopperRender::useDisplayRefreshRate() {
     if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devMode)) {
 	DWORD refreshRate = devMode.dmDisplayFrequency;
 	m_rtTargetFrameTime = (1.0 / (double)refreshRate) * 1e7;
+    }
+}
+
+template <class T> void SafeRelease(T** ppT) {
+    if (*ppT) {
+	(*ppT)->Release();
+	*ppT = nullptr;
     }
 }
 
@@ -240,7 +238,7 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
 	HRESULT hr = NOERROR;
 
 	ppropInputRequest->cBuffers = 5;
-	ppropInputRequest->cbBuffer = m_pOutput->CurrentMediaType().GetSampleSize() * m_lBufferRequest;
+	ppropInputRequest->cbBuffer = m_pOutput->CurrentMediaType().GetSampleSize();
 	ppropInputRequest->cbAlign = 1;
 	ppropInputRequest->cbPrefix = 0;
 	ASSERT(ppropInputRequest->cbBuffer);
@@ -286,11 +284,6 @@ HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType) {
 
 // Updates the video info header with the information for the output pin
 HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
-	// Check if the input media is HDR
-    if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
-		m_bHDR = true;
-    }
-
 	// Get the input media type information
 	CMediaType* mtIn = &m_pInput->CurrentMediaType();
 	auto pvi = (VIDEOINFOHEADER2*)mtIn->Format();
@@ -299,7 +292,6 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
 	const unsigned int dwX = pvi->dwPictAspectRatioX;
 	const unsigned int dwY = pvi->dwPictAspectRatioY;
 	const GUID guid = MEDIASUBTYPE_P010;
-	m_bInterlaced = (pvi->dwInterlaceFlags & AMINTERLACE_IsInterlaced) != 0;
 
 	// Set the VideoInfoHeader2 information
 	VIDEOINFOHEADER2* vih2 = (VIDEOINFOHEADER2*)pMediaType->ReallocFormatBuffer(sizeof(VIDEOINFOHEADER2));
@@ -313,7 +305,9 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
 	vih2->dwBitErrorRate = pvi->dwBitErrorRate;
 	vih2->dwCopyProtectFlags = pvi->dwCopyProtectFlags;
 	vih2->dwInterlaceFlags = 0;
-	vih2->dwControlFlags = m_bHDR ? 2051155841 : 0;
+	vih2->dwControlFlags = pvi->dwControlFlags;
+	vih2->dwReserved1 = pvi->dwReserved1;
+	vih2->dwReserved2 = pvi->dwReserved2;
 
 	// Set the BitmapInfoHeader information
 	BITMAPINFOHEADER* pBIH = nullptr;
@@ -322,8 +316,8 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
 	pBIH->biWidth = biWidth;
 	pBIH->biHeight = biHeight;
 	pBIH->biBitCount = 24;
-	pBIH->biPlanes = 2;
-	pBIH->biSizeImage = (biWidth * biHeight * 12) >> 3;
+	pBIH->biPlanes = 1;                                      // VERIFY
+	pBIH->biSizeImage = (biWidth * biHeight * 24) >> 3;      // VERIFY
 	pBIH->biCompression = guid.Data1;
 
 	// Set the media type information
@@ -364,6 +358,13 @@ HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
 HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 	CheckPointer(pIn, E_POINTER)
 	CheckPointer(pOut, E_POINTER)
+
+	// Update the output media type with potentially new video info from the input pin
+	if (m_iFrameCounter == 0) {
+		CMediaType* pMediaType = &m_pOutput->CurrentMediaType();
+		UpdateVideoInfoHeader(pMediaType);
+		m_pOutput->SetMediaType(pMediaType);
+	}
 
 	m_iFrameCounter++;
 
@@ -409,6 +410,42 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		return hr;
 	}
 
+	// Get the side data
+	const BYTE* sideDataBytes1;
+	const BYTE* sideDataBytes2;
+	const BYTE* sideDataBytes3;
+	const BYTE* sideDataBytes4;
+	const BYTE* sideDataBytes5;
+	const BYTE* sideDataBytes6;
+	const BYTE* sideDataBytes7;
+	const BYTE* sideDataBytes8;
+	size_t sideDataSize1 = 0;
+	size_t sideDataSize2 = 0;
+	size_t sideDataSize3 = 0;
+	size_t sideDataSize4 = 0;
+	size_t sideDataSize5 = 0;
+	size_t sideDataSize6 = 0;
+	size_t sideDataSize7 = 0;
+	size_t sideDataSize8 = 0;
+	if (CComQIPtr<IMediaSideData> sideDataIn = pIn) {
+		hr = sideDataIn->GetSideData(IID_MediaSideDataDOVIMetadata,
+					     &sideDataBytes1, &sideDataSize1);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataDOVIRPU,
+					     &sideDataBytes2, &sideDataSize2);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataControlFlags,
+					     &sideDataBytes3, &sideDataSize3);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataHDR,
+					     &sideDataBytes4, &sideDataSize4);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataHDR10Plus,
+					     &sideDataBytes5, &sideDataSize5);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataHDRContentLightLevel,
+						 &sideDataBytes6, &sideDataSize6);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataEIA608CC,
+					     &sideDataBytes7, &sideDataSize7);
+		hr = sideDataIn->GetSideData(IID_MediaSideData3DOffset,
+					     &sideDataBytes8, &sideDataSize8);
+	}
+
 	// Get the size of the output sample
 	const long lOutSize = pOut->GetActualDataLength();
 
@@ -419,12 +456,12 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 	    int neighborScalar;
 	    float blackLevel;
 	    float whiteLevel;
-	    int maxCalcRes;
-	    loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &maxCalcRes);
-		if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, maxCalcRes);
+	    int customResScalar;
+	    loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &customResScalar);
+	    if (sideDataSize4 > 0) {
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
 		} else {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, maxCalcRes);
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
 		}
 	}
 
@@ -469,6 +506,38 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 			// Use the input sample for the last output sample
 		} else {
 			pOutNew = pOut;
+		}
+
+		// Set the side data
+		IMediaSideData* sideDataOut;
+		if (SUCCEEDED(hr = pOutNew->QueryInterface(&sideDataOut)))
+		{
+		    if (sideDataSize1 > 0) {
+				hr = sideDataOut->SetSideData(IID_MediaSideDataDOVIMetadata, sideDataBytes1, sideDataSize1);
+			}
+			if (sideDataSize2 > 0) {
+				hr = sideDataOut->SetSideData(IID_MediaSideDataDOVIRPU, sideDataBytes2, sideDataSize2);
+			}
+			if (sideDataSize3 > 0) {
+				hr = sideDataOut->SetSideData(IID_MediaSideDataControlFlags, sideDataBytes3, sideDataSize3);
+			}
+			if (sideDataSize4 > 0) {
+				hr = sideDataOut->SetSideData(IID_MediaSideDataHDR, sideDataBytes4, sideDataSize4);
+			}
+			if (sideDataSize5 > 0) {
+				hr = sideDataOut->SetSideData(IID_MediaSideDataHDR10Plus, sideDataBytes5, sideDataSize5);
+			}
+			if (sideDataSize6 > 0) {
+				hr = sideDataOut->SetSideData(IID_MediaSideDataHDRContentLightLevel, sideDataBytes6, sideDataSize6);
+			}
+			if (sideDataSize7 > 0) {
+				hr = sideDataOut->SetSideData(IID_MediaSideDataEIA608CC, sideDataBytes7, sideDataSize7);
+			}
+			if (sideDataSize8 > 0) {
+				hr = sideDataOut->SetSideData(IID_MediaSideData3DOffset, sideDataBytes8, sideDataSize8);
+			}
+
+		    SafeRelease(&sideDataOut);
 		}
 
 		// Get the buffer pointer for the new output sample
@@ -573,12 +642,10 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		}
 
 		// Download the result to the output buffer
-		if (!m_bExportMode) {
-			m_pofcOpticalFlowCalc->downloadFrame(pOutNewBuffer);
-		}
+		m_pofcOpticalFlowCalc->downloadFrame(pOutNewBuffer);
 
 		// Retrieve how long the warp calculation took
-		totalWarpDuration += m_pofcOpticalFlowCalc->m_warpCalcTime;
+		m_dTotalWarpDuration += m_pofcOpticalFlowCalc->m_warpCalcTime;
 
 		// Increase the blending scalar
 		blendingScalar += (double)m_rtTargetFrameTime / (double)m_rtCurrPlaybackFrameTime;
@@ -703,7 +770,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	*piIntActiveState = m_iIntActiveState;
 	*pdSourceFPS = 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime);
 	*pdOFCCalcTime = 1000.0 * m_pofcOpticalFlowCalc->m_ofcCalcTime;
-	*pdWarpCalcTime = 1000.0 * totalWarpDuration;
+	*pdWarpCalcTime = 1000.0 * m_dTotalWarpDuration;
 	*piDimX = m_iDimX;
 	*piDimY = m_iDimY;
 	*piLowDimX = m_pofcOpticalFlowCalc->m_opticalFlowFrameWidth;
@@ -741,7 +808,7 @@ void CHopperRender::autoAdjustSettings() {
 	// Get the time we have in between source frames (WE NEED TO STAY BELOW THIS!)
 	const double dSourceFrameTimeMS = static_cast<double>(m_rtCurrPlaybackFrameTime) / 10000000.0;
 
-	double currMaxCalcDuration = m_pofcOpticalFlowCalc->m_ofcCalcTime + totalWarpDuration;
+	double currMaxCalcDuration = m_pofcOpticalFlowCalc->m_ofcCalcTime + m_dTotalWarpDuration;
 
     // Check if we were too slow or have leftover capacity
     if ((currMaxCalcDuration * UPPER_PERF_BUFFER) > dSourceFrameTimeMS) {
@@ -761,94 +828,109 @@ void CHopperRender::autoAdjustSettings() {
     }
 
     // Reset the warp duration for the next frame
-    totalWarpDuration = 0.0;
+    m_dTotalWarpDuration = 0.0;
 }
 
 // Loads the settings from the registry
-HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* maxCalcRes) {
-	HKEY hKey;
+HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
+				    float* blackLevel, float* whiteLevel,
+				    int* maxCalcRes) {
+    HKEY hKey;
     LPCWSTR subKey = L"SOFTWARE\\HopperRender";
-	DWORD value = 0;
+    DWORD value = 0;
     double value2 = 0.0;
-	DWORD dataSize = sizeof(DWORD);
-	DWORD dataSize2 = sizeof(double);
-	LPCWSTR valueName;
-	LONG result;
+    DWORD dataSize = sizeof(DWORD);
+    DWORD dataSize2 = sizeof(double);
+    LPCWSTR valueName;
+    LONG result;
 
     // Open the registry key
     result = RegOpenKeyEx(HKEY_CURRENT_USER, subKey, 0, KEY_READ, &hKey);
-    
+
     if (result == ERROR_SUCCESS) {
-        // Load activated state
-		valueName = L"Activated"; 
-        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (result == 0) {
-			if (value) m_iIntActiveState = Active;
-			else m_iIntActiveState = Deactivated;
-		}
+	// Load activated state
+	valueName = L"Activated";
+	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+				 reinterpret_cast<BYTE*>(&value), &dataSize);
+	if (result == 0) {
+	    if (value)
+		m_iIntActiveState = Active;
+	    else
+		m_iIntActiveState = Deactivated;
+	}
 
-		// Load Frame Output
-		valueName = L"FrameOutput"; 
-        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (result == 0) m_iFrameOutput = static_cast<FrameOutput>(value);
+	// Load Frame Output
+	valueName = L"FrameOutput";
+	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+				 reinterpret_cast<BYTE*>(&value), &dataSize);
+	if (result == 0)
+	    m_iFrameOutput = static_cast<FrameOutput>(value);
 
-		// Load the target fps
-		valueName = L"TargetFPS";
-		result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value2), &dataSize2);
-		if (value2 != 0 && result == 0 && value2 >= 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime)) {
-		    m_rtTargetFrameTime = (1.0 / (double)value2) * 1e7;
-		} else {
-		    useDisplayRefreshRate();
-		}
+	// Load the target fps
+	valueName = L"TargetFPS";
+	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+				 reinterpret_cast<BYTE*>(&value2), &dataSize2);
+	if (value2 != 0 && result == 0 &&
+	    value2 >=
+		10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime)) {
+	    m_rtTargetFrameTime = (1.0 / (double)value2) * 1e7;
+	} else {
+	    useDisplayRefreshRate();
+	}
 
-		// Load the delta scalar
-		valueName = L"DeltaScalar"; 
-        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (result == 0) {
-		    *deltaScalar = value;
-		} else {
-		    *deltaScalar = 8;
-		}
+	// Load the delta scalar
+	valueName = L"DeltaScalar";
+	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+				 reinterpret_cast<BYTE*>(&value), &dataSize);
+	if (result == 0) {
+	    *deltaScalar = value;
+	} else {
+	    *deltaScalar = 8;
+	}
 
-		// Load the neighbor scalar
-		valueName = L"NeighborScalar"; 
-        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (result == 0) {
-		    *neighborScalar = value;
-		} else {
-		    *neighborScalar = 6;
-		}
+	// Load the neighbor scalar
+	valueName = L"NeighborScalar";
+	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+				 reinterpret_cast<BYTE*>(&value), &dataSize);
+	if (result == 0) {
+	    *neighborScalar = value;
+	} else {
+	    *neighborScalar = 6;
+	}
 
-		// Load the black level
-		valueName = L"BlackLevel"; 
-        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (result == 0) {
-		   *blackLevel = (float)(value << 8);
-		} else {
-		    *blackLevel = 0.0f;
-		}
+	// Load the black level
+	valueName = L"BlackLevel";
+	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+				 reinterpret_cast<BYTE*>(&value), &dataSize);
+	if (result == 0) {
+	    *blackLevel = (float)(value << 8);
+	} else {
+	    *blackLevel = 0.0f;
+	}
 
-		// Load the white level
-		valueName = L"WhiteLevel"; 
-        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (result == 0) {
-			*whiteLevel = (float)(value << 8);
-		} else {
-		    *whiteLevel = 65535.0f;
-		}
+	// Load the white level
+	valueName = L"WhiteLevel";
+	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+				 reinterpret_cast<BYTE*>(&value), &dataSize);
+	if (result == 0) {
+	    *whiteLevel = (float)(value << 8);
+	} else {
+	    *whiteLevel = 65535.0f;
+	}
 
-		// Load the maximum calculation resolution
-		valueName = L"MaxCalcRes"; 
-        result = RegQueryValueEx(hKey, valueName, NULL, NULL, reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (result == 0) {
-		    *maxCalcRes = value;
-		} else {
-		    *maxCalcRes = MAX_CALC_RES;
-		}
+	// Load the maximum calculation resolution
+	valueName = L"MaxCalcRes";
+	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+				 reinterpret_cast<BYTE*>(&value), &dataSize);
+	if (result == 0) {
+	    *maxCalcRes = value;
+	} else {
+	    *maxCalcRes = MAX_CALC_RES;
+	}
 
-		RegCloseKey(hKey); // Close the registry key
+	RegCloseKey(hKey); // Close the registry key
 
     } else {
-        return E_FAIL;
+	return E_FAIL;
     }
 }
