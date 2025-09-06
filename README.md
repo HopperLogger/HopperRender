@@ -105,3 +105,5 @@ You can access the settings when playing back a video with HopperRender by right
 ## Acknowledgements
 
 This project is based on the [EZRGB24 Filter Sample](https://learn.microsoft.com/en-us/windows/win32/directshow/ezrgb24-filter-sample) and the DirectShow core parts were inspired by the [LAV Video Decoder](https://github.com/clsid2/LAVFilters).
+
+The Dolby Vision Metadata passthrough code elements were adapted from the [MPC Video Renderer](https://github.com/Aleksoid1978/VideoRenderer).
