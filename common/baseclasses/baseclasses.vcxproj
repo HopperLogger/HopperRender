@@ -51,8 +51,8 @@
   <PropertyGroup Condition="'$(Configuration)'=='DirectShow'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Exporter'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
@@ -137,7 +137,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)'=='DirectShow'">
     <ClCompile>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">MaxSpeed</Optimization>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Disabled</Optimization>
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</IntrinsicFunctions>
       <FavorSizeOrSpeed Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Speed</FavorSizeOrSpeed>
       <OmitFramePointers Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</OmitFramePointers>
@@ -145,7 +145,8 @@
       <FunctionLevelLinking Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
       </FunctionLevelLinking>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">/Gw /Zo %(AdditionalOptions)</AdditionalOptions>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">None</DebugInformationFormat>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">EditAndContinue</DebugInformationFormat>
+      <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</MultiProcessorCompilation>
     </ClCompile>
     <Lib>
       <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</LinkTimeCodeGeneration>

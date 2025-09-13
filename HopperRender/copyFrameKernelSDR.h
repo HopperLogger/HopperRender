@@ -1,10 +1,10 @@
 #pragma once
 const char* copyFrameKernelSDR = R"CLC(
-unsigned char apply_levelsY(float value, float black_level, float white_level) {
+unsigned short apply_levelsY(float value, float black_level, float white_level) {
     return fmax(fmin((value - black_level) / (white_level - black_level) * 65535.0f, 65535.0f), 0.0f);
 }
 
-unsigned char apply_levelsUV(float value, float white_level) {
+unsigned short apply_levelsUV(float value, float white_level) {
     return fmax(fmin((value - 32768.0f) / white_level * 65535.0f + 32768.0f, 65535.0f), 0.0f);
 }
 

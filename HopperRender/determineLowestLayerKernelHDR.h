@@ -26,5 +26,4 @@ __kernel void determineLowestLayerKernel(__global unsigned int* summedUpDeltaArr
         lowestLayerArray[cy * lowDimX + cx] = lowestLayer;
     }
 }
-
 )CLC";
