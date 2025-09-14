@@ -24,8 +24,7 @@ typedef enum ActiveState {
 
 class CHopperRender : public CTransformFilter,
                       public SettingsInterface,
-                      public ISpecifyPropertyPages,
-                      public CPersistStream {
+                      public ISpecifyPropertyPages {
 public:
     friend class CCustomInputPin;
 
@@ -34,10 +33,6 @@ public:
 
 	// Reveals IHopperRender and ISpecifyPropertyPages
 	STDMETHODIMP NonDelegatingQueryInterface(REFIID riid, void** ppv) override;
-
-	// CPersistStream stuff
-	HRESULT ScribbleToStream(IStream* pStream) const;
-	HRESULT ReadFromStream(IStream* pStream) override;
 
 	// Overridden from CTransformFilter base class
 	HRESULT CheckInputType(const CMediaType* mtIn) override;

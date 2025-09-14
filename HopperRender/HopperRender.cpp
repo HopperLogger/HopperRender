@@ -120,7 +120,6 @@ CHopperRender::CHopperRender(TCHAR* tszName,
                              LPUNKNOWN punk,
                              HRESULT* phr) :
 	CTransformFilter(tszName, punk, CLSID_HopperRender),
-	CPersistStream(punk, phr),
 	// Settings
 	m_iFrameOutput(BlendedFrame),
 
@@ -479,7 +478,11 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 	}
 
 	// Calculate the number of interpolated frames
-	m_iNumIntFrames = (int)max(ceil((1.0 - blendingScalar) / ((double)m_rtTargetFrameTime / (double)m_rtCurrPlaybackFrameTime)), 1.0);
+	if (m_iIntActiveState == Active) {
+		m_iNumIntFrames = (int)max(ceil((1.0 - blendingScalar) / ((double)m_rtTargetFrameTime / (double)m_rtCurrPlaybackFrameTime)), 1.0);
+	} else {
+		m_iNumIntFrames = 1;
+	}
 
 	// Adjust the settings to process everything fast enough
 	autoAdjustSettings();
@@ -547,8 +550,10 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		}
 
 		// Set the new start and end times
-		rtStartTime = m_rtCurrStartTime;
-		rtEndTime = rtStartTime + m_rtTargetFrameTime;
+		if (m_iIntActiveState == Active) {
+		    rtStartTime = m_rtCurrStartTime;
+		    rtEndTime = rtStartTime + m_rtTargetFrameTime;
+		}
 
 		// Set the new times for the output sample
 		hr = pOutNew->SetTime(&rtStartTime, &rtEndTime);
@@ -648,9 +653,11 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		m_dTotalWarpDuration += m_pofcOpticalFlowCalc->m_warpCalcTime;
 
 		// Increase the blending scalar
-		blendingScalar += (double)m_rtTargetFrameTime / (double)m_rtCurrPlaybackFrameTime;
-		if (blendingScalar >= 1.0) {
-			blendingScalar -= 1.0;
+		if (m_iIntActiveState == Active) {
+			blendingScalar += (double)m_rtTargetFrameTime / (double)m_rtCurrPlaybackFrameTime;
+			if (blendingScalar >= 1.0) {
+				blendingScalar -= 1.0;
+			}
 		}
 
 		// Deliver the new output sample downstream
@@ -678,37 +685,6 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 // This is the only method of IPersist
 STDMETHODIMP CHopperRender::GetClassID(CLSID* pClsid) {
 	return CBaseFilter::GetClassID(pClsid);
-}
-
-// Overridden to write our state into a stream
-HRESULT CHopperRender::ScribbleToStream(IStream* pStream) const {
-	HRESULT hr;
-
-	/*WRITEOUT(m_iIntActiveState)
-	WRITEOUT(m_iFrameOutput)
-	WRITEOUT(m_pofcOpticalFlowCalc->m_deltaScalar)
-	WRITEOUT(m_pofcOpticalFlowCalc->m_neighborBiasScalar)
-	WRITEOUT(m_iBlackLevele)
-	WRITEOUT(m_iWhiteLevel)
-	WRITEOUT(m_rtCurrPlaybackFrameTime)*/
-
-	return NOERROR;
-}
-
-// Likewise overridden to restore our state from a stream
-HRESULT CHopperRender::ReadFromStream(IStream* pStream) {
-	HRESULT hr;
-
-	/*READIN(m_iIntActiveState)
-	READIN(m_iFrameOutput)
-	READIN(m_iNumIterations)
-	READIN(m_iFrameBlurKernelSize)
-	READIN(m_iFlowBlurKernelSize)
-	//READIN(m_iSceneChangeThreshold)
-	READIN(m_rtCurrPlaybackFrameTime)
-	//READIN(m_iNumSteps)*/
-
-	return NOERROR;
 }
 
 // Returns the clsid's of the property pages we support
@@ -789,17 +765,17 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput
 		m_iIntActiveState = Active;
 	}
 	m_iFrameOutput = static_cast<FrameOutput>(iFrameOutput);
-	if (dTargetFPS != 0 && dTargetFPS >= 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime)) {
+	if (dTargetFPS > 0.0) {
 	    m_rtTargetFrameTime = (1.0 / (double)dTargetFPS) * 1e7;
 	} else {
 	    useDisplayRefreshRate();
 	}
+	UpdateInterpolationStatus();
 	m_pofcOpticalFlowCalc->m_deltaScalar = iDeltaScalar;
 	m_pofcOpticalFlowCalc->m_neighborBiasScalar = iNeighborScalar;
 	m_pofcOpticalFlowCalc->m_outputBlackLevel = (float)(iBlackLevel << 8);
 	m_pofcOpticalFlowCalc->m_outputWhiteLevel = (float)(iWhiteLevel << 8);
 
-	SetDirty(TRUE);
 	return NOERROR;
 }
 
@@ -848,89 +824,102 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
     result = RegOpenKeyEx(HKEY_CURRENT_USER, subKey, 0, KEY_READ, &hKey);
 
     if (result == ERROR_SUCCESS) {
-	// Load activated state
-	valueName = L"Activated";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0) {
-	    if (value)
-		m_iIntActiveState = Active;
-	    else
-		m_iIntActiveState = Deactivated;
-	}
+		// Load activated state
+		valueName = L"Activated";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+			if (value)
+				m_iIntActiveState = Active;
+			else
+				m_iIntActiveState = Deactivated;
+		} else {
+			m_iIntActiveState = Active;
+		}
 
-	// Load Frame Output
-	valueName = L"FrameOutput";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0)
-	    m_iFrameOutput = static_cast<FrameOutput>(value);
+		// Load Frame Output
+		valueName = L"FrameOutput";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+		    m_iFrameOutput = static_cast<FrameOutput>(value);
+		} else {
+			m_iFrameOutput = BlendedFrame;
+		}
 
-	// Load the target fps
-	valueName = L"TargetFPS";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value2), &dataSize2);
-	if (value2 != 0 && result == 0 &&
-	    value2 >=
-		10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime)) {
-	    m_rtTargetFrameTime = (1.0 / (double)value2) * 1e7;
-	} else {
-	    useDisplayRefreshRate();
-	}
+		// Load the target fps
+		valueName = L"TargetFPS";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value2), &dataSize2);
+		if (value2 > 0 && result == 0) {
+			m_rtTargetFrameTime = (1.0 / (double)value2) * 1e7;
+		} else {
+			useDisplayRefreshRate();
+		}
 
-	// Load the delta scalar
-	valueName = L"DeltaScalar";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0) {
-	    *deltaScalar = value;
-	} else {
-	    *deltaScalar = 8;
-	}
+		// Load the delta scalar
+		valueName = L"DeltaScalar";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+			*deltaScalar = value;
+		} else {
+			*deltaScalar = 8;
+		}
 
-	// Load the neighbor scalar
-	valueName = L"NeighborScalar";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0) {
-	    *neighborScalar = value;
-	} else {
-	    *neighborScalar = 6;
-	}
+		// Load the neighbor scalar
+		valueName = L"NeighborScalar";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+			*neighborScalar = value;
+		} else {
+			*neighborScalar = 6;
+		}
 
-	// Load the black level
-	valueName = L"BlackLevel";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0) {
-	    *blackLevel = (float)(value << 8);
-	} else {
-	    *blackLevel = 0.0f;
-	}
+		// Load the black level
+		valueName = L"BlackLevel";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+			*blackLevel = (float)(value << 8);
+		} else {
+			*blackLevel = 0.0f;
+		}
 
-	// Load the white level
-	valueName = L"WhiteLevel";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0) {
-	    *whiteLevel = (float)(value << 8);
-	} else {
-	    *whiteLevel = 65535.0f;
-	}
+		// Load the white level
+		valueName = L"WhiteLevel";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+			*whiteLevel = (float)(value << 8);
+		} else {
+			*whiteLevel = 65535.0f;
+		}
 
-	// Load the maximum calculation resolution
-	valueName = L"MaxCalcRes";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0) {
-	    *maxCalcRes = value;
-	} else {
-	    *maxCalcRes = MAX_CALC_RES;
-	}
+		// Load the maximum calculation resolution
+		valueName = L"MaxCalcRes";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+			*maxCalcRes = value;
+		} else {
+			*maxCalcRes = MAX_CALC_RES;
+		}
 
-	RegCloseKey(hKey); // Close the registry key
+		RegCloseKey(hKey); // Close the registry key
 
     } else {
-	return E_FAIL;
+		// Load the default values
+		m_iIntActiveState = Active;
+		m_iFrameOutput = BlendedFrame;
+		useDisplayRefreshRate();
+		*deltaScalar = 8;
+		*neighborScalar = 6;
+		*blackLevel = 0.0f;
+		*whiteLevel = 65535.0f;
+		*maxCalcRes = MAX_CALC_RES;
     }
+    UpdateInterpolationStatus();
+    return NOERROR;
 }
