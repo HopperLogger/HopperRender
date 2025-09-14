@@ -293,3 +293,13 @@
 - Added Dolby Vision metadata passthrough, enabling the MPC Video Renderer to process Dolby Vision content correctly
 ### Fixed
 - Fixed 10bit BT.709 content being presented as BT.2020
+
+## [Version 2.0.1.2] - 2025-09-14 - Fully functional
+### Added
+- Added a defaults button to the settings panel that resets all settings to their default values
+
+### Fixed
+- Fixed settings on first load being inaccurate
+- Fixed custom target fps being rounded to integer values
+- Fixed interpolation not beeing deactivated when target fps is lower than source fps
+- Fixed player crashing when trying to access filter settings in the external filters section
