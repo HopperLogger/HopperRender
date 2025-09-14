@@ -54,10 +54,36 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch (uMsg) {
 		case WM_COMMAND: {
+			TCHAR sz[STR_MAX_LENGTH];
+			const int nID = LOWORD(wParam);
+			int action = HIWORD(wParam);
 			if (m_bIsInitialized) {
 				m_bDirty = true;
 				if (m_pPageSite) {
 					m_pPageSite->OnStatusChange(PROPPAGESTATUS_DIRTY);
+				}
+				// Check if the defaults button was pressed
+				if (action == BN_CLICKED && nID == IDC_DEFAULTS) {
+					m_bActivated = true;
+					m_iFrameOutput = BlendedFrame;
+					m_dTargetFPS = 0.0; // Uses the display fps
+					m_iDeltaScalar = DEFAULT_DELTA_SCALAR;
+					m_iNeighborScalar = DEFAULT_NEIGHBOR_SCALAR;
+					m_iBlackLevel = DEFAULT_BLACK_LEVEL;
+					m_iWhiteLevel = DEFAULT_WHITE_LEVEL;
+					CheckRadioButton(m_Dlg, IDC_ON, IDC_OFF, IDC_ON); 
+					CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_BLENDEDFRAME);
+					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f\0"), m_dTargetFPS);
+					SetDlgItemText(m_Dlg, IDC_TARGETFPS, sz);
+					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iDeltaScalar);
+					Edit_SetText(GetDlgItem(m_Dlg, IDC_DELTASCALAR), sz);
+					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iNeighborScalar);
+					Edit_SetText(GetDlgItem(m_Dlg, IDC_NEIGHBORSCALAR), sz);
+					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iBlackLevel);
+					Edit_SetText(GetDlgItem(m_Dlg, IDC_BLACKLEVEL), sz);
+					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iWhiteLevel);
+					Edit_SetText(GetDlgItem(m_Dlg, IDC_WHITELEVEL), sz);
+					CheckDlgButton(m_Dlg, IDC_DEFAULTS, BST_UNCHECKED);
 				}
 			}
 			return 1;
@@ -267,6 +293,20 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 		return E_FAIL;
 	}
 
+	// Show the settings the filter accepted
+	int iDimX;
+	int iDimY;
+	int iLowDimX;
+	int iLowDimY;
+	int frameOutput;
+	int activeState;
+	CheckPointer(m_pSettingsInterface, E_FAIL);
+	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
+	                                         &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
+	TCHAR sz[60];
+	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f\0"), m_dTargetFPS);
+	SetDlgItemText(m_Dlg, IDC_TARGETFPS, sz);
+
 	return NOERROR;
 }
 
@@ -318,7 +358,6 @@ void CHopperRenderSettings::GetControlValues() {
 
 #ifdef UNICODE
 	// Convert Multibyte string to ANSI
-	szANSI[STR_MAX_LENGTH];
 	rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
 	tmp2 = atoi(szANSI);
 #else
@@ -330,7 +369,6 @@ void CHopperRenderSettings::GetControlValues() {
 
 #ifdef UNICODE
 	// Convert Multibyte string to ANSI
-	szANSI[STR_MAX_LENGTH];
 	rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
 	tmp3 = atoi(szANSI);
 #else
