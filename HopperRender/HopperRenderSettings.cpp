@@ -86,8 +86,9 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 					CheckDlgButton(m_Dlg, IDC_DEFAULTS, BST_UNCHECKED);
 				}
 			}
-			return 1;
+			break;
 		}
+		case WM_INITDIALOG:
 		case WM_TIMER: {
 			// Get the current settings
 			int iDimX;
@@ -282,8 +283,8 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 
 	ValidateParameter(m_iDeltaScalar, 10, IDC_DELTASCALAR);
 	ValidateParameter(m_iNeighborScalar, 10, IDC_NEIGHBORSCALAR);
-	ValidateParameter(m_iBlackLevel, 65535, IDC_BLACKLEVEL);
-	ValidateParameter(m_iWhiteLevel, 65535, IDC_WHITELEVEL);
+	ValidateParameter(m_iBlackLevel, 255, IDC_BLACKLEVEL);
+	ValidateParameter(m_iWhiteLevel, 255, IDC_WHITELEVEL);
 
 	// Tell the filter about the new settings
 	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_dTargetFPS, m_iDeltaScalar, m_iNeighborScalar, m_iBlackLevel, m_iWhiteLevel);

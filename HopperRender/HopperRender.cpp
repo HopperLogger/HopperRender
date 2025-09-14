@@ -734,24 +734,50 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	CheckPointer(piLowDimX, E_POINTER)
 	CheckPointer(piLowDimY, E_POINTER)
 
-	*pbActivated = m_iIntActiveState != 0;
-	*piFrameOutput = m_iFrameOutput;
-	if (*pdTargetFPS == 0) {
-	    *pdTargetFPS = 10000000.0 / static_cast<double>(m_rtTargetFrameTime);
+	if (m_pofcOpticalFlowCalc == nullptr) {
+		// Optical Flow Calculator not initialized yet
+		int deltaScalar;
+	    int neighborScalar;
+	    float blackLevel;
+	    float whiteLevel;
+	    int customResScalar;
+	    loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &customResScalar);
+		*pbActivated = m_iIntActiveState != 0;
+		*piFrameOutput = m_iFrameOutput;
+		if (*pdTargetFPS == 0.0) {
+			*pdTargetFPS = 10000000.0 / static_cast<double>(m_rtTargetFrameTime);
+		}
+		*piDeltaScalar = deltaScalar;
+		*piNeighborScalar = neighborScalar;
+		*piBlackLevel = blackLevel / 256.0f;
+		*piWhiteLevel = whiteLevel / 256.0f;
+		*piIntActiveState = Active;
+		*pdSourceFPS = 0.0;
+		*pdOFCCalcTime = 0.0;
+		*pdWarpCalcTime = 0.0;
+		*piDimX = 0;
+		*piDimY = 0;
+		*piLowDimX = 0;
+		*piLowDimY = 0;
+	} else {
+		*pbActivated = m_iIntActiveState != 0;
+		*piFrameOutput = m_iFrameOutput;
+		if (*pdTargetFPS == 0.0) {
+			*pdTargetFPS = 10000000.0 / static_cast<double>(m_rtTargetFrameTime);
+		}
+		*piDeltaScalar = m_pofcOpticalFlowCalc->m_deltaScalar;
+		*piNeighborScalar = m_pofcOpticalFlowCalc->m_neighborBiasScalar;
+		*piBlackLevel = (int)(m_pofcOpticalFlowCalc->m_outputBlackLevel) >> 8;
+		*piWhiteLevel = (int)(m_pofcOpticalFlowCalc->m_outputWhiteLevel) >> 8;
+		*piIntActiveState = m_iIntActiveState;
+		*pdSourceFPS = 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime);
+		*pdOFCCalcTime = 1000.0 * m_pofcOpticalFlowCalc->m_ofcCalcTime;
+		*pdWarpCalcTime = 1000.0 * m_dTotalWarpDuration;
+		*piDimX = m_iDimX;
+		*piDimY = m_iDimY;
+		*piLowDimX = m_pofcOpticalFlowCalc->m_opticalFlowFrameWidth;
+		*piLowDimY = m_pofcOpticalFlowCalc->m_opticalFlowFrameHeight;
 	}
-	*piDeltaScalar = m_pofcOpticalFlowCalc->m_deltaScalar;
-	*piNeighborScalar = m_pofcOpticalFlowCalc->m_neighborBiasScalar;
-	*piBlackLevel = (int)(m_pofcOpticalFlowCalc->m_outputBlackLevel) >> 8;
-	*piWhiteLevel = (int)(m_pofcOpticalFlowCalc->m_outputWhiteLevel) >> 8;
-	*piIntActiveState = m_iIntActiveState;
-	*pdSourceFPS = 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime);
-	*pdOFCCalcTime = 1000.0 * m_pofcOpticalFlowCalc->m_ofcCalcTime;
-	*pdWarpCalcTime = 1000.0 * m_dTotalWarpDuration;
-	*piDimX = m_iDimX;
-	*piDimY = m_iDimY;
-	*piLowDimX = m_pofcOpticalFlowCalc->m_opticalFlowFrameWidth;
-	*piLowDimY = m_pofcOpticalFlowCalc->m_opticalFlowFrameHeight;
-
 	return NOERROR;
 }
 
@@ -771,10 +797,12 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput
 	    useDisplayRefreshRate();
 	}
 	UpdateInterpolationStatus();
-	m_pofcOpticalFlowCalc->m_deltaScalar = iDeltaScalar;
-	m_pofcOpticalFlowCalc->m_neighborBiasScalar = iNeighborScalar;
-	m_pofcOpticalFlowCalc->m_outputBlackLevel = (float)(iBlackLevel << 8);
-	m_pofcOpticalFlowCalc->m_outputWhiteLevel = (float)(iWhiteLevel << 8);
+	if (m_pofcOpticalFlowCalc != nullptr) {
+		m_pofcOpticalFlowCalc->m_deltaScalar = iDeltaScalar;
+		m_pofcOpticalFlowCalc->m_neighborBiasScalar = iNeighborScalar;
+		m_pofcOpticalFlowCalc->m_outputBlackLevel = (float)(iBlackLevel << 8);
+		m_pofcOpticalFlowCalc->m_outputWhiteLevel = (float)(iWhiteLevel << 8);
+	}
 
 	return NOERROR;
 }
@@ -861,7 +889,7 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		valueName = L"DeltaScalar";
 		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
 					 reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (result == 0) {
+		if (result == 0 && value >= 0 && value <= 10) {
 			*deltaScalar = value;
 		} else {
 			*deltaScalar = 8;
@@ -871,7 +899,7 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		valueName = L"NeighborScalar";
 		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
 					 reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (result == 0) {
+		if (result == 0 && value >= 0 && value <= 10) {
 			*neighborScalar = value;
 		} else {
 			*neighborScalar = 6;
@@ -881,7 +909,7 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		valueName = L"BlackLevel";
 		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
 					 reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (result == 0) {
+		if (result == 0 && value >= 0 && value <= 255) {
 			*blackLevel = (float)(value << 8);
 		} else {
 			*blackLevel = 0.0f;
@@ -891,7 +919,7 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		valueName = L"WhiteLevel";
 		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
 					 reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (result == 0) {
+		if (result == 0 && value >= 0 && value <= 255) {
 			*whiteLevel = (float)(value << 8);
 		} else {
 			*whiteLevel = 65535.0f;
@@ -901,7 +929,7 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		valueName = L"MaxCalcRes";
 		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
 					 reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (result == 0) {
+		if (result == 0 && value >= 32) {
 			*maxCalcRes = value;
 		} else {
 			*maxCalcRes = MAX_CALC_RES;
