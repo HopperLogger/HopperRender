@@ -273,7 +273,8 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 // Get the values from the controls
 void CHopperRenderSettings::GetControlValues() {
 	TCHAR sz[STR_MAX_LENGTH];
-	int tmp1, tmp2, tmp3, tmp4, tmp5;
+    double tmp1;
+	int tmp2, tmp3, tmp4, tmp5;
 
 	// Find whether the filter is activated or not
 	if (IsDlgButtonChecked(m_Dlg, IDC_ON)) {

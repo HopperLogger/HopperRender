@@ -132,10 +132,10 @@
       <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;cudart_static.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;cudart_static.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib;OpenCL.lib</AdditionalDependencies>
       <ModuleDefinitionFile>HopperRender.def</ModuleDefinitionFile>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">$(CUDA_LIB_PATH);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib</IgnoreSpecificDefaultLibraries>
       <OptimizeReferences Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </OptimizeReferences>
