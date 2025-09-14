@@ -17,3 +17,9 @@
 // Debugging
 #define INC_APP_IND 1 // Whether or not to include the AppIndicator (0: Disabled, 1: Enabled)
 #define SAVE_STATS 0  // Whether or not to save the ofc Calc Times to a log file (0: Disabled, 1: Enabled)
+
+// Default Settings
+#define DEFAULT_DELTA_SCALAR 8    // The default delta scalar used in the ofc calculation
+#define DEFAULT_NEIGHBOR_SCALAR 6 // The default neighbor scalar used in the ofc calculation
+#define DEFAULT_BLACK_LEVEL 0 // The default black level for the output
+#define DEFAULT_WHITE_LEVEL 255 // The default white level for the output

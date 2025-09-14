@@ -88,6 +88,7 @@ BEGIN
         LTEXT           "n/a", IDC_FRAMERES, 200, 170, 50, 9
         LTEXT           "n/a", IDC_CALCRES, 200, 185, 50, 9
     LTEXT           "HopperRender V2.0.1.1", IDS_STATIC, 10, 190, 100, 9
+    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 205, 205, 50, 14
 END
 
 STRINGTABLE DISCARDABLE

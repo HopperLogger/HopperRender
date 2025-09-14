@@ -28,6 +28,7 @@
 #define IDC_SCENECHANGETHRESHOLD        1029
 #define IDC_SIDEBYSIDE1                 1030
 #define IDC_SIDEBYSIDE2                 1031
+#define IDC_DEFAULTS                    1032
 
 // Next default values for new objects
 //

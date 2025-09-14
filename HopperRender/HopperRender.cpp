@@ -914,10 +914,10 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		m_iIntActiveState = Active;
 		m_iFrameOutput = BlendedFrame;
 		useDisplayRefreshRate();
-		*deltaScalar = 8;
-		*neighborScalar = 6;
-		*blackLevel = 0.0f;
-		*whiteLevel = 65535.0f;
+		*deltaScalar = DEFAULT_DELTA_SCALAR;
+		*neighborScalar = DEFAULT_NEIGHBOR_SCALAR;
+		*blackLevel = DEFAULT_BLACK_LEVEL;
+		*whiteLevel = DEFAULT_WHITE_LEVEL << 8;
 		*maxCalcRes = MAX_CALC_RES;
     }
     UpdateInterpolationStatus();
