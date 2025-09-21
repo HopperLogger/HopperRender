@@ -43,6 +43,7 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 	m_iIntActiveState(Active),
 	m_dSourceFPS(0.0),
 	m_dTargetFPS(0.0),
+    m_bUseDisplayFPS(true),
 	m_dOFCCalcTime(0.0),
 	m_dWarpCalcTime(0.0),
 	m_bIsInitialized(false),
@@ -84,6 +85,7 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iWhiteLevel);
 					Edit_SetText(GetDlgItem(m_Dlg, IDC_WHITELEVEL), sz);
 					CheckDlgButton(m_Dlg, IDC_DEFAULTS, BST_UNCHECKED);
+					CheckDlgButton(m_Dlg, IDC_USEDISPLAYFPS, BST_CHECKED);
 				}
 			}
 			break;
@@ -98,7 +100,7 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			int frameOutput;
 			int activeState;
 			double currentFPS = m_dSourceFPS;
-			m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
+			m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
 													 &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
 			m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 			m_iIntActiveState = static_cast<ActiveState>(activeState);
@@ -170,7 +172,7 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 	int frameOutput;
 	int activeState;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
-	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
+	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
 	                                         &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
 	m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 	m_iIntActiveState = static_cast<ActiveState>(activeState);
@@ -223,6 +225,13 @@ HRESULT CHopperRenderSettings::OnActivate() {
 		case SideBySide2:
 			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_SIDEBYSIDE2);
 			break;
+	}
+
+	// Set the initial Use Display FPS checkbox
+	if (m_bUseDisplayFPS) {
+		CheckDlgButton(m_Dlg, IDC_USEDISPLAYFPS, BST_CHECKED);
+	} else {
+		CheckDlgButton(m_Dlg, IDC_USEDISPLAYFPS, BST_UNCHECKED);
 	}
 
 	// Set the initial Target FPS
@@ -287,7 +296,7 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 	ValidateParameter(m_iWhiteLevel, 255, IDC_WHITELEVEL);
 
 	// Tell the filter about the new settings
-	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_dTargetFPS, m_iDeltaScalar, m_iNeighborScalar, m_iBlackLevel, m_iWhiteLevel);
+	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_dTargetFPS, m_bUseDisplayFPS, m_iDeltaScalar, m_iNeighborScalar, m_iBlackLevel, m_iWhiteLevel);
 
 	// Save the settings to the registry
 	if (saveSettings() != S_OK) {
@@ -302,7 +311,7 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 	int frameOutput;
 	int activeState;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
-	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
+	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
 	                                         &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
 	TCHAR sz[60];
 	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f\0"), m_dTargetFPS);
@@ -318,11 +327,7 @@ void CHopperRenderSettings::GetControlValues() {
 	int tmp2, tmp3, tmp4, tmp5;
 
 	// Find whether the filter is activated or not
-	if (IsDlgButtonChecked(m_Dlg, IDC_ON)) {
-		m_bActivated = true;
-	} else {
-		m_bActivated = false;
-	}
+	m_bActivated = IsDlgButtonChecked(m_Dlg, IDC_ON);
 
 	// Find the frame output
 	if (IsDlgButtonChecked(m_Dlg, IDC_WARPEDFRAME12)) {
@@ -340,6 +345,9 @@ void CHopperRenderSettings::GetControlValues() {
 	} else {
 		m_iFrameOutput = SideBySide2;
 	}
+
+	// Check if the use display fps checkbox is checked
+	m_bUseDisplayFPS = IsDlgButtonChecked(m_Dlg, IDC_USEDISPLAYFPS);
 
 	// Get the target fps
 	Edit_GetText(GetDlgItem(m_Dlg, IDC_TARGETFPS), sz, STR_MAX_LENGTH);
@@ -415,7 +423,8 @@ HRESULT CHopperRenderSettings::saveSettings() {
     
     if (result0 == ERROR_SUCCESS) {
         // Save activated state
-        LONG result1 = RegSetValueEx(hKey, L"Activated", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_bActivated), sizeof(DWORD));
+		DWORD activated = m_bActivated ? 1 : 0;
+        LONG result1 = RegSetValueEx(hKey, L"Activated", 0, REG_DWORD, reinterpret_cast<BYTE*>(&activated), sizeof(DWORD));
 
 		// Save Frame Output
 		LONG result2 = RegSetValueEx(hKey, L"FrameOutput", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iFrameOutput), sizeof(DWORD));
@@ -423,22 +432,26 @@ HRESULT CHopperRenderSettings::saveSettings() {
 		// Save the target fps
 		LONG result3 = RegSetValueEx(hKey, L"TargetFPS", 0, REG_BINARY, reinterpret_cast<const BYTE*>(&m_dTargetFPS), sizeof(double));
 
+		// Save the use display fps flag
+		DWORD useDisplayFPS = m_bUseDisplayFPS ? 1 : 0;
+		LONG result4 = RegSetValueEx(hKey, L"Use Display FPS", 0, REG_DWORD, reinterpret_cast<BYTE*>(&useDisplayFPS), sizeof(DWORD));
+
 		// Save the delta scalar
-		LONG result4 = RegSetValueEx(hKey, L"DeltaScalar", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iDeltaScalar), sizeof(DWORD));
+		LONG result5 = RegSetValueEx(hKey, L"DeltaScalar", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iDeltaScalar), sizeof(DWORD));
 
 		// Save the neighbor scalar
-		LONG result5 = RegSetValueEx(hKey, L"NeighborScalar", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iNeighborScalar), sizeof(DWORD));
+		LONG result6 = RegSetValueEx(hKey, L"NeighborScalar", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iNeighborScalar), sizeof(DWORD));
 
 		// Save the black level
-		LONG result6 = RegSetValueEx(hKey, L"BlackLevel", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iBlackLevel), sizeof(DWORD));
+		LONG result7 = RegSetValueEx(hKey, L"BlackLevel", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iBlackLevel), sizeof(DWORD));
 
 		// Save the white level
-		LONG result7 = RegSetValueEx(hKey, L"WhiteLevel", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iWhiteLevel), sizeof(DWORD));
+		LONG result8 = RegSetValueEx(hKey, L"WhiteLevel", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iWhiteLevel), sizeof(DWORD));
 		
 		RegCloseKey(hKey); // Close the registry key
 
 		// Check for errors
-        if (result1 || result2 || result3 || result4 || result5 || result6 || result7) {
+        if (result1 || result2 || result3 || result4 || result5 || result6 || result7 || result8) {
 			return E_FAIL;
         } else {
             return S_OK;

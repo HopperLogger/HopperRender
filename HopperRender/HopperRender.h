@@ -48,6 +48,7 @@ public:
 	STDMETHODIMP GetCurrentSettings(bool* pbActivated,
 		int* piFrameOutput,
 		double* pdTargetFPS,
+		bool* pbUseDisplayFPS,
 		int* piDeltaScalar,
 		int* piNeighborScalar,
 		int* piBlackLevel,
@@ -60,7 +61,7 @@ public:
 		int* piDimY,
 		int* piLowDimX,
 		int* piLowDimY) override;
-	STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS,
+	STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS,
 							        int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel) override;
 
 	// ISpecifyPropertyPages interface
@@ -105,5 +106,6 @@ public:
 	ActiveState m_iIntActiveState; // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
 
     double m_dTotalWarpDuration; // The total duration of the current frame warp
-	double blendingScalar; // Blends from frame 1 to frame 2 (0.0 shows 100% frame 1, 1.0 shows 100% frame 2)
+	double m_dBlendingScalar; // Blends from frame 1 to frame 2 (0.0 shows 100% frame 1, 1.0 shows 100% frame 2)
+	bool m_bUseDisplayFPS; // Whether to use the display refresh rate as target FPS
 };

@@ -54,15 +54,15 @@ BEGIN
         CONTROL         "Off", IDC_OFF,"Button", BS_AUTORADIOBUTTON, 11, 40, 47, 10
 
     GROUPBOX        "Frame Output", IDS_STATIC, 4, 65, 115, 120
-        CONTROL         "WarpedFrame 1 -> 2", IDC_WARPEDFRAME12, "Button", BS_AUTORADIOBUTTON | WS_GROUP, 11, 80, 80, 10
-        CONTROL         "WarpedFrame 2 -> 1", IDC_WARPEDFRAME21, "Button", BS_AUTORADIOBUTTON, 11, 95, 80, 10
-        CONTROL         "BlendedFrame", IDC_BLENDEDFRAME, "Button", BS_AUTORADIOBUTTON, 11, 110, 80, 10
+        CONTROL         "BlendedFrame (Default)", IDC_BLENDEDFRAME, "Button", BS_AUTORADIOBUTTON, 11, 80, 80, 10
+        CONTROL         "WarpedFrame 1 -> 2", IDC_WARPEDFRAME12, "Button", BS_AUTORADIOBUTTON | WS_GROUP, 11, 95, 80, 10
+        CONTROL         "WarpedFrame 2 -> 1", IDC_WARPEDFRAME21, "Button", BS_AUTORADIOBUTTON, 11, 110, 80, 10
         CONTROL         "HSV Flow", IDC_HSVFLOW, "Button", BS_AUTORADIOBUTTON, 11, 125, 80, 10
         CONTROL         "Grey Flow", IDC_GREYFLOW, "Button", BS_AUTORADIOBUTTON, 11, 140, 80, 10
         CONTROL         "Side-by-side 1", IDC_SIDEBYSIDE1, "Button", BS_AUTORADIOBUTTON, 11, 155, 80, 10
         CONTROL         "Side-by-side 2", IDC_SIDEBYSIDE2, "Button", BS_AUTORADIOBUTTON, 11, 170, 80, 10
 
-    GROUPBOX        "Parameters", IDS_STATIC, 125, 10, 130, 95
+    GROUPBOX        "Parameters", IDS_STATIC, 125, 10, 190, 95
         EDITTEXT        IDC_TARGETFPS, 200, 25, 40, 13, ES_AUTOHSCROLL
         EDITTEXT        IDC_DELTASCALAR, 200, 40, 40, 13, ES_AUTOHSCROLL
         EDITTEXT        IDC_NEIGHBORSCALAR, 200, 55, 40, 13, ES_AUTOHSCROLL
@@ -73,6 +73,7 @@ BEGIN
         LTEXT           "Neighbor Scalar", IDS_STATIC, 132, 55, 60, 9
         LTEXT           "Black Level", IDS_STATIC, 132, 70, 60, 9
         LTEXT           "White Level", IDS_STATIC, 132, 85, 60, 9
+        CONTROL         "Use Display FPS", IDC_USEDISPLAYFPS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 245, 25, 70, 13
 
     GROUPBOX        "Status", IDS_STATIC, 125, 110, 130, 90
         LTEXT           "Int Active", IDS_STATIC, 132, 110, 60, 9
@@ -87,7 +88,7 @@ BEGIN
         LTEXT           "n/a", IDC_WARPCALCTIME, 200, 155, 50, 9
         LTEXT           "n/a", IDC_FRAMERES, 200, 170, 50, 9
         LTEXT           "n/a", IDC_CALCRES, 200, 185, 50, 9
-    LTEXT           "HopperRender V2.0.1.2", IDS_STATIC, 10, 190, 100, 9
+    LTEXT           "HopperRender V2.0.1.3", IDS_STATIC, 10, 190, 100, 9
     PUSHBUTTON      "Defaults", IDC_DEFAULTS, 205, 205, 50, 14
 END
 

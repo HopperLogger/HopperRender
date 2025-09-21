@@ -14,6 +14,7 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		bool* pbActivated, // Whether the filter is activated by the user
 		int* piFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
 		double* pdTargetFPS,
+		bool* pbUseDisplayFPS,
 		int* piDeltaScalar,
 		int* piNeighborScalar,
 		int* piBlackLevel,
@@ -32,6 +33,7 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		bool bActivated, // Whether the filter is activated by the user
 		int iFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
 		double dTargetFPS,
+		bool bUseDisplayFPS,
 		int iDeltaScalar,
 		int iNeighborScalar,
 		int iBlackLevel,
