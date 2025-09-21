@@ -814,6 +814,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		int* piIntActiveState,
 		double* pdSourceFPS,
 		double* pdOFCCalcTime,
+		double* pdAVGOFCCalcTime,
+		double* pdPeakOFCCalcTime,
 		double* pdWarpCalcTime,
 		int* piDimX,
 		int* piDimY,
@@ -831,6 +833,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	CheckPointer(piIntActiveState, E_POINTER)
 	CheckPointer(pdSourceFPS, E_POINTER)
 	CheckPointer(pdOFCCalcTime, E_POINTER)
+	CheckPointer(pdAVGOFCCalcTime, E_POINTER)
+	CheckPointer(pdPeakOFCCalcTime, E_POINTER)
 	CheckPointer(pdWarpCalcTime, E_POINTER)
 	CheckPointer(piDimX, E_POINTER)
 	CheckPointer(piDimY, E_POINTER)
@@ -858,6 +862,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piIntActiveState = Active;
 		*pdSourceFPS = 0.0;
 		*pdOFCCalcTime = 0.0;
+		*pdAVGOFCCalcTime = 0.0;
+		*pdPeakOFCCalcTime = 0.0;
 		*pdWarpCalcTime = 0.0;
 		*piDimX = 0;
 		*piDimY = 0;
@@ -877,6 +883,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piIntActiveState = m_iIntActiveState;
 		*pdSourceFPS = 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime);
 		*pdOFCCalcTime = 1000.0 * m_pofcOpticalFlowCalc->m_ofcCalcTime;
+		*pdAVGOFCCalcTime = 1000.0 * m_pofcOpticalFlowCalc->m_ofcAvgCalcTime;
+		*pdPeakOFCCalcTime = 1000.0 * m_pofcOpticalFlowCalc->m_ofcPeakCalcTime;
 		*pdWarpCalcTime = 1000.0 * m_dTotalWarpDuration;
 		*piDimX = m_iDimX;
 		*piDimY = m_iDimY;

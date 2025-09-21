@@ -56,6 +56,8 @@ public:
 		int* piIntActiveState,
 		double* pdSourceFPS,
 		double* pdOFCCalcTime,
+	    double* pdAVGOFCCalcTime,
+		double* pdPeakOFCCalcTime,
 		double* pdWarpCalcTime,
 		int* piDimX,
 		int* piDimY,

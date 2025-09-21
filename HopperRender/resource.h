@@ -30,6 +30,8 @@
 #define IDC_SIDEBYSIDE2                 1031
 #define IDC_DEFAULTS                    1032
 #define IDC_USEDISPLAYFPS               1033
+#define IDC_AVGOFCCALCTIME              1034
+#define IDC_PEAKOFCCALCTIME             1035
 
 // Next default values for new objects
 //
