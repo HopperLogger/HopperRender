@@ -24,6 +24,8 @@
 #include "CustomInputPin.h"
 #include "IMediaSideData.h"
 #include <atlcomcli.h>
+#include <vector>
+#include <cwchar>
 
 // Debug message function
 void DebugMessage(const std::string& logMessage, const bool showLog) {
@@ -151,15 +153,108 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_pOutput = new CTransformOutputPin(NAME("Transform output pin"), this, phr, L"XForm Out");
 }
 
-void CHopperRender::useDisplayRefreshRate() {
-    DEVMODE devMode;
-    ZeroMemory(&devMode, sizeof(devMode));
-    devMode.dmSize = sizeof(devMode);
+static inline double ComputeRefreshHz(const DISPLAYCONFIG_PATH_INFO& path, const DISPLAYCONFIG_MODE_INFO* modes) noexcept
+{
+    double freq = 0.0;
 
-    if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devMode)) {
-	DWORD refreshRate = devMode.dmDisplayFrequency;
-	m_rtTargetFrameTime = (1.0 / (double)refreshRate) * 1e7;
+    if (path.targetInfo.modeInfoIdx != DISPLAYCONFIG_PATH_MODE_IDX_INVALID) {
+        const DISPLAYCONFIG_MODE_INFO* mode = &modes[path.targetInfo.modeInfoIdx];
+        if (mode->infoType == DISPLAYCONFIG_MODE_INFO_TYPE_TARGET) {
+            const DISPLAYCONFIG_RATIONAL* vSyncFreq = &mode->targetMode.targetVideoSignalInfo.vSyncFreq;
+            if (vSyncFreq->Denominator != 0 && vSyncFreq->Numerator / vSyncFreq->Denominator > 1) {
+                freq = static_cast<double>(vSyncFreq->Numerator) / static_cast<double>(vSyncFreq->Denominator);
+            }
+        }
     }
+
+    if (freq == 0.0) {
+        const DISPLAYCONFIG_RATIONAL* refreshRate = &path.targetInfo.refreshRate;
+        if (refreshRate->Denominator != 0 && refreshRate->Numerator / refreshRate->Denominator > 1) {
+            freq = static_cast<double>(refreshRate->Numerator) / static_cast<double>(refreshRate->Denominator);
+        }
+    }
+
+    return freq;
+}
+
+double GetDisplayRefreshRateByName(const wchar_t* displayName) noexcept
+{
+    if (!displayName || !displayName[0]) {
+        return 0.0;
+    }
+
+    UINT32 numPaths = 0;
+    UINT32 numModes = 0;
+    std::vector<DISPLAYCONFIG_PATH_INFO> paths;
+    std::vector<DISPLAYCONFIG_MODE_INFO> modes;
+    LONG res;
+
+    // The display configuration may change; loop until buffers are sized correctly.
+    do {
+        res = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &numPaths, &numModes);
+        if (res == ERROR_SUCCESS) {
+            paths.resize(numPaths);
+            modes.resize(numModes);
+            res = QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &numPaths, paths.data(), &numModes, modes.data(), nullptr);
+        }
+    } while (res == ERROR_INSUFFICIENT_BUFFER);
+
+    if (res != ERROR_SUCCESS) {
+        return 0.0;
+    }
+
+    // numPaths/numModes could have decreased between calls
+    paths.resize(numPaths);
+    modes.resize(numModes);
+
+    for (const auto& path : paths) {
+        DISPLAYCONFIG_SOURCE_DEVICE_NAME source = {
+            { DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME, sizeof(source), path.sourceInfo.adapterId, path.sourceInfo.id }, {}
+        };
+
+        if (DisplayConfigGetDeviceInfo(&source.header) == ERROR_SUCCESS) {
+            if (wcscmp(displayName, source.viewGdiDeviceName) == 0) {
+                return ComputeRefreshHz(path, modes.data());
+            }
+        }
+    }
+
+    return 0.0;
+}
+
+double GetDisplayRefreshRateForWindow(HWND hwnd) noexcept
+{
+    HMONITOR hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
+    if (!hMon) {
+        return 0.0;
+    }
+
+    MONITORINFOEXW mi{};
+    mi.cbSize = sizeof(mi);
+    if (!GetMonitorInfoW(hMon, reinterpret_cast<MONITORINFO*>(&mi))) {
+        return 0.0;
+    }
+
+    // mi.szDevice is the GDI device name, e.g. "\\.\DISPLAY1"
+    return GetDisplayRefreshRateByName(mi.szDevice);
+}
+
+void CHopperRender::useDisplayRefreshRate() {
+	// Get the window handle of the renderer
+    HWND hwnd = nullptr;
+    if (m_pGraph) {
+        CComPtr<IVideoWindow> pVW;
+        if (SUCCEEDED(m_pGraph->QueryInterface(IID_IVideoWindow, (void**)&pVW)) && pVW) {
+            OAHWND oahwnd = 0;
+            if (SUCCEEDED(pVW->get_Owner(&oahwnd))) {
+                hwnd = reinterpret_cast<HWND>(oahwnd);
+            }
+        }
+    }
+
+	// Get the display refresh rate of the monitor the window is on
+    double refreshRate = GetDisplayRefreshRateForWindow(hwnd);
+	m_rtTargetFrameTime = (1.0 / (double)refreshRate) * 1e7;
 }
 
 template <class T> void SafeRelease(T** ppT) {
@@ -364,6 +459,11 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 		CMediaType* pMediaType = &m_pOutput->CurrentMediaType();
 		UpdateVideoInfoHeader(pMediaType);
 		m_pOutput->SetMediaType(pMediaType);
+	}
+
+	// Update the display refresh rate once a second if the option is enabled
+	if (m_bUseDisplayFPS && (m_iFrameCounter % static_cast<int>(1e7 / m_rtSourceFrameTime) == 0)) {
+		useDisplayRefreshRate();
 	}
 
 	m_iFrameCounter++;
