@@ -461,8 +461,8 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 		m_pOutput->SetMediaType(pMediaType);
 	}
 
-	// Update the display refresh rate once a second if the option is enabled
-	if (m_bUseDisplayFPS && (m_iFrameCounter % static_cast<int>(1e7 / m_rtSourceFrameTime) == 0)) {
+	// Update the display refresh rate every 5 seconds if the option is enabled
+	if (m_bUseDisplayFPS && (m_iFrameCounter % (5 * 10000000 / m_rtTargetFrameTime) == 0)) {
 		useDisplayRefreshRate();
 	}
 
