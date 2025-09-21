@@ -29,6 +29,7 @@
 #define IDC_SIDEBYSIDE1                 1030
 #define IDC_SIDEBYSIDE2                 1031
 #define IDC_DEFAULTS                    1032
+#define IDC_USEDISPLAYFPS               1033
 
 // Next default values for new objects
 //

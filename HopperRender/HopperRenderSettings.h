@@ -30,6 +30,7 @@ private:
 	ActiveState m_iIntActiveState; // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
 	double m_dSourceFPS; // The source frames per second
 	double m_dTargetFPS;
+	bool m_bUseDisplayFPS;
 	double m_dOFCCalcTime;
 	double m_dWarpCalcTime;
 	bool m_bIsInitialized; // Used to ignore startup messages
