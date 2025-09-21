@@ -112,6 +112,17 @@ void OpticalFlowCalcSDR::calculateOpticalFlow() {
     CHECK_ERROR(clGetEventProfilingInfo(m_ofcStartedEvent, CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &start_time, NULL));
     CHECK_ERROR(clGetEventProfilingInfo(ofcEndEvent, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_time, NULL));
     m_ofcCalcTime = (double)(end_time - start_time) / 1e9;
+    if (m_ofcCalcCount >= CALC_TIME_INTERVAL) { // Update average and peak every 10 seconds (assuming 24 fps)
+        m_ofcAvgCalcTime = m_ofcCalcTimeSum / m_ofcCalcCount;
+        m_ofcCalcCount = 0;
+	    m_ofcCalcTimeSum = 0.0;
+	    m_ofcPeakCalcTime = m_ofcCalcTime;
+    }
+	m_ofcCalcCount++;
+    m_ofcCalcTimeSum += m_ofcCalcTime;
+    if (m_ofcCalcTime > m_ofcPeakCalcTime) {
+        m_ofcPeakCalcTime = m_ofcCalcTime;
+    }
 }
 
 void OpticalFlowCalcSDR::warpFrames(const float blendingScalar, const int frameOutputMode) {
@@ -194,6 +205,10 @@ OpticalFlowCalcSDR::OpticalFlowCalcSDR(const int frameHeight,
     m_opticalFlowFrameWidth = ceil(m_actualWidth / pow(2, m_opticalFlowResScalar));
     m_opticalFlowFrameHeight = ceil(m_frameHeight / pow(2, m_opticalFlowResScalar));
     m_ofcCalcTime = 0.0;
+    m_ofcAvgCalcTime = 0.0;
+    m_ofcPeakCalcTime = 0.0;
+    m_ofcCalcCount = 0;
+    m_ofcCalcTimeSum = 0.0;
     m_warpCalcTime = 0.0;
     m_deltaScalar = deltaScalar;
     m_neighborBiasScalar = neighborScalar;

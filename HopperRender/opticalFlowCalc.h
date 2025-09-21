@@ -27,6 +27,10 @@ public:
     int m_opticalFlowFrameHeight;   // Height of the frame used by the optical flow calculation
     int m_opticalFlowSearchRadius;  // Search radius used for the optical flow calculation
     double m_ofcCalcTime;           // The time it took to calculate the optical flow
+    double m_ofcAvgCalcTime;        // The average time it took to calculate the optical flow
+    double m_ofcPeakCalcTime;       // The peak time it took to calculate the optical flow
+    int m_ofcCalcCount;             // The number of optical flow calculations performed (used for averaging)
+    double m_ofcCalcTimeSum;        // The sum of all optical flow calculation times (used for averaging)
     double m_warpCalcTime;          // The time it took to warp the current intermediate frame
     int m_deltaScalar;              // How many bits the pixel delta values are shifted to the left (affects the weight of the delta values)
     int m_neighborBiasScalar;       // How many bits the neighbor bias values are shifted to the left (affects the weight of the neighbor bias)

@@ -75,21 +75,25 @@ BEGIN
         LTEXT           "White Level", IDS_STATIC, 132, 85, 60, 9
         CONTROL         "Use Display FPS", IDC_USEDISPLAYFPS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 245, 25, 70, 13
 
-    GROUPBOX        "Status", IDS_STATIC, 125, 110, 130, 90
+    GROUPBOX        "Status", IDS_STATIC, 125, 110, 130, 120
         LTEXT           "Int Active", IDS_STATIC, 132, 110, 60, 9
         LTEXT           "Source FPS", IDS_STATIC, 132, 125, 60, 9
         LTEXT           "OFC Calc Time", IDS_STATIC, 132, 140, 60, 9
-        LTEXT           "Warp Calc Time", IDS_STATIC, 132, 155, 60, 9
-        LTEXT           "Frame Resolution", IDS_STATIC, 132, 170, 60, 9
-        LTEXT           "Calc Resolution", IDS_STATIC, 132, 185, 60, 9
+        LTEXT           "Avg OFC Time", IDS_STATIC, 132, 155, 60, 9
+        LTEXT           "Peak OFC Time", IDS_STATIC, 132, 170, 60, 9
+        LTEXT           "Warp Calc Time", IDS_STATIC, 132, 185, 60, 9
+        LTEXT           "Frame Resolution", IDS_STATIC, 132, 200, 60, 9
+        LTEXT           "Calc Resolution", IDS_STATIC, 132, 215, 60, 9
         LTEXT           "n/a", IDC_INTACTIVE, 200, 110, 50, 9
         LTEXT           "n/a", IDC_SOURCEFPS, 200, 125, 50, 9
         LTEXT           "n/a", IDC_OFCCALCTIME, 200, 140, 50, 9
-        LTEXT           "n/a", IDC_WARPCALCTIME, 200, 155, 50, 9
-        LTEXT           "n/a", IDC_FRAMERES, 200, 170, 50, 9
-        LTEXT           "n/a", IDC_CALCRES, 200, 185, 50, 9
+        LTEXT           "n/a", IDC_AVGOFCCALCTIME, 200, 155, 50, 9
+        LTEXT           "n/a", IDC_PEAKOFCCALCTIME, 200, 170, 50, 9
+        LTEXT           "n/a", IDC_WARPCALCTIME, 200, 185, 50, 9
+        LTEXT           "n/a", IDC_FRAMERES, 200, 200, 50, 9
+        LTEXT           "n/a", IDC_CALCRES, 200, 215, 50, 9
     LTEXT           "HopperRender V2.0.1.3", IDS_STATIC, 10, 190, 100, 9
-    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 205, 205, 50, 14
+    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 205, 235, 50, 14
 END
 
 STRINGTABLE DISCARDABLE

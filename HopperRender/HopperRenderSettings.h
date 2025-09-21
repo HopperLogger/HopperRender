@@ -32,6 +32,8 @@ private:
 	double m_dTargetFPS;
 	bool m_bUseDisplayFPS;
 	double m_dOFCCalcTime;
+	double m_dAVGOFCCalcTime;
+	double m_dPeakOFCCalcTime;
 	double m_dWarpCalcTime;
 	bool m_bIsInitialized; // Used to ignore startup messages
 	SettingsInterface* m_pSettingsInterface; // The custom interface on the filter

@@ -303,3 +303,12 @@
 - Fixed custom target fps being rounded to integer values
 - Fixed interpolation not beeing deactivated when target fps is lower than source fps
 - Fixed player crashing when trying to access filter settings in the external filters section
+
+## [Version 2.0.1.3] - 2025-09-21 - Fully functional
+### Added
+- Added a average and peak calculation time metrics to the settings panel for the optical flow calculation
+- Added a checkbox which allows the user to use the display refresh rate as target fps
+
+### Changed
+- The display refresh rate is now queried every 5 seconds and is now aware of the current display the player is on
+- The Blended Frame output mode is now the top option in the settings pannel to highlight it is the default and recommended mode

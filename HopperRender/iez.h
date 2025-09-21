@@ -22,6 +22,8 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int* piIntActiveState, // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
 		double* pdSourceFPS, // The source frames per second
 		double* pdOFCCalcTime,
+		double* pdAVGOFCCalcTime,
+		double* pdPeakOFCCalcTime,
 		double* pdWarpCalcTime,
 		int* piDimX, // The width of the frame
 		int* piDimY, // The height of the frame

@@ -14,6 +14,8 @@
 #define UPPER_PERF_BUFFER 1.4 // The upper performance buffer, i.e. calc_time * upper_buffer > frame_time triggers quality reduction
 #define LOWER_PERF_BUFFER 1.6 // The lower performance buffer, i.e. calc_time * lower_buffer < frame_time triggers quality improvement
 
+#define CALC_TIME_INTERVAL 240 // The time interval (in frames) in which the average and peak ofc calculation time is calculated
+
 // Debugging
 #define INC_APP_IND 1 // Whether or not to include the AppIndicator (0: Disabled, 1: Enabled)
 #define SAVE_STATS 0  // Whether or not to save the ofc Calc Times to a log file (0: Disabled, 1: Enabled)
