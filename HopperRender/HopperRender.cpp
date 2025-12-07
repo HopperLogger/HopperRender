@@ -329,6 +329,15 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_pOutput = new CTransformOutputPin(NAME("Transform output pin"), this, phr, L"XForm Out");
 }
 
+// Destructor
+CHopperRender::~CHopperRender() {
+	CloseLogging();
+	if (m_pofcOpticalFlowCalc) {
+		delete m_pofcOpticalFlowCalc;
+		m_pofcOpticalFlowCalc = nullptr;
+	}
+}
+
 static inline double ComputeRefreshHz(const DISPLAYCONFIG_PATH_INFO& path, const DISPLAYCONFIG_MODE_INFO* modes) noexcept
 {
     double freq = 0.0;
