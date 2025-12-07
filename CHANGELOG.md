@@ -312,3 +312,7 @@
 ### Changed
 - The display refresh rate is now queried every 5 seconds and is now aware of the current display the player is on
 - The Blended Frame output mode is now the top option in the settings pannel to highlight it is the default and recommended mode
+
+## [Version 2.0.1.4] - 2025-12-07 - Fully functional
+### Added
+- Added log file functionality to allow better debugging of issues (Log files will be created in the temp folder at %TEMP%)
