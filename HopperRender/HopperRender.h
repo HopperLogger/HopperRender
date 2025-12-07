@@ -90,6 +90,7 @@ class CHopperRender : public CTransformFilter,
     void LogError(const char* functionName, const char* errorMessage);
 
     CCritSec m_csHopperRenderLock; // Private play critical section
+    CCritSec m_csLogLock; // Critical section for logging
 
     // Settings
 	FrameOutput m_iFrameOutput; // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
