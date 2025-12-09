@@ -44,6 +44,7 @@ class CHopperRender : public CTransformFilter,
     HRESULT CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) override;
     HRESULT Transform(IMediaSample* pIn, IMediaSample* pOut) override;
 	HRESULT NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) override;
+    STDMETHODIMP Stop() override;
 
     // These implement the custom settings interface
 	STDMETHODIMP GetCurrentSettings(bool* pbActivated,

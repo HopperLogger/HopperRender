@@ -50,7 +50,6 @@ void InitializeGlobalLogging() {
     }
     
     EnterCriticalSection(&g_globalLogLock);
-    EnterCriticalSection(&g_globalLogLock);
     
     if (g_loggingInitialized) {
         LeaveCriticalSection(&g_globalLogLock);
@@ -104,10 +103,7 @@ void CloseGlobalLogging() {
     }
     
     LeaveCriticalSection(&g_globalLogLock);
-    
-    // Clean up critical section
     DeleteCriticalSection(&g_globalLogLock);
-    g_critSecInitialized = false;
 }
 
 void LogGlobalError(const char* functionName, const char* errorMessage) {
@@ -296,23 +292,23 @@ CHopperRender::CHopperRender(TCHAR* tszName,
                              LPUNKNOWN punk,
                              HRESULT* phr) :
 	CTransformFilter(tszName, punk, CLSID_HopperRender),
-      // Settings
-      m_iFrameOutput(BlendedFrame),
+    // Settings
+    m_iFrameOutput(BlendedFrame),
 
-      // Video info
+    // Video info
 	m_iDimX(1),
 	m_iDimY(1),
 
-      // Timings
+    // Timings
 	m_rtCurrStartTime(-1),
 	m_rtSourceFrameTime(0),
 	m_rtTargetFrameTime(166667),
 	m_rtCurrPlaybackFrameTime(0),
 
-      // Optical Flow calculation
-      m_pofcOpticalFlowCalc(nullptr),
+    // Optical Flow calculation
+    m_pofcOpticalFlowCalc(nullptr),
 
-      // Frame output
+    // Frame output
 	m_iFrameCounter(0),
 	m_iNumIntFrames(1),
 
@@ -325,17 +321,36 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 
     InitializeLogging();
 
+    delete m_pInput;
+    delete m_pOutput;
     m_pInput = new CCustomInputPin(phr, L"XForm In", this);
 	m_pOutput = new CTransformOutputPin(NAME("Transform output pin"), this, phr, L"XForm Out");
 }
 
 // Destructor
 CHopperRender::~CHopperRender() {
+	LogGlobalInfo("CHopperRender::~CHopperRender", "Destructor called - cleaning up filter instance");
 	CloseLogging();
 	if (m_pofcOpticalFlowCalc) {
 		delete m_pofcOpticalFlowCalc;
 		m_pofcOpticalFlowCalc = nullptr;
 	}
+	LogGlobalInfo("CHopperRender::~CHopperRender", "Destructor completed");
+}
+
+// Override Stop to ensure proper cleanup
+STDMETHODIMP CHopperRender::Stop() {
+    LogGlobalInfo("CHopperRender::Stop", "Filter stopping");
+    
+    HRESULT hr = CTransformFilter::Stop();
+    
+    if (FAILED(hr)) {
+        LogGlobalError("CHopperRender::Stop", "Failed to stop filter");
+    } else {
+        LogGlobalInfo("CHopperRender::Stop", "Filter stopped successfully");
+    }
+    
+    return hr;
 }
 
 static inline double ComputeRefreshHz(const DISPLAYCONFIG_PATH_INFO& path, const DISPLAYCONFIG_MODE_INFO* modes) noexcept
@@ -485,20 +500,32 @@ HRESULT CHopperRender::CheckInputType(const CMediaType* mtIn) {
     CheckPointer(mtIn, E_POINTER)
 
 	// We only accept the VideoInfo2 header
-	if (*mtIn->FormatType() != FORMAT_VideoInfo2) {
-	LogError("CheckInputType",
-		 "Invalid format type - only VideoInfo2 is accepted");
-	return E_INVALIDARG;
-    }
+	GUID formatType = *mtIn->FormatType();
+	if (formatType != FORMAT_VideoInfo && formatType != FORMAT_VideoInfo2) {
+		char formatTypeStr[100];
+		sprintf_s(formatTypeStr, "Invalid format type - GUID: {%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
+			formatType.Data1, formatType.Data2, formatType.Data3,
+			formatType.Data4[0], formatType.Data4[1], formatType.Data4[2], formatType.Data4[3],
+			formatType.Data4[4], formatType.Data4[5], formatType.Data4[6], formatType.Data4[7]);
+		LogError("CheckInputType", formatTypeStr);
+		return E_INVALIDARG;
+	} else {
+	    char formatTypeStr[100];
+		sprintf_s(formatTypeStr, "Accepted format type - GUID: {%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
+			formatType.Data1, formatType.Data2, formatType.Data3,
+			formatType.Data4[0], formatType.Data4[1], formatType.Data4[2], formatType.Data4[3],
+		      formatType.Data4[4], formatType.Data4[5],
+		      formatType.Data4[6], formatType.Data4[7]);
+	    LogGlobalInfo("CheckInputType", formatTypeStr);
+	}
 
     // We only accept NV12 or P010 input
     if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) &&
 		(IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) || IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010))) {
-	return NOERROR;
+		return NOERROR;
     }
 
-    LogError("CheckInputType",
-	     "Invalid media subtype - only NV12 or P010 is accepted");
+    LogError("CheckInputType", "Invalid media subtype - only NV12 or P010 is accepted");
     return E_FAIL;
 }
 
@@ -582,28 +609,60 @@ HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType) {
 HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     // Get the input media type information
     CMediaType* mtIn = &m_pInput->CurrentMediaType();
-    auto pvi = (VIDEOINFOHEADER2*)mtIn->Format();
-    const long biWidth = pvi->bmiHeader.biWidth;
-    const long biHeight = pvi->bmiHeader.biHeight;
-    const unsigned int dwX = pvi->dwPictAspectRatioX;
-    const unsigned int dwY = pvi->dwPictAspectRatioY;
+    
+    long biWidth, biHeight;
+    unsigned int dwX, dwY;
+    REFERENCE_TIME avgTimePerFrame;
+    DWORD dwBitRate, dwBitErrorRate, dwCopyProtectFlags, dwInterlaceFlags, dwControlFlags, dwReserved1, dwReserved2;
+    
+    // Check if input is VIDEOINFOHEADER or VIDEOINFOHEADER2
+    if (*mtIn->FormatType() == FORMAT_VideoInfo) {
+        auto pvi = (VIDEOINFOHEADER*)mtIn->Format();
+        biWidth = pvi->bmiHeader.biWidth;
+        biHeight = pvi->bmiHeader.biHeight;
+        avgTimePerFrame = pvi->AvgTimePerFrame;
+        dwBitRate = pvi->dwBitRate;
+        dwBitErrorRate = pvi->dwBitErrorRate;
+        dwX = biWidth;
+        dwY = biHeight;
+        dwCopyProtectFlags = 0;
+        dwInterlaceFlags = 0;
+        dwControlFlags = 0;
+        dwReserved1 = 0;
+        dwReserved2 = 0;
+    } else {
+        auto pvi2 = (VIDEOINFOHEADER2*)mtIn->Format();
+        biWidth = pvi2->bmiHeader.biWidth;
+        biHeight = pvi2->bmiHeader.biHeight;
+        avgTimePerFrame = pvi2->AvgTimePerFrame;
+        dwBitRate = pvi2->dwBitRate;
+        dwBitErrorRate = pvi2->dwBitErrorRate;
+        dwX = pvi2->dwPictAspectRatioX;
+        dwY = pvi2->dwPictAspectRatioY;
+        dwCopyProtectFlags = pvi2->dwCopyProtectFlags;
+        dwInterlaceFlags = pvi2->dwInterlaceFlags;
+        dwControlFlags = pvi2->dwControlFlags;
+        dwReserved1 = pvi2->dwReserved1;
+        dwReserved2 = pvi2->dwReserved2;
+    }
+    
     const GUID guid = MEDIASUBTYPE_P010;
 
-    // Set the VideoInfoHeader2 information
+    // Set the VideoInfoHeader2 information for the output media type
 	VIDEOINFOHEADER2* vih2 = (VIDEOINFOHEADER2*)pMediaType->ReallocFormatBuffer(sizeof(VIDEOINFOHEADER2));
     memset(vih2, 0, sizeof(VIDEOINFOHEADER2));
     vih2->rcSource.right = vih2->rcTarget.right = biWidth;
     vih2->rcSource.bottom = vih2->rcTarget.bottom = biHeight;
-    vih2->AvgTimePerFrame = pvi->AvgTimePerFrame;
+    vih2->AvgTimePerFrame = avgTimePerFrame;
     vih2->dwPictAspectRatioX = dwX;
     vih2->dwPictAspectRatioY = dwY;
-    vih2->dwBitRate = pvi->dwBitRate;
-    vih2->dwBitErrorRate = pvi->dwBitErrorRate;
-    vih2->dwCopyProtectFlags = pvi->dwCopyProtectFlags;
-    vih2->dwInterlaceFlags = 0;
-    vih2->dwControlFlags = pvi->dwControlFlags;
-    vih2->dwReserved1 = pvi->dwReserved1;
-    vih2->dwReserved2 = pvi->dwReserved2;
+    vih2->dwBitRate = dwBitRate;
+    vih2->dwBitErrorRate = dwBitErrorRate;
+    vih2->dwCopyProtectFlags = dwCopyProtectFlags;
+    vih2->dwInterlaceFlags = dwInterlaceFlags;
+    vih2->dwControlFlags = dwControlFlags;
+    vih2->dwReserved1 = dwReserved1;
+    vih2->dwReserved2 = dwReserved2;
 
     // Set the BitmapInfoHeader information
     BITMAPINFOHEADER* pBIH = nullptr;

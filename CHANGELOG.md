@@ -316,3 +316,11 @@
 ## [Version 2.0.1.4] - 2025-12-07 - Fully functional
 ### Added
 - Added log file functionality to allow better debugging of issues (Log files will be created in the temp folder at %TEMP%)
+
+## [Version 2.0.1.5] - 2025-12-09 - Fully functional
+### Added
+- Added support for VIDEOINFOHEADER input media type
+
+### Fixed
+- Fixed BlendedFrame output mode selection bug in settings panel
+- Fixed crashing of player when unloading the filter on some systems
