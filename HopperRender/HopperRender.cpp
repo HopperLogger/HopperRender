@@ -301,7 +301,7 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 
     // Timings
 	m_rtCurrStartTime(-1),
-	m_rtSourceFrameTime(0),
+	m_rtSourceFrameTime(416667),
 	m_rtTargetFrameTime(166667),
 	m_rtCurrPlaybackFrameTime(0),
 
@@ -700,11 +700,22 @@ IBaseFilter* GetFilterFromPin(IPin* pPin)
 HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
     // Check if we're connecting to the output pin
     if (dir == PINDIR_OUTPUT) {
-	// Get the frame dimensions and frame rate
-	auto pvi = (VIDEOINFOHEADER2*)m_pInput->CurrentMediaType().Format();
-	m_rtSourceFrameTime = pvi->AvgTimePerFrame;
-	m_iDimX = pvi->bmiHeader.biWidth;
-	m_iDimY = pvi->bmiHeader.biHeight;
+		// Get the frame dimensions and frame rate
+		CMediaType* mtIn = &m_pInput->CurrentMediaType();
+		
+		if (*mtIn->FormatType() == FORMAT_VideoInfo) {
+			auto pvi = (VIDEOINFOHEADER*)mtIn->Format();
+		    if (pvi->AvgTimePerFrame > 0)
+				m_rtSourceFrameTime = pvi->AvgTimePerFrame;
+			m_iDimX = pvi->bmiHeader.biWidth;
+			m_iDimY = pvi->bmiHeader.biHeight;
+		} else {
+			auto pvi2 = (VIDEOINFOHEADER2*)mtIn->Format();
+		    if (pvi2->AvgTimePerFrame > 0)
+				m_rtSourceFrameTime = pvi2->AvgTimePerFrame;
+			m_iDimX = pvi2->bmiHeader.biWidth;
+			m_iDimY = pvi2->bmiHeader.biHeight;
+		}
     }
     return __super::CompleteConnect(dir, pReceivePin);
 }
