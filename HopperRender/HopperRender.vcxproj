@@ -390,7 +390,8 @@
     <None Include="HopperRender.def" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc" />
+    <ResourceCompile Include="HopperRenderSettings.rc" />
+    <ResourceCompile Include="Version.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

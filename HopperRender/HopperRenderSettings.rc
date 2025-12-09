@@ -54,8 +54,8 @@ BEGIN
         CONTROL         "Off", IDC_OFF,"Button", BS_AUTORADIOBUTTON, 11, 40, 47, 10
 
     GROUPBOX        "Frame Output", IDS_STATIC, 4, 65, 115, 120
-        CONTROL         "BlendedFrame (Default)", IDC_BLENDEDFRAME, "Button", BS_AUTORADIOBUTTON, 11, 80, 80, 10
-        CONTROL         "WarpedFrame 1 -> 2", IDC_WARPEDFRAME12, "Button", BS_AUTORADIOBUTTON | WS_GROUP, 11, 95, 80, 10
+        CONTROL         "BlendedFrame (Default)", IDC_BLENDEDFRAME, "Button", BS_AUTORADIOBUTTON | WS_GROUP, 11, 80, 80, 10
+        CONTROL         "WarpedFrame 1 -> 2", IDC_WARPEDFRAME12, "Button", BS_AUTORADIOBUTTON, 11, 95, 80, 10
         CONTROL         "WarpedFrame 2 -> 1", IDC_WARPEDFRAME21, "Button", BS_AUTORADIOBUTTON, 11, 110, 80, 10
         CONTROL         "HSV Flow", IDC_HSVFLOW, "Button", BS_AUTORADIOBUTTON, 11, 125, 80, 10
         CONTROL         "Grey Flow", IDC_GREYFLOW, "Button", BS_AUTORADIOBUTTON, 11, 140, 80, 10
@@ -92,7 +92,7 @@ BEGIN
         LTEXT           "n/a", IDC_WARPCALCTIME, 200, 185, 50, 9
         LTEXT           "n/a", IDC_FRAMERES, 200, 200, 50, 9
         LTEXT           "n/a", IDC_CALCRES, 200, 215, 50, 9
-    LTEXT           "HopperRender V2.0.1.3", IDS_STATIC, 10, 190, 100, 9
+    LTEXT           "HopperRender V2.0.1.5", IDS_STATIC, 10, 190, 100, 9
     PUSHBUTTON      "Defaults", IDC_DEFAULTS, 205, 235, 50, 14
 END
 
