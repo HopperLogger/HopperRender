@@ -130,13 +130,13 @@
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdcpp17</LanguageStandard>
       <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</MultiProcessorCompilation>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;cudart_static.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib;OpenCL.lib</AdditionalDependencies>
       <ModuleDefinitionFile>HopperRender.def</ModuleDefinitionFile>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">$(CUDA_LIB_PATH);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <IgnoreSpecificDefaultLibraries>libcmt.lib</IgnoreSpecificDefaultLibraries>
       <OptimizeReferences Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </OptimizeReferences>
       <PerUserRedirection Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</PerUserRedirection>
@@ -167,7 +167,7 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</WholeProgramOptimization>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Default</BasicRuntimeChecks>
-      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Release|x64'">MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Release|x64'">MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</FunctionLevelLinking>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">MaxSpeed</Optimization>
       <SDLCheck Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -183,7 +183,6 @@
       <ModuleDefinitionFile>HopperRender.def</ModuleDefinitionFile>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">$(CUDA_LIB_PATH);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <IgnoreSpecificDefaultLibraries Condition="'$(Configuration)|$(Platform)'=='Release|x64'">libcmt.lib</IgnoreSpecificDefaultLibraries>
       <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='Release|x64'">UseFastLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <OptimizeReferences Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</OptimizeReferences>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -229,7 +228,7 @@
       </PrecompiledHeaderFile>
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</WholeProgramOptimization>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Default</BasicRuntimeChecks>
-      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
       </FunctionLevelLinking>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Disabled</Optimization>
@@ -248,7 +247,6 @@
       <ModuleDefinitionFile>HopperRender.def</ModuleDefinitionFile>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">$(CUDA_LIB_PATH);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <IgnoreSpecificDefaultLibraries Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">libcmt.lib</IgnoreSpecificDefaultLibraries>
       <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">UseFastLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <OptimizeReferences Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</OptimizeReferences>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
@@ -293,7 +291,7 @@
       </PrecompiledHeaderFile>
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">true</WholeProgramOptimization>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">Default</BasicRuntimeChecks>
-      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">true</FunctionLevelLinking>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">MaxSpeed</Optimization>
       <SDLCheck Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">
@@ -309,7 +307,6 @@
       <ModuleDefinitionFile>HopperRender.def</ModuleDefinitionFile>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <IgnoreSpecificDefaultLibraries Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">libcmt.lib</IgnoreSpecificDefaultLibraries>
       <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">UseFastLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <OptimizeReferences Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">true</OptimizeReferences>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">

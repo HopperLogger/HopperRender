@@ -325,3 +325,7 @@
 - Fixed BlendedFrame output mode selection bug in settings panel
 - Fixed crashing of player when unloading the filter on some systems
 - Fixed source fps being detected as 0 in some cases (it now falls back to 24fps if it can't be detected)
+
+## [Version 2.0.1.6] - 2025-12-12 - Fully functional
+### Fixed
+- Removed unnecessary VC++ redistributable dependency by linking the runtime statically
