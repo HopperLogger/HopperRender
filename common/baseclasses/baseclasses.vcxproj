@@ -116,6 +116,7 @@
     <ClCompile>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</MultiProcessorCompilation>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
@@ -125,7 +126,7 @@
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</IntrinsicFunctions>
       <FavorSizeOrSpeed Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Speed</FavorSizeOrSpeed>
       <OmitFramePointers Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</OmitFramePointers>
-      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Release|x64'">MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Release|x64'">MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">/Gw /Zo %(AdditionalOptions)</AdditionalOptions>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Release|x64'">None</DebugInformationFormat>
@@ -141,7 +142,7 @@
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</IntrinsicFunctions>
       <FavorSizeOrSpeed Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Speed</FavorSizeOrSpeed>
       <OmitFramePointers Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</OmitFramePointers>
-      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
       </FunctionLevelLinking>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">/Gw /Zo %(AdditionalOptions)</AdditionalOptions>
@@ -159,7 +160,7 @@
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">true</IntrinsicFunctions>
       <FavorSizeOrSpeed Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">Speed</FavorSizeOrSpeed>
       <OmitFramePointers Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">true</OmitFramePointers>
-      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">
       </FunctionLevelLinking>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">/Gw /Zo %(AdditionalOptions)</AdditionalOptions>

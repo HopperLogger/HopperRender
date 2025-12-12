@@ -645,6 +645,12 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
         dwReserved1 = pvi2->dwReserved1;
         dwReserved2 = pvi2->dwReserved2;
     }
+
+	// Retrieve the input frame time and dimensions
+	if (avgTimePerFrame > 0)
+		m_rtSourceFrameTime = avgTimePerFrame;
+	m_iDimX = biWidth;
+	m_iDimY = biHeight;
     
     const GUID guid = MEDIASUBTYPE_P010;
 
@@ -694,30 +700,6 @@ IBaseFilter* GetFilterFromPin(IPin* pPin)
     }
 
     return nullptr;
-}
-
-// Completes the pin connection process
-HRESULT CHopperRender::CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) {
-    // Check if we're connecting to the output pin
-    if (dir == PINDIR_OUTPUT) {
-		// Get the frame dimensions and frame rate
-		CMediaType* mtIn = &m_pInput->CurrentMediaType();
-		
-		if (*mtIn->FormatType() == FORMAT_VideoInfo) {
-			auto pvi = (VIDEOINFOHEADER*)mtIn->Format();
-		    if (pvi->AvgTimePerFrame > 0)
-				m_rtSourceFrameTime = pvi->AvgTimePerFrame;
-			m_iDimX = pvi->bmiHeader.biWidth;
-			m_iDimY = pvi->bmiHeader.biHeight;
-		} else {
-			auto pvi2 = (VIDEOINFOHEADER2*)mtIn->Format();
-		    if (pvi2->AvgTimePerFrame > 0)
-				m_rtSourceFrameTime = pvi2->AvgTimePerFrame;
-			m_iDimX = pvi2->bmiHeader.biWidth;
-			m_iDimY = pvi2->bmiHeader.biHeight;
-		}
-    }
-    return __super::CompleteConnect(dir, pReceivePin);
 }
 
 // Called when a new sample (source frame) arrives
@@ -825,17 +807,17 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     // Initialize the Optical Flow Calculator
     if (m_pofcOpticalFlowCalc == nullptr) {
 	const long outputFrameWidth = lOutSize / (m_iDimY * 3);
-	int deltaScalar;
-	int neighborScalar;
-	float blackLevel;
-	float whiteLevel;
-	int customResScalar;
-	    loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &customResScalar);
-	    if (sideDataSize4 > 0 || m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
+		int deltaScalar;
+		int neighborScalar;
+		float blackLevel;
+		float whiteLevel;
+		int customResScalar;
+		loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &customResScalar);
+		if (sideDataSize4 > 0 || m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
 			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
-	} else {
+		} else {
 			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
-	}
+		}
     }
 
     // Get the presentation times for the new output sample

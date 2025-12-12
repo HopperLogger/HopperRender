@@ -41,7 +41,6 @@ class CHopperRender : public CTransformFilter,
     HRESULT DecideBufferSize(IMemAllocator* pAlloc,
 			     ALLOCATOR_PROPERTIES* ppropInputRequest) override;
     HRESULT GetMediaType(int iPosition, CMediaType* pMediaType) override;
-    HRESULT CompleteConnect(PIN_DIRECTION dir, IPin* pReceivePin) override;
     HRESULT Transform(IMediaSample* pIn, IMediaSample* pOut) override;
 	HRESULT NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) override;
     STDMETHODIMP Stop() override;
