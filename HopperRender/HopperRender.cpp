@@ -303,7 +303,7 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_rtCurrStartTime(-1),
 	m_rtSourceFrameTime(416667),
 	m_rtTargetFrameTime(166667),
-	m_rtCurrPlaybackFrameTime(0),
+	m_rtCurrPlaybackFrameTime(416667),
 
     // Optical Flow calculation
     m_pofcOpticalFlowCalc(nullptr),
@@ -316,10 +316,12 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_iIntActiveState(Active),
 	m_dTotalWarpDuration(0.0),
 	m_dBlendingScalar(0.0),
-    m_bUseDisplayFPS(true)
+    m_bUseDisplayFPS(true),
+	m_bValidFrameTimes(false)
 	{
 
     InitializeLogging();
+    UpdateInterpolationStatus();
 
     delete m_pInput;
     delete m_pOutput;
@@ -824,14 +826,19 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     REFERENCE_TIME rtStartTime, rtEndTime;
     hr = pIn->GetTime(&rtStartTime, &rtEndTime);
     if (FAILED(hr)) {
-	LogError("DeliverToRenderer", "Failed to get sample time");
-	return hr;
+		// Capture cards often don't provide valid timestamps, continue with default values
+		LogGlobalInfo("DeliverToRenderer", "Failed to get sample time, using defaults");
+		rtStartTime = 0;
+		rtEndTime = 0;
+		m_bValidFrameTimes = false;
+    } else {
+		m_bValidFrameTimes = true;
     }
 
 	// Reset our frame time if necessary and calculate the current number of intermediate frames needed
     if (m_rtCurrStartTime == -1) {
-	// We are at the start of a new segment
-	m_rtCurrStartTime = rtStartTime;
+		// We are at the start of a new segment
+		m_rtCurrStartTime = rtStartTime;
     }
 
 	// Calculate the number of interpolated frames
@@ -847,8 +854,8 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     m_pofcOpticalFlowCalc->updateFrame(pInBuffer);
 
     if (m_iIntActiveState == Active && m_iFrameCounter >= 2) {
-	// Calculate the optical flow (frame 1 to frame 2)
-	m_pofcOpticalFlowCalc->calculateOpticalFlow();
+		// Calculate the optical flow (frame 1 to frame 2)
+		m_pofcOpticalFlowCalc->calculateOpticalFlow();
     }
 
     // Assemble the output samples
@@ -856,163 +863,162 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     unsigned char* pOutNewBuffer;
 
     for (int iIntFrameNum = 0; iIntFrameNum < m_iNumIntFrames; ++iIntFrameNum) {
-	// Create a new output sample
-	if (iIntFrameNum < (m_iNumIntFrames - 1)) {
-	    pOutNew = nullptr;
-	    hr = m_pOutput->GetDeliveryBuffer(&pOutNew, nullptr, nullptr, 0);
-	    if (FAILED(hr)) {
-		LogError("DeliverToRenderer", "Failed to get delivery buffer");
-		return hr;
-	    }
-	    // Use the input sample for the last output sample
-	} else {
-	    pOutNew = pOut;
-	}
+		// Create a new output sample
+		if (iIntFrameNum < (m_iNumIntFrames - 1)) {
+			pOutNew = nullptr;
+			hr = m_pOutput->GetDeliveryBuffer(&pOutNew, nullptr, nullptr, 0);
+			if (FAILED(hr)) {
+				LogError("DeliverToRenderer", "Failed to get delivery buffer");
+				return hr;
+			}
+			// Use the input sample for the last output sample
+		} else {
+			pOutNew = pOut;
+		}
 
-	// Set the side data
-	IMediaSideData* sideDataOut;
-		if (SUCCEEDED(hr = pOutNew->QueryInterface(&sideDataOut)))
-		{
-	    if (sideDataSize1 > 0) {
+		// Set the side data
+		IMediaSideData* sideDataOut;
+		if (SUCCEEDED(hr = pOutNew->QueryInterface(&sideDataOut))) {
+			if (sideDataSize1 > 0) {
 				hr = sideDataOut->SetSideData(IID_MediaSideDataDOVIMetadata, sideDataBytes1, sideDataSize1);
-	    }
-	    if (sideDataSize2 > 0) {
+			}
+			if (sideDataSize2 > 0) {
 				hr = sideDataOut->SetSideData(IID_MediaSideDataDOVIRPU, sideDataBytes2, sideDataSize2);
-	    }
-	    if (sideDataSize3 > 0) {
+			}
+			if (sideDataSize3 > 0) {
 				hr = sideDataOut->SetSideData(IID_MediaSideDataControlFlags, sideDataBytes3, sideDataSize3);
-	    }
-	    if (sideDataSize4 > 0) {
+			}
+			if (sideDataSize4 > 0) {
 				hr = sideDataOut->SetSideData(IID_MediaSideDataHDR, sideDataBytes4, sideDataSize4);
-	    }
-	    if (sideDataSize5 > 0) {
+			}
+			if (sideDataSize5 > 0) {
 				hr = sideDataOut->SetSideData(IID_MediaSideDataHDR10Plus, sideDataBytes5, sideDataSize5);
-	    }
-	    if (sideDataSize6 > 0) {
+			}
+			if (sideDataSize6 > 0) {
 				hr = sideDataOut->SetSideData(IID_MediaSideDataHDRContentLightLevel, sideDataBytes6, sideDataSize6);
-	    }
-	    if (sideDataSize7 > 0) {
+			}
+			if (sideDataSize7 > 0) {
 				hr = sideDataOut->SetSideData(IID_MediaSideDataEIA608CC, sideDataBytes7, sideDataSize7);
-	    }
-	    if (sideDataSize8 > 0) {
+			}
+			if (sideDataSize8 > 0) {
 				hr = sideDataOut->SetSideData(IID_MediaSideData3DOffset, sideDataBytes8, sideDataSize8);
-	    }
+			}
 
-	    SafeRelease(&sideDataOut);
-	}
+			SafeRelease(&sideDataOut);
+		}
 
-	// Get the buffer pointer for the new output sample
-	hr = pOutNew->GetPointer(&pOutNewBuffer);
-	if (FAILED(hr)) {
-	    LogError("DeliverToRenderer",
-		     "Failed to get output buffer pointer");
-	    return hr;
-	}
+		// Get the buffer pointer for the new output sample
+		hr = pOutNew->GetPointer(&pOutNewBuffer);
+		if (FAILED(hr)) {
+			LogError("DeliverToRenderer", "Failed to get output buffer pointer");
+			return hr;
+		}
 
-	// Set the new start and end times
-	if (m_iIntActiveState == Active) {
-	    rtStartTime = m_rtCurrStartTime;
-	    rtEndTime = rtStartTime + m_rtTargetFrameTime;
-	}
+		// Set the new start and end times
+		if (m_iIntActiveState == Active) {
+			rtStartTime = m_rtCurrStartTime;
+			rtEndTime = rtStartTime + m_rtTargetFrameTime;
+		}
 
-	// Set the new times for the output sample
-	hr = pOutNew->SetTime(&rtStartTime, &rtEndTime);
-	if (FAILED(hr)) {
-	    LogError("DeliverToRenderer", "Failed to set sample time");
-	    return hr;
-	}
+		// Set the new times for the output sample
+		if (m_bValidFrameTimes) {
+			hr = pOutNew->SetTime(&rtStartTime, &rtEndTime);
+			if (FAILED(hr)) {
+				LogError("DeliverToRenderer", "Failed to set sample time");
+				return hr;
+			}
+		}
 
-	// Increment the frame time for the next sample
-	m_rtCurrStartTime += m_rtTargetFrameTime;
+		// Increment the frame time for the next sample
+		m_rtCurrStartTime += m_rtTargetFrameTime;
 
-	// Copy the media times
-	LONGLONG llMediaStart, llMediaEnd;
-	if (NOERROR == pIn->GetMediaTime(&llMediaStart, &llMediaEnd)) {
-	    hr = pOutNew->SetMediaTime(&llMediaStart, &llMediaEnd);
-	    if (FAILED(hr)) {
-		LogError("DeliverToRenderer", "Failed to set media time");
-		return hr;
-	    }
-	}
+		// Copy the media times
+		LONGLONG llMediaStart, llMediaEnd;
+		if (NOERROR == pIn->GetMediaTime(&llMediaStart, &llMediaEnd)) {
+			hr = pOutNew->SetMediaTime(&llMediaStart, &llMediaEnd);
+			if (FAILED(hr)) {
+				LogError("DeliverToRenderer", "Failed to set media time");
+				return hr;
+			}
+		}
 
-	// Copy the Sync point property
-	hr = pIn->IsSyncPoint();
-	if (hr == S_OK) {
-	    hr = pOutNew->SetSyncPoint(TRUE);
-	    if (FAILED(hr)) {
-		LogError("DeliverToRenderer", "Failed to set sync point");
-		return hr;
-	    }
-	} else if (hr == S_FALSE) {
-	    hr = pOutNew->SetSyncPoint(FALSE);
-	    if (FAILED(hr)) {
-		LogError("DeliverToRenderer", "Failed to clear sync point");
-		return hr;
-	    }
-	} else {
-	    LogError("DeliverToRenderer", "Unexpected result from IsSyncPoint");
-	    return E_UNEXPECTED;
-	}
+		// Copy the Sync point property
+		hr = pIn->IsSyncPoint();
+		if (hr == S_OK) {
+			hr = pOutNew->SetSyncPoint(TRUE);
+			if (FAILED(hr)) {
+				LogError("DeliverToRenderer", "Failed to set sync point");
+				return hr;
+			}
+		} else if (hr == S_FALSE) {
+			hr = pOutNew->SetSyncPoint(FALSE);
+			if (FAILED(hr)) {
+				LogError("DeliverToRenderer", "Failed to clear sync point");
+				return hr;
+			}
+		} else {
+			LogError("DeliverToRenderer", "Unexpected result from IsSyncPoint");
+			return E_UNEXPECTED;
+		}
 
-	// Copy the media type
-	AM_MEDIA_TYPE* pMediaType;
-	hr = pOut->GetMediaType(&pMediaType);
-	if (FAILED(hr)) {
-	    LogError("DeliverToRenderer", "Failed to get media type");
-	    return hr;
-	}
-	hr = pOutNew->SetMediaType(pMediaType);
-	if (FAILED(hr)) {
-	    LogError("DeliverToRenderer", "Failed to set media type");
-	    return hr;
-	}
-	DeleteMediaType(pMediaType);
+		// Copy the media type
+		AM_MEDIA_TYPE* pMediaType;
+		hr = pOut->GetMediaType(&pMediaType);
+		if (FAILED(hr)) {
+			LogError("DeliverToRenderer", "Failed to get media type");
+			return hr;
+		}
+		hr = pOutNew->SetMediaType(pMediaType);
+		if (FAILED(hr)) {
+			LogError("DeliverToRenderer", "Failed to set media type");
+			return hr;
+		}
+		DeleteMediaType(pMediaType);
 
-	// Copy the preroll property
-	hr = pIn->IsPreroll();
-	if (hr == S_OK) {
-	    hr = pOutNew->SetPreroll(TRUE);
-	    if (FAILED(hr)) {
-		LogError("DeliverToRenderer", "Failed to set preroll");
-		return hr;
-	    }
-	} else if (hr == S_FALSE) {
-	    hr = pOutNew->SetPreroll(FALSE);
-	    if (FAILED(hr)) {
-		LogError("DeliverToRenderer", "Failed to clear preroll");
-		return hr;
-	    }
-	} else {
-	    LogError("DeliverToRenderer", "Unexpected result from IsPreroll");
-	    return E_UNEXPECTED;
-	}
+		// Copy the preroll property
+		hr = pIn->IsPreroll();
+		if (hr == S_OK) {
+			hr = pOutNew->SetPreroll(TRUE);
+			if (FAILED(hr)) {
+				LogError("DeliverToRenderer", "Failed to set preroll");
+				return hr;
+			}
+		} else if (hr == S_FALSE) {
+			hr = pOutNew->SetPreroll(FALSE);
+			if (FAILED(hr)) {
+				LogError("DeliverToRenderer", "Failed to clear preroll");
+				return hr;
+			}
+		} else {
+			LogError("DeliverToRenderer", "Unexpected result from IsPreroll");
+			return E_UNEXPECTED;
+		}
 
-	// Copy the discontinuity property
-	hr = pIn->IsDiscontinuity();
-	if (hr == S_OK) {
-	    hr = pOutNew->SetDiscontinuity(TRUE);
-	    if (FAILED(hr)) {
-		LogError("DeliverToRenderer", "Failed to set discontinuity");
-		return hr;
-	    }
-	} else if (hr == S_FALSE) {
-	    hr = pOutNew->SetDiscontinuity(FALSE);
-	    if (FAILED(hr)) {
-		LogError("DeliverToRenderer", "Failed to clear discontinuity");
-		return hr;
-	    }
-	} else {
-	    LogError("DeliverToRenderer",
-		     "Unexpected result from IsDiscontinuity");
-	    return E_UNEXPECTED;
-	}
+		// Copy the discontinuity property
+		hr = pIn->IsDiscontinuity();
+		if (hr == S_OK) {
+			hr = pOutNew->SetDiscontinuity(TRUE);
+			if (FAILED(hr)) {
+				LogError("DeliverToRenderer", "Failed to set discontinuity");
+				return hr;
+			}
+		} else if (hr == S_FALSE) {
+			hr = pOutNew->SetDiscontinuity(FALSE);
+			if (FAILED(hr)) {
+				LogError("DeliverToRenderer", "Failed to clear discontinuity");
+				return hr;
+			}
+		} else {
+			LogError("DeliverToRenderer", "Unexpected result from IsDiscontinuity");
+			return E_UNEXPECTED;
+		}
 
-	// Copy the actual data length
-	hr = pOutNew->SetActualDataLength(lOutSize);
-	if (FAILED(hr)) {
-	    LogError("DeliverToRenderer", "Failed to set actual data length");
-	    return hr;
-	}
+		// Copy the actual data length
+		hr = pOutNew->SetActualDataLength(lOutSize);
+		if (FAILED(hr)) {
+			LogError("DeliverToRenderer", "Failed to set actual data length");
+			return hr;
+		}
 
 		// Interpolate the frame if necessary
 		if (m_iIntActiveState == Active && m_iFrameCounter >= 2) {
@@ -1021,11 +1027,11 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 			m_pofcOpticalFlowCalc->copyFrame();
 		}
 
-	// Download the result to the output buffer
-	m_pofcOpticalFlowCalc->downloadFrame(pOutNewBuffer);
+		// Download the result to the output buffer
+		m_pofcOpticalFlowCalc->downloadFrame(pOutNewBuffer);
 
-	// Retrieve how long the warp calculation took
-	m_dTotalWarpDuration += m_pofcOpticalFlowCalc->m_warpCalcTime;
+		// Retrieve how long the warp calculation took
+		m_dTotalWarpDuration += m_pofcOpticalFlowCalc->m_warpCalcTime;
 
 		// Increase the blending scalar
 		if (m_iIntActiveState == Active) {
@@ -1035,19 +1041,18 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 			}
 		}
 
-	// Deliver the new output sample downstream
+		// Deliver the new output sample downstream
 		// We don't need to deliver the last sample, as it is automatically delivered by the caller
-	if (iIntFrameNum < (m_iNumIntFrames - 1)) {
-	    hr = m_pOutput->Deliver(pOutNew);
-	    if (FAILED(hr)) {
-		LogError("DeliverToRenderer",
-			 "Failed to deliver output sample");
-		return hr;
-	    }
+		if (iIntFrameNum < (m_iNumIntFrames - 1)) {
+			hr = m_pOutput->Deliver(pOutNew);
+			if (FAILED(hr)) {
+				LogError("DeliverToRenderer", "Failed to deliver output sample");
+				return hr;
+			}
 
-	    // Release the new output sample to avoid memory leaks
-	    pOutNew->Release();
-	}
+			// Release the new output sample to avoid memory leaks
+			pOutNew->Release();
+		}
     }
 
     return NOERROR;
@@ -1071,8 +1076,8 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
 	pPages->cElems = 1;
     pPages->pElems = static_cast<GUID*>(CoTaskMemAlloc(sizeof(GUID)));
     if (pPages->pElems == nullptr) {
-	LogError("GetPages", "Failed to allocate memory for property pages");
-	return E_OUTOFMEMORY;
+		LogError("GetPages", "Failed to allocate memory for property pages");
+		return E_OUTOFMEMORY;
     }
 
     *(pPages->pElems) = CLSID_HopperRenderSettings;
@@ -1115,16 +1120,16 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	CheckPointer(pdWarpCalcTime, E_POINTER)
 	CheckPointer(piDimX, E_POINTER)
 	CheckPointer(piDimY, E_POINTER)
-			    CheckPointer(piLowDimX, E_POINTER)
-				CheckPointer(piLowDimY, E_POINTER)
+	CheckPointer(piLowDimX, E_POINTER)
+	CheckPointer(piLowDimY, E_POINTER)
 
-				    if (m_pofcOpticalFlowCalc == nullptr) {
 	// Optical Flow Calculator not initialized yet
-	int deltaScalar;
-	int neighborScalar;
-	float blackLevel;
-	float whiteLevel;
-	int customResScalar;
+	if (m_pofcOpticalFlowCalc == nullptr) {
+		int deltaScalar;
+		int neighborScalar;
+		float blackLevel;
+		float whiteLevel;
+		int customResScalar;
 	    loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &customResScalar);
 		*pbActivated = m_iIntActiveState != 0;
 		*piFrameOutput = m_iFrameOutput;
@@ -1207,19 +1212,19 @@ void CHopperRender::autoAdjustSettings() {
 
     // Check if we were too slow or have leftover capacity
     if ((currMaxCalcDuration * UPPER_PERF_BUFFER) > dSourceFrameTimeMS) {
-        if (m_pofcOpticalFlowCalc->m_opticalFlowSearchRadius > MIN_SEARCH_RADIUS) {
-	    // Decrease the number of steps to reduce calculation time
-	    m_pofcOpticalFlowCalc->m_opticalFlowSearchRadius--;
-	} else {
-	    // Disable Interpolation if we are too slow
-            //m_iIntActiveState = TooSlow;
-	}
+		if (m_pofcOpticalFlowCalc->m_opticalFlowSearchRadius > MIN_SEARCH_RADIUS) {
+			// Decrease the number of steps to reduce calculation time
+			m_pofcOpticalFlowCalc->m_opticalFlowSearchRadius--;
+		} else {
+			// Disable Interpolation if we are too slow
+			//m_iIntActiveState = TooSlow;
+		}
 
-    } else if ((currMaxCalcDuration * LOWER_PERF_BUFFER) < dSourceFrameTimeMS) {
-	// Increase the frame scalar if we have enough leftover capacity
-        if (m_pofcOpticalFlowCalc->m_opticalFlowSearchRadius < MAX_SEARCH_RADIUS) {
-	    m_pofcOpticalFlowCalc->m_opticalFlowSearchRadius++;
-	}
+	} else if ((currMaxCalcDuration * LOWER_PERF_BUFFER) < dSourceFrameTimeMS) {
+		// Increase the frame scalar if we have enough leftover capacity
+		if (m_pofcOpticalFlowCalc->m_opticalFlowSearchRadius < MAX_SEARCH_RADIUS) {
+			m_pofcOpticalFlowCalc->m_opticalFlowSearchRadius++;
+		}
     }
 
     // Reset the warp duration for the next frame
@@ -1244,107 +1249,107 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
     result = RegOpenKeyEx(HKEY_CURRENT_USER, subKey, 0, KEY_READ, &hKey);
 
     if (result == ERROR_SUCCESS) {
-	// Load activated state
-	valueName = L"Activated";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0) {
-	    if (value)
-		m_iIntActiveState = Active;
-	    else
-		m_iIntActiveState = Deactivated;
-	} else {
-	    m_iIntActiveState = Active;
-	}
+		// Load activated state
+		valueName = L"Activated";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+			if (value)
+				m_iIntActiveState = Active;
+			else
+				m_iIntActiveState = Deactivated;
+		} else {
+			m_iIntActiveState = Active;
+		}
 
-	// Load Frame Output
-	valueName = L"FrameOutput";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0) {
-	    m_iFrameOutput = static_cast<FrameOutput>(value);
-	} else {
-	    m_iFrameOutput = BlendedFrame;
-	}
+		// Load Frame Output
+		valueName = L"FrameOutput";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+			m_iFrameOutput = static_cast<FrameOutput>(value);
+		} else {
+			m_iFrameOutput = BlendedFrame;
+		}
 
 		// Load the target fps
 		valueName = L"TargetFPS";
 		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-					 reinterpret_cast<BYTE*>(&value2), &dataSize2);
+						reinterpret_cast<BYTE*>(&value2), &dataSize2);
 
 		valueName = L"Use Display FPS";
 		result2 = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				    reinterpret_cast<BYTE*>(&value), &dataSize);
+					reinterpret_cast<BYTE*>(&value), &dataSize);
 		if (result == 0 && value2 > 0 && (!value || result2 != 0)) {
-		    m_rtTargetFrameTime = (1.0 / (double)value2) * 1e7;
-		    m_bUseDisplayFPS = false;
+			m_rtTargetFrameTime = (1.0 / (double)value2) * 1e7;
+			m_bUseDisplayFPS = false;
 		} else {
-		    useDisplayRefreshRate();
-		    m_bUseDisplayFPS = true;
+			useDisplayRefreshRate();
+			m_bUseDisplayFPS = true;
 		}
 
-	// Load the delta scalar
-	valueName = L"DeltaScalar";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0 && value >= 0 && value <= 10) {
-	    *deltaScalar = value;
-	} else {
-	    *deltaScalar = 8;
-	}
+		// Load the delta scalar
+		valueName = L"DeltaScalar";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0 && value >= 0 && value <= 10) {
+			*deltaScalar = value;
+		} else {
+			*deltaScalar = 8;
+		}
 
-	// Load the neighbor scalar
-	valueName = L"NeighborScalar";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0 && value >= 0 && value <= 10) {
-	    *neighborScalar = value;
-	} else {
-	    *neighborScalar = 6;
-	}
+		// Load the neighbor scalar
+		valueName = L"NeighborScalar";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0 && value >= 0 && value <= 10) {
+			*neighborScalar = value;
+		} else {
+			*neighborScalar = 6;
+		}
 
-	// Load the black level
-	valueName = L"BlackLevel";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0 && value >= 0 && value <= 255) {
-	    *blackLevel = (float)(value << 8);
-	} else {
-	    *blackLevel = 0.0f;
-	}
+		// Load the black level
+		valueName = L"BlackLevel";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0 && value >= 0 && value <= 255) {
+			*blackLevel = (float)(value << 8);
+		} else {
+			*blackLevel = 0.0f;
+		}
 
-	// Load the white level
-	valueName = L"WhiteLevel";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0 && value >= 0 && value <= 255) {
-	    *whiteLevel = (float)(value << 8);
-	} else {
-	    *whiteLevel = 65535.0f;
-	}
+		// Load the white level
+		valueName = L"WhiteLevel";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0 && value >= 0 && value <= 255) {
+			*whiteLevel = (float)(value << 8);
+		} else {
+			*whiteLevel = 65535.0f;
+		}
 
-	// Load the maximum calculation resolution
-	valueName = L"MaxCalcRes";
-	result = RegQueryValueEx(hKey, valueName, NULL, NULL,
-				 reinterpret_cast<BYTE*>(&value), &dataSize);
-	if (result == 0 && value >= 32) {
-	    *maxCalcRes = value;
-	} else {
-	    *maxCalcRes = MAX_CALC_RES;
-	}
+		// Load the maximum calculation resolution
+		valueName = L"MaxCalcRes";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0 && value >= 32) {
+			*maxCalcRes = value;
+		} else {
+			*maxCalcRes = MAX_CALC_RES;
+		}
 
-	RegCloseKey(hKey); // Close the registry key
+		RegCloseKey(hKey); // Close the registry key
 
     } else {
-	// Load the default values
-	m_iIntActiveState = Active;
-	m_iFrameOutput = BlendedFrame;
-	useDisplayRefreshRate();
-	*deltaScalar = DEFAULT_DELTA_SCALAR;
-	*neighborScalar = DEFAULT_NEIGHBOR_SCALAR;
-	*blackLevel = DEFAULT_BLACK_LEVEL;
-	*whiteLevel = DEFAULT_WHITE_LEVEL << 8;
-	*maxCalcRes = MAX_CALC_RES;
+		// Load the default values
+		m_iIntActiveState = Active;
+		m_iFrameOutput = BlendedFrame;
+		useDisplayRefreshRate();
+		*deltaScalar = DEFAULT_DELTA_SCALAR;
+		*neighborScalar = DEFAULT_NEIGHBOR_SCALAR;
+		*blackLevel = DEFAULT_BLACK_LEVEL;
+		*whiteLevel = DEFAULT_WHITE_LEVEL << 8;
+		*maxCalcRes = MAX_CALC_RES;
     }
     UpdateInterpolationStatus();
     return NOERROR;

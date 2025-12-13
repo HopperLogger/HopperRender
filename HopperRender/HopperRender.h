@@ -118,4 +118,5 @@ class CHopperRender : public CTransformFilter,
     double m_dTotalWarpDuration; // The total duration of the current frame warp
 	double m_dBlendingScalar; // Blends from frame 1 to frame 2 (0.0 shows 100% frame 1, 1.0 shows 100% frame 2)
 	bool m_bUseDisplayFPS; // Whether to use the display refresh rate as target FPS
+	bool m_bValidFrameTimes; // Whether valid frame times have been received
 };
