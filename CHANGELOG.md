@@ -329,3 +329,7 @@
 ## [Version 2.0.1.6] - 2025-12-12 - Fully functional
 ### Fixed
 - Removed unnecessary VC++ redistributable dependency by linking the runtime statically
+
+## [Version 2.0.1.7] - 2025-12-13 - Fully functional
+### Fixed
+- Fixed handling of videos with weird resolutions which were requiring renegotiation with the renderer
