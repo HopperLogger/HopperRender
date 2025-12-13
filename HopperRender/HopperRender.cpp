@@ -621,7 +621,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     if (*mtIn->FormatType() == FORMAT_VideoInfo) {
         auto pvi = (VIDEOINFOHEADER*)mtIn->Format();
         biWidth = pvi->bmiHeader.biWidth;
-        biHeight = pvi->bmiHeader.biHeight;
+        biHeight = abs(pvi->bmiHeader.biHeight);
         avgTimePerFrame = pvi->AvgTimePerFrame;
         dwBitRate = pvi->dwBitRate;
         dwBitErrorRate = pvi->dwBitErrorRate;
@@ -635,7 +635,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     } else {
         auto pvi2 = (VIDEOINFOHEADER2*)mtIn->Format();
         biWidth = pvi2->bmiHeader.biWidth;
-        biHeight = pvi2->bmiHeader.biHeight;
+        biHeight = abs(pvi2->bmiHeader.biHeight);
         avgTimePerFrame = pvi2->AvgTimePerFrame;
         dwBitRate = pvi2->dwBitRate;
         dwBitErrorRate = pvi2->dwBitErrorRate;
@@ -709,11 +709,117 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 	CheckPointer(pIn, E_POINTER)
 	CheckPointer(pOut, E_POINTER)
 
-	// Update the output media type with potentially new video info from the input pin
-	if (m_iFrameCounter == 0) {
-	CMediaType* pMediaType = &m_pOutput->CurrentMediaType();
-	UpdateVideoInfoHeader(pMediaType);
-	m_pOutput->SetMediaType(pMediaType);
+	// Check for dynamic format changes
+	AM_MEDIA_TYPE* pmt = nullptr;
+	HRESULT hrMediaType = pIn->GetMediaType(&pmt);
+	bool bFormatChanged = false;
+	
+	if (hrMediaType == S_OK && pmt != nullptr) {
+		// Input sample has a new media type - format change!
+		LogGlobalInfo("Transform", "Dynamic format change detected on input sample");
+		
+		// Extract new dimensions
+		long newWidth = 0, newHeight = 0;
+		if (pmt->formattype == FORMAT_VideoInfo) {
+			VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)pmt->pbFormat;
+			newWidth = pvi->bmiHeader.biWidth;
+			newHeight = abs(pvi->bmiHeader.biHeight);
+		} else if (pmt->formattype == FORMAT_VideoInfo2) {
+			VIDEOINFOHEADER2* pvi2 = (VIDEOINFOHEADER2*)pmt->pbFormat;
+			newWidth = pvi2->bmiHeader.biWidth;
+			newHeight = abs(pvi2->bmiHeader.biHeight);
+		}
+		
+		if (newWidth != m_iDimX || newHeight != m_iDimY) {
+			char logMsg[256];
+			sprintf_s(logMsg, "Resolution change detected: %dx%d -> %dx%d", 
+					m_iDimX, m_iDimY, newWidth, newHeight);
+			LogGlobalInfo("Transform", logMsg);
+			
+			m_iDimX = newWidth;
+			m_iDimY = newHeight;
+			bFormatChanged = true;
+			
+			// Reset optical flow calculator for new resolution
+			if (m_pofcOpticalFlowCalc) {
+				delete m_pofcOpticalFlowCalc;
+				m_pofcOpticalFlowCalc = nullptr;
+			}
+		}
+		
+		DeleteMediaType(pmt);
+	} else {
+		// No format change in sample, but check if we need to initialize dimensions
+		CMediaType* mtIn = &m_pInput->CurrentMediaType();
+		long currentWidth = 0, currentHeight = 0;
+		
+		if (*mtIn->FormatType() == FORMAT_VideoInfo) {
+			VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)mtIn->Format();
+			currentWidth = pvi->bmiHeader.biWidth;
+			currentHeight = abs(pvi->bmiHeader.biHeight);
+		} else if (*mtIn->FormatType() == FORMAT_VideoInfo2) {
+			VIDEOINFOHEADER2* pvi2 = (VIDEOINFOHEADER2*)mtIn->Format();
+			currentWidth = pvi2->bmiHeader.biWidth;
+			currentHeight = abs(pvi2->bmiHeader.biHeight);
+		}
+		
+		if (currentWidth != m_iDimX || currentHeight != m_iDimY) {
+			char logMsg[256];
+			sprintf_s(logMsg, "Resolution initialized/changed: %dx%d -> %dx%d", 
+					m_iDimX, m_iDimY, currentWidth, currentHeight);
+			LogGlobalInfo("Transform", logMsg);
+			
+			m_iDimX = currentWidth;
+			m_iDimY = currentHeight;
+			bFormatChanged = true;
+			
+			// Reset optical flow calculator for new resolution
+			if (m_pofcOpticalFlowCalc) {
+				delete m_pofcOpticalFlowCalc;
+				m_pofcOpticalFlowCalc = nullptr;
+			}
+		}
+	}
+
+	// Update the output media type when format changes or on first frame
+	if (bFormatChanged || m_iFrameCounter == 0) {
+		CMediaType mtOut;
+		mtOut.SetType(&MEDIATYPE_Video);
+		mtOut.SetFormatType(&FORMAT_VideoInfo2);
+		mtOut.SetSubtype(&MEDIASUBTYPE_P010);
+		
+		UpdateVideoInfoHeader(&mtOut);
+		
+		// Try to set the new format on the output pin
+		HRESULT hrAccept = m_pOutput->GetConnected()->QueryAccept(&mtOut);
+		if (hrAccept == S_OK) {
+			LogGlobalInfo("Transform", "Downstream filter accepted new format");
+			m_pOutput->SetMediaType(&mtOut);
+			
+			// Set the media type on the output sample to signal format change
+			AM_MEDIA_TYPE* pmtOut = CreateMediaType(&mtOut);
+			if (pmtOut) {
+				pOut->SetMediaType(pmtOut);
+				DeleteMediaType(pmtOut);
+			}
+		} else {
+			char logMsg[128];
+			sprintf_s(logMsg, "Downstream filter rejected format change (HRESULT: 0x%08X)", hrAccept);
+			LogGlobalError("Transform", logMsg);
+			
+			// Try to reconnect
+			IFilterGraph* pGraph = nullptr;
+			if (SUCCEEDED(m_pGraph->QueryInterface(IID_IFilterGraph, (void**)&pGraph))) {
+				HRESULT hrReconnect = pGraph->Reconnect(m_pOutput);
+				if (SUCCEEDED(hrReconnect)) {
+					LogGlobalInfo("Transform", "Successfully reconnected output pin with new format");
+				} else {
+					sprintf_s(logMsg, "Failed to reconnect output pin (HRESULT: 0x%08X)", hrReconnect);
+					LogGlobalError("Transform", logMsg);
+				}
+				pGraph->Release();
+			}
+		}
     }
 
 	// Update the display refresh rate every 5 seconds if the option is enabled
@@ -808,7 +914,51 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 
     // Initialize the Optical Flow Calculator
     if (m_pofcOpticalFlowCalc == nullptr) {
-	const long outputFrameWidth = lOutSize / (m_iDimY * 3);
+		// Calculate stride from the output buffer or media type
+		// For P010 (16-bit): total size = stride * height * 3
+		long outputFrameWidth = 0;
+		bool bStrideFound = false;
+		
+		CMediaType* mtOut = &m_pOutput->CurrentMediaType();
+		
+		// Try to calcualte the stride of the renderer using the negotiated buffer size
+		if (lOutSize > 0 && m_iDimY > 0) {
+		    outputFrameWidth = lOutSize / (m_iDimY * 3);
+			if (outputFrameWidth < m_iDimX || (lOutSize % (m_iDimY * 3)) != 0) {
+				LogGlobalInfo("DeliverToRenderer", "Buffer derived stride seems incorrect, using media type derived stride instead!");
+
+				// The stride of the buffer seems to be incorrect so we calculate it from the media type
+				if (*mtOut->FormatType() == FORMAT_VideoInfo2) {
+					VIDEOINFOHEADER2* pvi2 = (VIDEOINFOHEADER2*)mtOut->Format();
+					if (pvi2 && pvi2->bmiHeader.biSizeImage > 0 && pvi2->bmiHeader.biHeight != 0) {
+						outputFrameWidth = pvi2->bmiHeader.biSizeImage / (abs(pvi2->bmiHeader.biHeight) * 3);
+						if (outputFrameWidth >= pvi2->bmiHeader.biWidth) {
+							bStrideFound = true;
+						}
+					}
+				} else if (*mtOut->FormatType() == FORMAT_VideoInfo) {
+					VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)mtOut->Format();
+					if (pvi && pvi->bmiHeader.biSizeImage > 0 && pvi->bmiHeader.biHeight != 0) {
+						outputFrameWidth = pvi->bmiHeader.biSizeImage / (abs(pvi->bmiHeader.biHeight) * 3);
+				
+						if (outputFrameWidth >= pvi->bmiHeader.biWidth) {
+							bStrideFound = true;
+						}
+					}
+				}
+			} else {
+				bStrideFound = true;
+			}
+		}
+		
+		// Fallback: use actual width
+		if (!bStrideFound) {
+			outputFrameWidth = m_iDimX;
+			char logMsg[256];
+			sprintf_s(logMsg, "Using actual width as stride: %d (no valid stride info found)", m_iDimX);
+			LogGlobalInfo("DeliverToRenderer", logMsg);
+		}
+		
 		int deltaScalar;
 		int neighborScalar;
 		float blackLevel;
