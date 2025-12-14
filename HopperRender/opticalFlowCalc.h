@@ -17,7 +17,8 @@ public:
     // Video properties
     int m_frameWidth;          // (stride) width of the frame
     int m_frameHeight;         // Height of the frame
-    int m_actualWidth;         // Actual width of the frame (as encoded)
+    int m_inputStride;         // Stride of the input frame
+    int m_outputStride;        // Stride of the output frame
     float m_outputBlackLevel;  // The black level used for the output frame
     float m_outputWhiteLevel;  // The white level used for the output frame
 
