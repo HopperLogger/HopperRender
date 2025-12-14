@@ -317,7 +317,8 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_dTotalWarpDuration(0.0),
 	m_dBlendingScalar(0.0),
     m_bUseDisplayFPS(true),
-	m_bValidFrameTimes(false)
+	m_bValidFrameTimes(false),
+	m_bDisableHDR(false)
 	{
 
     InitializeLogging();
@@ -687,6 +688,8 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     pMediaType->SetSampleSize((biWidth * biHeight * 24) >> 3);
     pMediaType->SetTemporalCompression(0);
 
+	m_bDisableHDR = (dwControlFlags == 0x2880a581);
+
     return NOERROR;
 }
 
@@ -860,6 +863,55 @@ HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, d
     return __super::NewSegment(tStart, tStop, dRate);
 }
 
+// Calculates the stride of the input/output buffer
+long CHopperRender::CalculateStride(long bufferSize, CMediaType* pMediaType) {
+	long stride = 0;
+	bool bStrideFound = false;
+	double bytesPerPixel = 3.0; // Default to P010 (16-bit per channel)
+
+	if (IsEqualGUID(*pMediaType->Subtype(), MEDIASUBTYPE_NV12)) {
+		bytesPerPixel = 1.5; // NV12 (8-bit per channel)
+	}
+	
+	// Try to calcualte the stride using the negotiated buffer size
+	if (bufferSize > 0 && m_iDimY > 0) {
+		stride = bufferSize / (m_iDimY * bytesPerPixel);
+		if (stride < m_iDimX || (bufferSize % (long)(m_iDimY * bytesPerPixel)) != 0) {
+			LogGlobalInfo("DeliverToRenderer", "Buffer derived stride seems incorrect, using media type derived stride instead!");
+
+			// The stride of the buffer seems to be incorrect so we calculate it from the media type
+			if (*pMediaType->FormatType() == FORMAT_VideoInfo2) {
+				VIDEOINFOHEADER2* pvi2 = (VIDEOINFOHEADER2*)pMediaType->Format();
+				if (pvi2 && pvi2->bmiHeader.biSizeImage > 0 && pvi2->bmiHeader.biHeight != 0) {
+					stride = pvi2->bmiHeader.biSizeImage / (abs(pvi2->bmiHeader.biHeight) * bytesPerPixel);
+					if (stride >= pvi2->bmiHeader.biWidth) {
+						bStrideFound = true;
+					}
+				}
+			} else if (*pMediaType->FormatType() == FORMAT_VideoInfo) {
+				VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)pMediaType->Format();
+				if (pvi && pvi->bmiHeader.biSizeImage > 0 && pvi->bmiHeader.biHeight != 0) {
+					stride = pvi->bmiHeader.biSizeImage / (abs(pvi->bmiHeader.biHeight) * bytesPerPixel);
+					if (stride >= pvi->bmiHeader.biWidth) {
+						bStrideFound = true;
+					}
+				}
+			}
+		} else {
+			bStrideFound = true;
+		}
+	}
+	
+	// Fallback: use actual width
+	if (!bStrideFound) {
+		stride = m_iDimX;
+		char logMsg[256];
+		sprintf_s(logMsg, "Using actual width as stride: %d (no valid stride info found)", m_iDimX);
+		LogGlobalInfo("DeliverToRenderer", logMsg);
+	}
+	return stride;
+}
+
 // Delivers the new samples (interpolated frames) to the renderer
 HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) {
 	CheckPointer(pIn, E_POINTER)
@@ -914,50 +966,12 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 
     // Initialize the Optical Flow Calculator
     if (m_pofcOpticalFlowCalc == nullptr) {
-		// Calculate stride from the output buffer or media type
-		// For P010 (16-bit): total size = stride * height * 3
-		long outputFrameWidth = 0;
-		bool bStrideFound = false;
-		
+		const long lInSize = pIn->GetActualDataLength();
+		CMediaType* mtIn = &m_pInput->CurrentMediaType();
 		CMediaType* mtOut = &m_pOutput->CurrentMediaType();
 		
-		// Try to calcualte the stride of the renderer using the negotiated buffer size
-		if (lOutSize > 0 && m_iDimY > 0) {
-		    outputFrameWidth = lOutSize / (m_iDimY * 3);
-			if (outputFrameWidth < m_iDimX || (lOutSize % (m_iDimY * 3)) != 0) {
-				LogGlobalInfo("DeliverToRenderer", "Buffer derived stride seems incorrect, using media type derived stride instead!");
-
-				// The stride of the buffer seems to be incorrect so we calculate it from the media type
-				if (*mtOut->FormatType() == FORMAT_VideoInfo2) {
-					VIDEOINFOHEADER2* pvi2 = (VIDEOINFOHEADER2*)mtOut->Format();
-					if (pvi2 && pvi2->bmiHeader.biSizeImage > 0 && pvi2->bmiHeader.biHeight != 0) {
-						outputFrameWidth = pvi2->bmiHeader.biSizeImage / (abs(pvi2->bmiHeader.biHeight) * 3);
-						if (outputFrameWidth >= pvi2->bmiHeader.biWidth) {
-							bStrideFound = true;
-						}
-					}
-				} else if (*mtOut->FormatType() == FORMAT_VideoInfo) {
-					VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)mtOut->Format();
-					if (pvi && pvi->bmiHeader.biSizeImage > 0 && pvi->bmiHeader.biHeight != 0) {
-						outputFrameWidth = pvi->bmiHeader.biSizeImage / (abs(pvi->bmiHeader.biHeight) * 3);
-				
-						if (outputFrameWidth >= pvi->bmiHeader.biWidth) {
-							bStrideFound = true;
-						}
-					}
-				}
-			} else {
-				bStrideFound = true;
-			}
-		}
-		
-		// Fallback: use actual width
-		if (!bStrideFound) {
-			outputFrameWidth = m_iDimX;
-			char logMsg[256];
-			sprintf_s(logMsg, "Using actual width as stride: %d (no valid stride info found)", m_iDimX);
-			LogGlobalInfo("DeliverToRenderer", logMsg);
-		}
+		const long inputStride = CalculateStride(lInSize, mtIn);
+		const long outputStride = CalculateStride(lOutSize, mtOut);
 		
 		int deltaScalar;
 		int neighborScalar;
@@ -965,10 +979,16 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		float whiteLevel;
 		int customResScalar;
 		loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &customResScalar);
-		if (sideDataSize4 > 0 || m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
+		char logMsg[256];
+		sprintf_s(logMsg, "Initializing Optical Flow Calculator with %dx%d (input stride: %d, output stride: %d)", 
+				m_iDimX, m_iDimY, inputStride, outputStride);
+		LogGlobalInfo("DeliverToRenderer", logMsg);
+		if (!m_bDisableHDR && (sideDataSize4 > 0 || m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010)) {
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, m_iDimX, inputStride, outputStride, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
+			LogGlobalInfo("DeliverToRenderer", "Using HDR Optical Flow Calculator");
 		} else {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, outputFrameWidth, m_iDimX, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, m_iDimX, inputStride, outputStride, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
+			LogGlobalInfo("DeliverToRenderer", "Using SDR Optical Flow Calculator");
 		}
     }
 

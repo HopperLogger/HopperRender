@@ -17,7 +17,7 @@
 #include "copyFrameKernelHDR.h"
 
 void OpticalFlowCalcHDR::updateFrame(unsigned char* inputPlanes) {
-    CHECK_ERROR(clEnqueueWriteBuffer(m_queue, m_inputFrameArray[0], CL_TRUE, 0, 2 * (m_frameHeight * m_actualWidth + (m_frameHeight / 2) * m_actualWidth), inputPlanes, 0, NULL, &m_ofcStartedEvent));
+    CHECK_ERROR(clEnqueueWriteBuffer(m_queue, m_inputFrameArray[0], CL_TRUE, 0, 2 * (m_frameHeight * m_inputStride + (m_frameHeight / 2) * m_inputStride), inputPlanes, 0, NULL, &m_ofcStartedEvent));
 
     // Swap the frame buffers
     cl_mem temp0 = m_inputFrameArray[0];
@@ -27,7 +27,7 @@ void OpticalFlowCalcHDR::updateFrame(unsigned char* inputPlanes) {
 
 void OpticalFlowCalcHDR::downloadFrame(unsigned char* outputPlanes) {
     cl_event warpEndEvent;
-    CHECK_ERROR(clEnqueueReadBuffer(m_queue, m_outputFrameArray, CL_TRUE, 0, 2 * (m_frameHeight * m_frameWidth + (m_frameHeight / 2) * m_frameWidth), outputPlanes, 0, NULL, &warpEndEvent));
+    CHECK_ERROR(clEnqueueReadBuffer(m_queue, m_outputFrameArray, CL_TRUE, 0, 2 * (m_frameHeight * m_outputStride + (m_frameHeight / 2) * m_outputStride), outputPlanes, 0, NULL, &warpEndEvent));
 
     // Evaluate how long the interpolation took
     CHECK_ERROR(clWaitForEvents(1, &m_warpStartedEvent));
@@ -75,12 +75,12 @@ void OpticalFlowCalcHDR::calculateOpticalFlow() {
             // 1. Calculate the image delta and sum up the deltas of each window
             cl_int err = clSetKernelArg(m_calcDeltaSumsKernel, 1, sizeof(cl_mem), &m_inputFrameArray[0]);
             err |= clSetKernelArg(m_calcDeltaSumsKernel, 2, sizeof(cl_mem), &m_inputFrameArray[1]);
-            err |= clSetKernelArg(m_calcDeltaSumsKernel, 8, sizeof(int), &windowSize);
-            err |= clSetKernelArg(m_calcDeltaSumsKernel, 9, sizeof(int), &m_opticalFlowSearchRadius);
-            err |= clSetKernelArg(m_calcDeltaSumsKernel, 11, sizeof(int), &iter);
-            err |= clSetKernelArg(m_calcDeltaSumsKernel, 12, sizeof(int), &step);
-            err |= clSetKernelArg(m_calcDeltaSumsKernel, 13, sizeof(int), &m_deltaScalar);
-            err |= clSetKernelArg(m_calcDeltaSumsKernel, 14, sizeof(int), &m_neighborBiasScalar);
+            err |= clSetKernelArg(m_calcDeltaSumsKernel, 9, sizeof(int), &windowSize);
+            err |= clSetKernelArg(m_calcDeltaSumsKernel, 10, sizeof(int), &m_opticalFlowSearchRadius);
+            err |= clSetKernelArg(m_calcDeltaSumsKernel, 12, sizeof(int), &iter);
+            err |= clSetKernelArg(m_calcDeltaSumsKernel, 13, sizeof(int), &step);
+            err |= clSetKernelArg(m_calcDeltaSumsKernel, 14, sizeof(int), &m_deltaScalar);
+            err |= clSetKernelArg(m_calcDeltaSumsKernel, 15, sizeof(int), &m_neighborBiasScalar);
             CHECK_ERROR(err);
             CHECK_ERROR(clEnqueueNDRangeKernel(m_queue, m_calcDeltaSumsKernel, 3, NULL, m_lowGrid8x8xL, m_threads8x8x1, 0, NULL, NULL));
 
@@ -142,14 +142,14 @@ void OpticalFlowCalcHDR::warpFrames(const float blendingScalar, const int frameO
     err |= clSetKernelArg(m_warpFrameKernel, 1, sizeof(cl_mem), &m_inputFrameArray[1]);
     err |= clSetKernelArg(m_warpFrameKernel, 4, sizeof(float), &frameScalar12);
     err |= clSetKernelArg(m_warpFrameKernel, 5, sizeof(float), &frameScalar21);
-    err |= clSetKernelArg(m_warpFrameKernel, 12, sizeof(int), &frameOutputMode);
-    err |= clSetKernelArg(m_warpFrameKernel, 13, sizeof(float), &m_outputBlackLevel);
-    err |= clSetKernelArg(m_warpFrameKernel, 14, sizeof(float), &m_outputWhiteLevel);
-    err |= clSetKernelArg(m_warpFrameKernel, 15, sizeof(int), &cz);
+    err |= clSetKernelArg(m_warpFrameKernel, 13, sizeof(int), &frameOutputMode);
+    err |= clSetKernelArg(m_warpFrameKernel, 14, sizeof(float), &m_outputBlackLevel);
+    err |= clSetKernelArg(m_warpFrameKernel, 15, sizeof(float), &m_outputWhiteLevel);
+    err |= clSetKernelArg(m_warpFrameKernel, 16, sizeof(int), &cz);
     CHECK_ERROR(err);
     CHECK_ERROR(clEnqueueNDRangeKernel(m_queue, m_warpFrameKernel, 2, NULL, m_grid16x16x1, m_threads16x16x1, 0, NULL, &m_warpStartedEvent));
     cz = 1; // UV-Plane
-    CHECK_ERROR(clSetKernelArg(m_warpFrameKernel, 15, sizeof(int), &cz));
+    CHECK_ERROR(clSetKernelArg(m_warpFrameKernel, 16, sizeof(int), &cz));
     CHECK_ERROR(clEnqueueNDRangeKernel(m_queue, m_warpFrameKernel, 2, NULL, m_halfGrid16x16x1, m_threads16x16x1, 0, NULL, NULL));
 }
 
@@ -157,13 +157,13 @@ void OpticalFlowCalcHDR::copyFrame() {
     // Copy Frame
     int cz = 0; // Y-Plane
     cl_int err = clSetKernelArg(m_copyFrameKernel, 0, sizeof(cl_mem), &m_inputFrameArray[1]);
-    err |= clSetKernelArg(m_copyFrameKernel, 5, sizeof(float), &m_outputBlackLevel);
-    err |= clSetKernelArg(m_copyFrameKernel, 6, sizeof(float), &m_outputWhiteLevel);
-    err |= clSetKernelArg(m_copyFrameKernel, 7, sizeof(int), &cz);
+    err |= clSetKernelArg(m_copyFrameKernel, 6, sizeof(float), &m_outputBlackLevel);
+    err |= clSetKernelArg(m_copyFrameKernel, 7, sizeof(float), &m_outputWhiteLevel);
+    err |= clSetKernelArg(m_copyFrameKernel, 8, sizeof(int), &cz);
     CHECK_ERROR(err);
     CHECK_ERROR(clEnqueueNDRangeKernel(m_queue, m_copyFrameKernel, 2, NULL, m_grid16x16x1, m_threads16x16x1, 0, NULL, &m_warpStartedEvent));
     cz = 1; // UV-Plane
-    CHECK_ERROR(clSetKernelArg(m_copyFrameKernel, 7, sizeof(int), &cz));
+    CHECK_ERROR(clSetKernelArg(m_copyFrameKernel, 8, sizeof(int), &cz));
     CHECK_ERROR(clEnqueueNDRangeKernel(m_queue, m_copyFrameKernel, 2, NULL, m_halfGrid16x16x1, m_threads16x16x1, 0, NULL, NULL));
 }
 
@@ -186,16 +186,14 @@ OpticalFlowCalcHDR::~OpticalFlowCalcHDR() {
     clReleaseDevice(m_clDeviceId);
 }
 
-OpticalFlowCalcHDR::OpticalFlowCalcHDR(const int frameHeight,
-				       const int frameWidth,
-				       const int actualWidth, int deltaScalar,
-				       int neighborScalar, float blackLevel,
-				       float whiteLevel,
-				       int maxCalcRes) {
+OpticalFlowCalcHDR::OpticalFlowCalcHDR(const int frameHeight, const int frameWidth,
+		     const int inputStride, const int outputStride, int deltaScalar, int neighborScalar,
+		    float blackLevel, float whiteLevel, int maxCalcRes) {
     // Set up variables
     m_frameWidth = frameWidth;
     m_frameHeight = frameHeight;
-    m_actualWidth = actualWidth;
+    m_inputStride = inputStride;
+    m_outputStride = outputStride;
     m_outputBlackLevel = blackLevel;
     m_outputWhiteLevel = whiteLevel;
     m_opticalFlowSearchRadius = MIN_SEARCH_RADIUS;
@@ -204,7 +202,7 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const int frameHeight,
 	    m_opticalFlowResScalar++;
     }
     m_opticalFlowFrameWidth =
-	ceil(m_actualWidth / pow(2, m_opticalFlowResScalar));
+	ceil(m_frameWidth / pow(2, m_opticalFlowResScalar));
     m_opticalFlowFrameHeight =
 	ceil(m_frameHeight / pow(2, m_opticalFlowResScalar));
     m_ofcCalcTime = 0.0;
@@ -226,10 +224,10 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const int frameHeight,
     m_lowGrid8x8xL[0] = ceil(m_opticalFlowFrameWidth / 8.0) * 8.0;
     m_lowGrid8x8xL[1] = ceil(m_opticalFlowFrameHeight / 8.0) * 8.0;
     m_lowGrid8x8xL[2] = m_opticalFlowSearchRadius;
-    m_halfGrid16x16x1[0] = ceil(m_actualWidth / 16.0) * 16.0;
+    m_halfGrid16x16x1[0] = ceil(m_frameWidth / 16.0) * 16.0;
     m_halfGrid16x16x1[1] = ceil((m_frameHeight >> 1) / 16.0) * 16.0;
     m_halfGrid16x16x1[2] = 1;
-    m_grid16x16x1[0] = ceil(m_actualWidth / 16.0) * 16.0;
+    m_grid16x16x1[0] = ceil(m_frameWidth / 16.0) * 16.0;
     m_grid16x16x1[1] = ceil(m_frameHeight / 16.0) * 16.0;
     m_grid16x16x1[2] = 1;
 
@@ -254,9 +252,9 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const int frameHeight,
     CHECK_ERROR(err);
 
     // Allocate the buffers
-    m_inputFrameArray[0] = clCreateBuffer(m_clContext, CL_MEM_READ_ONLY, 3 * m_frameHeight * m_actualWidth, NULL, &err);
-    m_inputFrameArray[1] = clCreateBuffer(m_clContext, CL_MEM_READ_ONLY, 3 * m_frameHeight * m_actualWidth, NULL, &err);
-    m_outputFrameArray = clCreateBuffer(m_clContext, CL_MEM_WRITE_ONLY, 3 * m_frameHeight * m_frameWidth, NULL, &err);
+    m_inputFrameArray[0] = clCreateBuffer(m_clContext, CL_MEM_READ_ONLY, 3 * m_frameHeight * m_inputStride, NULL, &err);
+    m_inputFrameArray[1] = clCreateBuffer(m_clContext, CL_MEM_READ_ONLY, 3 * m_frameHeight * m_inputStride, NULL, &err);
+    m_outputFrameArray = clCreateBuffer(m_clContext, CL_MEM_WRITE_ONLY, 3 * m_frameHeight * m_outputStride, NULL, &err);
     m_offsetArray = clCreateBuffer(m_clContext, CL_MEM_READ_WRITE, 2 * m_opticalFlowFrameHeight * m_opticalFlowFrameWidth * sizeof(short), NULL, &err);
     m_blurredOffsetArray = clCreateBuffer(m_clContext, CL_MEM_READ_WRITE, 2 * m_opticalFlowFrameHeight * m_opticalFlowFrameWidth * sizeof(short), NULL, &err);
     m_summedDeltaValuesArray = clCreateBuffer(m_clContext, CL_MEM_READ_WRITE, MAX_SEARCH_RADIUS * m_opticalFlowFrameHeight * m_opticalFlowFrameWidth * sizeof(unsigned int), NULL, &err);
@@ -275,10 +273,11 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const int frameHeight,
     err = clSetKernelArg(m_calcDeltaSumsKernel, 0, sizeof(cl_mem), &m_summedDeltaValuesArray);
     err |= clSetKernelArg(m_calcDeltaSumsKernel, 3, sizeof(cl_mem), &m_offsetArray);
     err |= clSetKernelArg(m_calcDeltaSumsKernel, 4, sizeof(int), &m_frameHeight);
-    err |= clSetKernelArg(m_calcDeltaSumsKernel, 5, sizeof(int), &m_actualWidth);
-    err |= clSetKernelArg(m_calcDeltaSumsKernel, 6, sizeof(int), &m_opticalFlowFrameHeight);
-    err |= clSetKernelArg(m_calcDeltaSumsKernel, 7, sizeof(int), &m_opticalFlowFrameWidth);
-    err |= clSetKernelArg(m_calcDeltaSumsKernel, 10, sizeof(int), &m_opticalFlowResScalar);
+    err |= clSetKernelArg(m_calcDeltaSumsKernel, 5, sizeof(int), &m_frameWidth);
+    err |= clSetKernelArg(m_calcDeltaSumsKernel, 6, sizeof(int), &m_inputStride);
+    err |= clSetKernelArg(m_calcDeltaSumsKernel, 7, sizeof(int), &m_opticalFlowFrameHeight);
+    err |= clSetKernelArg(m_calcDeltaSumsKernel, 8, sizeof(int), &m_opticalFlowFrameWidth);
+    err |= clSetKernelArg(m_calcDeltaSumsKernel, 11, sizeof(int), &m_opticalFlowResScalar);
     err |= clSetKernelArg(m_determineLowestLayerKernel, 0, sizeof(cl_mem), &m_summedDeltaValuesArray);
     err |= clSetKernelArg(m_determineLowestLayerKernel, 1, sizeof(cl_mem), &m_lowestLayerArray);
     err |= clSetKernelArg(m_determineLowestLayerKernel, 4, sizeof(int), &m_opticalFlowFrameHeight);
@@ -293,8 +292,9 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const int frameHeight,
     err |= clSetKernelArg(m_warpFrameKernel, 7, sizeof(int), &m_opticalFlowFrameWidth);
     err |= clSetKernelArg(m_warpFrameKernel, 8, sizeof(int), &m_frameHeight);
     err |= clSetKernelArg(m_warpFrameKernel, 9, sizeof(int), &m_frameWidth);
-    err |= clSetKernelArg(m_warpFrameKernel, 10, sizeof(int), &m_actualWidth);
-    err |= clSetKernelArg(m_warpFrameKernel, 11, sizeof(int), &m_opticalFlowResScalar);
+    err |= clSetKernelArg(m_warpFrameKernel, 10, sizeof(int), &m_inputStride);
+    err |= clSetKernelArg(m_warpFrameKernel, 11, sizeof(int), &m_outputStride);
+    err |= clSetKernelArg(m_warpFrameKernel, 12, sizeof(int), &m_opticalFlowResScalar);
     err |= clSetKernelArg(m_blurFlowKernel, 0, sizeof(cl_mem), &m_offsetArray);
     err |= clSetKernelArg(m_blurFlowKernel, 1, sizeof(cl_mem), &m_blurredOffsetArray);
     err |= clSetKernelArg(m_blurFlowKernel, 2, sizeof(int), &m_opticalFlowFrameHeight);
@@ -302,6 +302,7 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const int frameHeight,
     err |= clSetKernelArg(m_copyFrameKernel, 1, sizeof(cl_mem), &m_outputFrameArray);
     err |= clSetKernelArg(m_copyFrameKernel, 2, sizeof(int), &m_frameHeight);
     err |= clSetKernelArg(m_copyFrameKernel, 3, sizeof(int), &m_frameWidth);
-    err |= clSetKernelArg(m_copyFrameKernel, 4, sizeof(int), &m_actualWidth);
+    err |= clSetKernelArg(m_copyFrameKernel, 4, sizeof(int), &m_inputStride);
+    err |= clSetKernelArg(m_copyFrameKernel, 5, sizeof(int), &m_outputStride);
     CHECK_ERROR(err);
 }

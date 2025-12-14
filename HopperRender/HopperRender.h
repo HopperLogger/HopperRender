@@ -83,6 +83,7 @@ class CHopperRender : public CTransformFilter,
 	HRESULT loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* maxCalcRes);
     void UpdateInterpolationStatus();
     void useDisplayRefreshRate();
+    long CalculateStride(long bufferSize, CMediaType* pMediaType);
 
     // Logging functions
     void InitializeLogging();
@@ -119,4 +120,5 @@ class CHopperRender : public CTransformFilter,
 	double m_dBlendingScalar; // Blends from frame 1 to frame 2 (0.0 shows 100% frame 1, 1.0 shows 100% frame 2)
 	bool m_bUseDisplayFPS; // Whether to use the display refresh rate as target FPS
 	bool m_bValidFrameTimes; // Whether valid frame times have been received
+	bool m_bDisableHDR; // Overide which forces SDR (fixes D3D11 H/W decoding causing HDR to be used incorrectly)
 };

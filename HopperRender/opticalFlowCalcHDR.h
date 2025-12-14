@@ -11,14 +11,10 @@ class OpticalFlowCalcHDR : public OpticalFlowCalc {
 public:
     /*
      * Initializes the optical flow calculator
-     *
-     * @param frameHeight: The height of the video frame
-     * @param frameWidth: The width of the video frame
-     * @param actualWidth: The encoded width of the video frame
      */
   OpticalFlowCalcHDR(const int frameHeight, const int frameWidth,
-		     const int actualWidth, int deltaScalar, int neighborScalar,
-		     float blackLevel, float whiteLevel, int maxCalcRes);
+		     const int inputStride, const int outputStride, int deltaScalar, int neighborScalar,
+		    float blackLevel, float whiteLevel, int maxCalcRes);
 
     /*
      * Frees the memory of the optical flow calculator

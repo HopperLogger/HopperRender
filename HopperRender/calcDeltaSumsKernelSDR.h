@@ -35,7 +35,7 @@ void warpReduce2x2(volatile __local unsigned int* partialSums, int tIdx) {
 // Kernel that sums up all the pixel deltas of each window
 __kernel void calcDeltaSumsKernel(__global unsigned int* summedUpDeltaArray, __global const unsigned char* frame1,
                                   __global const unsigned char* frame2, __global const short* offsetArray,
-                                  const int dimY, const int dimX, const int lowDimY,
+                                  const int dimY, const int dimX, const int inputStride, const int lowDimY,
                                   const int lowDimX, const int windowSize, const int searchWindowSize,
                                   const int resolutionScalar, const int iteration, const int step, 
                                   const int deltaScalar, const int neighborBiasScalar) {
@@ -95,9 +95,9 @@ __kernel void calcDeltaSumsKernel(__global unsigned int* summedUpDeltaArray, __g
             }
 
             // Calculate the delta value for the current pixel
-            delta = abs_diff(frame1[newCy * dimX + newCx], frame2[scaledCy * dimX + scaledCx]) + 
-                    abs_diff(frame1[dimY * dimX + (newCy >> 1) * dimX + (newCx & ~1)], frame2[dimY * dimX + (scaledCy >> 1) * dimX + (scaledCx & ~1)]) + 
-                    abs_diff(frame1[dimY * dimX + (newCy >> 1) * dimX + (newCx & ~1) + 1], frame2[dimY * dimX + (scaledCy >> 1) * dimX + (scaledCx & ~1) + 1]);
+            delta = abs_diff(frame1[newCy * inputStride + newCx], frame2[scaledCy * inputStride + scaledCx]) + 
+                    abs_diff(frame1[dimY * inputStride + (newCy >> 1) * inputStride + (newCx & ~1)], frame2[dimY * inputStride + (scaledCy >> 1) * inputStride + (scaledCx & ~1)]) + 
+                    abs_diff(frame1[dimY * inputStride + (newCy >> 1) * inputStride + (newCx & ~1) + 1], frame2[dimY * inputStride + (scaledCy >> 1) * inputStride + (scaledCx & ~1) + 1]);
             delta <<= deltaScalar;
         }
 
