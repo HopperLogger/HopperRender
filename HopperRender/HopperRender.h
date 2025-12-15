@@ -50,6 +50,8 @@ class CHopperRender : public CTransformFilter,
 		int* piFrameOutput,
 		double* pdTargetFPS,
 		bool* pbUseDisplayFPS,
+		float* pfFrameSkipOffset,
+		bool* pbSkipFrames,
 		int* piDeltaScalar,
 		int* piNeighborScalar,
 		int* piBlackLevel,
@@ -64,8 +66,8 @@ class CHopperRender : public CTransformFilter,
 		int* piDimY,
 		int* piLowDimX,
 		int* piLowDimY) override;
-	STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS,
-							        int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel) override;
+	    STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS,
+					        float fFrameSkipOffset, bool bSkipFrames, int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel) override;
 
     // ISpecifyPropertyPages interface
     STDMETHODIMP GetPages(CAUUID* pPages) override;
@@ -105,6 +107,8 @@ class CHopperRender : public CTransformFilter,
 	REFERENCE_TIME m_rtSourceFrameTime; // The average frame time of the source frames (at 1.0x speed)
 	REFERENCE_TIME m_rtTargetFrameTime; // The frame time that will be interpolated to
 	REFERENCE_TIME m_rtCurrPlaybackFrameTime; // The current frame time of the source frames (accounting for the current playback speed)
+	REFERENCE_TIME m_rtRealSourceFrameTime;
+	REFERENCE_TIME m_rtRealCurrPlaybackFrameTime;
 
     // Optical flow calculation
     OpticalFlowCalc* m_pofcOpticalFlowCalc; // Optical flow calculator
@@ -121,4 +125,7 @@ class CHopperRender : public CTransformFilter,
 	bool m_bUseDisplayFPS; // Whether to use the display refresh rate as target FPS
 	bool m_bValidFrameTimes; // Whether valid frame times have been received
 	bool m_bDisableHDR; // Overide which forces SDR (fixes D3D11 H/W decoding causing HDR to be used incorrectly)
+	float m_fFrameSkipProgress;
+    float m_fFrameSkipOffset;
+	bool m_bSkipFrames;
 };

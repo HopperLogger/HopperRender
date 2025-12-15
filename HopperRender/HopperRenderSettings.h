@@ -31,6 +31,8 @@ private:
 	double m_dSourceFPS; // The source frames per second
 	double m_dTargetFPS;
 	bool m_bUseDisplayFPS;
+	float m_fFrameSkipOffset;
+	bool m_bSkipFrames;
 	double m_dOFCCalcTime;
 	double m_dAVGOFCCalcTime;
 	double m_dPeakOFCCalcTime;
