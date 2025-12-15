@@ -301,9 +301,11 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 
     // Timings
 	m_rtCurrStartTime(-1),
-	m_rtSourceFrameTime(416667),
+	m_rtSourceFrameTime(417083),
 	m_rtTargetFrameTime(166667),
-	m_rtCurrPlaybackFrameTime(416667),
+	m_rtCurrPlaybackFrameTime(417083),
+    m_rtRealSourceFrameTime(417083),
+	m_rtRealCurrPlaybackFrameTime(417083),
 
     // Optical Flow calculation
     m_pofcOpticalFlowCalc(nullptr),
@@ -318,7 +320,10 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_dBlendingScalar(0.0),
     m_bUseDisplayFPS(true),
 	m_bValidFrameTimes(false),
-	m_bDisableHDR(false)
+	m_bDisableHDR(false),
+	m_fFrameSkipOffset(0.0f),
+	m_fFrameSkipProgress(0.0f),
+	m_bSkipFrames(true)
 	{
 
     InitializeLogging();
@@ -857,6 +862,7 @@ void CHopperRender::UpdateInterpolationStatus() {
 HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) {
     // Calculate the current source playback frame time
 	m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(static_cast<double>(m_rtSourceFrameTime) * (1.0 / dRate));
+	m_rtRealCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(static_cast<double>(m_rtRealSourceFrameTime) * (1.0 / dRate));
 
     UpdateInterpolationStatus();
 
@@ -1013,7 +1019,11 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 
 	// Calculate the number of interpolated frames
 	if (m_iIntActiveState == Active) {
-		m_iNumIntFrames = (int)max(ceil((1.0 - m_dBlendingScalar) / ((double)m_rtTargetFrameTime / (double)m_rtCurrPlaybackFrameTime)), 1.0);
+		if (m_bSkipFrames) {
+			m_iNumIntFrames = max(m_rtCurrPlaybackFrameTime / m_rtTargetFrameTime, 1);
+		} else {
+			m_iNumIntFrames = (int)max(ceil((1.0 - m_dBlendingScalar) / ((double)m_rtTargetFrameTime / (double)m_rtCurrPlaybackFrameTime)), 1.0);
+		}
 	} else {
 		m_iNumIntFrames = 1;
 	}
@@ -1021,12 +1031,16 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     // Adjust the settings to process everything fast enough
     autoAdjustSettings();
 
-    m_pofcOpticalFlowCalc->updateFrame(pInBuffer);
+	if (m_fFrameSkipProgress + m_fFrameSkipOffset >= 2.5f) {
+		m_fFrameSkipProgress -= 2.5f;
+		m_pofcOpticalFlowCalc->updateFrame(pInBuffer);
 
-    if (m_iIntActiveState == Active && m_iFrameCounter >= 2) {
-		// Calculate the optical flow (frame 1 to frame 2)
-		m_pofcOpticalFlowCalc->calculateOpticalFlow();
-    }
+		if (m_iIntActiveState == Active && m_iFrameCounter >= 2) {
+			// Calculate the optical flow (frame 1 to frame 2)
+			m_pofcOpticalFlowCalc->calculateOpticalFlow();
+		}
+	}
+	m_fFrameSkipProgress += 1.0f;
 
     // Assemble the output samples
     IMediaSample* pOutNew;
@@ -1205,7 +1219,11 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 
 		// Increase the blending scalar
 		if (m_iIntActiveState == Active) {
-			m_dBlendingScalar += (double)m_rtTargetFrameTime / (double)m_rtCurrPlaybackFrameTime;
+		    if (m_bSkipFrames) {
+				m_dBlendingScalar += (double)m_rtTargetFrameTime / (double)m_rtRealCurrPlaybackFrameTime;
+			} else {
+				m_dBlendingScalar += (double)m_rtTargetFrameTime / (double)m_rtCurrPlaybackFrameTime;
+			}
 			if (m_dBlendingScalar >= 1.0) {
 				m_dBlendingScalar -= 1.0;
 			}
@@ -1259,6 +1277,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		int* piFrameOutput,
 		double* pdTargetFPS,
 		bool* pbUseDsiplayFPS,
+		float* pfFrameSkipOffset,
+		bool* pbSkipFrames,
 		int* piDeltaScalar,
 		int* piNeighborScalar,
 		int* piBlackLevel,
@@ -1278,6 +1298,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	CheckPointer(piFrameOutput, E_POINTER)
 	CheckPointer(pdTargetFPS, E_POINTER)
 	CheckPointer(pbUseDsiplayFPS, E_POINTER)
+	CheckPointer(pfFrameSkipOffset, E_POINTER)
+	CheckPointer(pbSkipFrames, E_POINTER)
 	CheckPointer(piDeltaScalar, E_POINTER)
 	CheckPointer(piNeighborScalar, E_POINTER)
 	CheckPointer(piBlackLevel, E_POINTER)
@@ -1307,6 +1329,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 			*pdTargetFPS = 10000000.0 / static_cast<double>(m_rtTargetFrameTime);
 		}
 		*pbUseDsiplayFPS = m_bUseDisplayFPS;
+		*pfFrameSkipOffset = m_fFrameSkipOffset;
+		*pbSkipFrames = m_bSkipFrames;
 		*piDeltaScalar = deltaScalar;
 		*piNeighborScalar = neighborScalar;
 		*piBlackLevel = blackLevel / 256.0f;
@@ -1328,6 +1352,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 			*pdTargetFPS = 10000000.0 / static_cast<double>(m_rtTargetFrameTime);
 		}
 		*pbUseDsiplayFPS = m_bUseDisplayFPS;
+		*pfFrameSkipOffset = m_fFrameSkipOffset;
+		*pbSkipFrames = m_bSkipFrames;
 		*piDeltaScalar = m_pofcOpticalFlowCalc->m_deltaScalar;
 		*piNeighborScalar = m_pofcOpticalFlowCalc->m_neighborBiasScalar;
 		*piBlackLevel = (int)(m_pofcOpticalFlowCalc->m_outputBlackLevel) >> 8;
@@ -1347,7 +1373,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 }
 
 // Apply the new settings
-STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS, int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel) {
+STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS, float fFrameSkipOffset, bool bSkipFrames, int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel) {
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 
 	if (!bActivated) {
@@ -1362,6 +1388,8 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput
 	    useDisplayRefreshRate();
 	}
 	m_bUseDisplayFPS = bUseDisplayFPS;
+	m_fFrameSkipOffset = fFrameSkipOffset;
+	m_bSkipFrames = bSkipFrames;
 	UpdateInterpolationStatus();
 	if (m_pofcOpticalFlowCalc != nullptr) {
 		m_pofcOpticalFlowCalc->m_deltaScalar = iDeltaScalar;
@@ -1458,6 +1486,28 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 			m_bUseDisplayFPS = true;
 		}
 
+		// Load the frame skip offset
+		valueName = L"FrameSkipOffset";
+		float frameSkipValue = 2.0f;
+		DWORD floatSize = sizeof(float);
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					reinterpret_cast<BYTE*>(&frameSkipValue), &floatSize);
+		if (result == 0 && frameSkipValue >= 0.0f) {
+			m_fFrameSkipOffset = frameSkipValue;
+		} else {
+			m_fFrameSkipOffset = 0.0f;
+		}
+
+		// Load the skip frames flag
+		valueName = L"Skip Frames";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0) {
+			m_bSkipFrames = value != 0;
+		} else {
+			m_bSkipFrames = true;
+		}
+
 		// Load the delta scalar
 		valueName = L"DeltaScalar";
 		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
@@ -1515,6 +1565,9 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		m_iIntActiveState = Active;
 		m_iFrameOutput = BlendedFrame;
 		useDisplayRefreshRate();
+		m_bUseDisplayFPS = true;
+		m_fFrameSkipOffset = 0.0f;
+		m_bSkipFrames = true;
 		*deltaScalar = DEFAULT_DELTA_SCALAR;
 		*neighborScalar = DEFAULT_NEIGHBOR_SCALAR;
 		*blackLevel = DEFAULT_BLACK_LEVEL;

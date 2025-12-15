@@ -15,6 +15,8 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int* piFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
 		double* pdTargetFPS,
 		bool* pbUseDisplayFPS,
+		float* pfFrameSkipOffset,
+		bool* pbSkipFrames,
 		int* piDeltaScalar,
 		int* piNeighborScalar,
 		int* piBlackLevel,
@@ -36,6 +38,8 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int iFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
 		double dTargetFPS,
 		bool bUseDisplayFPS,
+		float fFrameSkipOffset,
+		bool bSkipFrames,
 		int iDeltaScalar,
 		int iNeighborScalar,
 		int iBlackLevel,
