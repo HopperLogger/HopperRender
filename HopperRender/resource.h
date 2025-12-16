@@ -32,8 +32,6 @@
 #define IDC_USEDISPLAYFPS               1033
 #define IDC_AVGOFCCALCTIME              1034
 #define IDC_PEAKOFCCALCTIME             1035
-#define IDC_FRAMESKIPOFFSET             1036
-#define IDC_SKIPFRAMES                  1037
 
 // Next default values for new objects
 //
