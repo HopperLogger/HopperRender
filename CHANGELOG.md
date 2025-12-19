@@ -333,3 +333,7 @@
 ## [Version 2.0.1.7] - 2025-12-13 - Fully functional
 ### Fixed
 - Fixed handling of videos with weird resolutions which were requiring renegotiation with the renderer
+
+## [Version 2.0.1.8] - 2025-12-19 - Fully functional
+### Added
+- Added scene change detection to allow the user to prevent scene changes from being interpolated

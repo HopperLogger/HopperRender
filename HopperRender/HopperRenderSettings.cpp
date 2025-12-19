@@ -40,6 +40,8 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 	m_iNeighborScalar(6),
 	m_iBlackLevel(0),
 	m_iWhiteLevel(255),
+	m_iSceneChangeThreshold(10000),
+	m_iTotalFrameDelta(0),
 	m_iIntActiveState(Active),
 	m_dSourceFPS(0.0),
 	m_dTargetFPS(0.0),
@@ -100,8 +102,8 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			int frameOutput;
 			int activeState;
 			double currentFPS = m_dSourceFPS;
-			m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
-													 &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
+			m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel, &m_iSceneChangeThreshold,
+												 &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta);
 			m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 			m_iIntActiveState = static_cast<ActiveState>(activeState);
 
@@ -156,6 +158,10 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			// Update the calculation resolution
 			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d x %d\0"), iLowDimX, iLowDimY);
 			SetDlgItemText(m_Dlg, IDC_CALCRES, sz);
+
+			// Update the total frame delta
+			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%u\0"), m_iTotalFrameDelta);
+			SetDlgItemText(m_Dlg, IDC_TOTALFRAMEDELTA, sz);
 		}
 	}
 
@@ -180,8 +186,8 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 	int frameOutput;
 	int activeState;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
-	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
-	                                         &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
+	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel, &m_iSceneChangeThreshold,
+	                                         &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta);
 	m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 	m_iIntActiveState = static_cast<ActiveState>(activeState);
 
@@ -262,6 +268,10 @@ HRESULT CHopperRenderSettings::OnActivate() {
 	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iWhiteLevel);
 	Edit_SetText(GetDlgItem(m_Dlg, IDC_WHITELEVEL), sz);
 
+	// Set the initial Scene Change Threshold
+	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iSceneChangeThreshold);
+	Edit_SetText(GetDlgItem(m_Dlg, IDC_SCENECHANGETHRESHOLD), sz);
+
 	// Update the status for every frame
 	int delay = (1.0 / m_dSourceFPS) * 1000.0;
 	SetTimer(m_Dlg, 1, delay, nullptr);
@@ -302,9 +312,10 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 	ValidateParameter(m_iNeighborScalar, 10, IDC_NEIGHBORSCALAR);
 	ValidateParameter(m_iBlackLevel, 255, IDC_BLACKLEVEL);
 	ValidateParameter(m_iWhiteLevel, 255, IDC_WHITELEVEL);
+	ValidateParameter(m_iSceneChangeThreshold, 100000, IDC_SCENECHANGETHRESHOLD);
 
 	// Tell the filter about the new settings
-	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_dTargetFPS, m_bUseDisplayFPS, m_iDeltaScalar, m_iNeighborScalar, m_iBlackLevel, m_iWhiteLevel);
+	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_dTargetFPS, m_bUseDisplayFPS, m_iDeltaScalar, m_iNeighborScalar, m_iBlackLevel, m_iWhiteLevel, m_iSceneChangeThreshold);
 
 	// Save the settings to the registry
 	if (saveSettings() != S_OK) {
@@ -318,9 +329,10 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 	int iLowDimY;
 	int frameOutput;
 	int activeState;
+	unsigned int totalFrameDelta;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
 	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
-	                                         &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY);
+	                                         &m_iSceneChangeThreshold, &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &totalFrameDelta);
 	TCHAR sz[60];
 	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f\0"), m_dTargetFPS);
 	SetDlgItemText(m_Dlg, IDC_TARGETFPS, sz);
@@ -414,11 +426,23 @@ void CHopperRenderSettings::GetControlValues() {
     tmp5 = atoi(sz);
 #endif
 
+	// Get the scene change threshold
+	Edit_GetText(GetDlgItem(m_Dlg, IDC_SCENECHANGETHRESHOLD), sz, STR_MAX_LENGTH);
+
+#ifdef UNICODE
+	// Convert Multibyte string to ANSI
+	rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
+	int tmp6 = atoi(szANSI);
+#else
+    int tmp6 = atoi(sz);
+#endif
+
 	m_dTargetFPS = tmp1;
 	m_iDeltaScalar = tmp2;
 	m_iNeighborScalar = tmp3;
 	m_iBlackLevel = tmp4;
 	m_iWhiteLevel = tmp5;
+	m_iSceneChangeThreshold = tmp6;
 }
 
 // Saves the settings to the registry
@@ -455,11 +479,14 @@ HRESULT CHopperRenderSettings::saveSettings() {
 
 		// Save the white level
 		LONG result8 = RegSetValueEx(hKey, L"WhiteLevel", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iWhiteLevel), sizeof(DWORD));
+
+		// Save the scene change threshold
+		LONG result9 = RegSetValueEx(hKey, L"SceneChangeThreshold", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iSceneChangeThreshold), sizeof(DWORD));
 		
 		RegCloseKey(hKey); // Close the registry key
 
 		// Check for errors
-        if (result1 || result2 || result3 || result4 || result5 || result6 || result7 || result8) {
+        if (result1 || result2 || result3 || result4 || result5 || result6 || result7 || result8 || result9) {
 			return E_FAIL;
         } else {
             return S_OK;
