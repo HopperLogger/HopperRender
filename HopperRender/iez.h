@@ -19,6 +19,7 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int* piNeighborScalar,
 		int* piBlackLevel,
 		int* piWhiteLevel,
+		int* piSceneChangeThreshold,
 		int* piIntActiveState, // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
 		double* pdSourceFPS, // The source frames per second
 		double* pdOFCCalcTime,
@@ -28,7 +29,8 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int* piDimX, // The width of the frame
 		int* piDimY, // The height of the frame
 		int* piLowDimX, // The width of the downscaled frame used in the optical flow calculation
-		int* piLowDimY // The height of the downscaled frame used in the optical flow calculation
+		int* piLowDimY, // The height of the downscaled frame used in the optical flow calculation
+		unsigned int* piTotalFrameDelta // The total frame delta from optical flow calculation
 	) PURE;
 
 	STDMETHOD(UpdateUserSettings)(THIS_
@@ -39,7 +41,8 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int iDeltaScalar,
 		int iNeighborScalar,
 		int iBlackLevel,
-		int iWhiteLevel
+		int iWhiteLevel,
+		int iSceneChangeThreshold
 	) PURE;
 };
 

@@ -161,10 +161,16 @@ DWORD WINAPI MessageBoxThread(LPVOID lpParam) {
 }
 
 // Input pin types
-constexpr AMOVIESETUP_MEDIATYPE sudPinTypesIn = 
+constexpr AMOVIESETUP_MEDIATYPE sudPinTypesIn[] = 
 {
-	&MEDIATYPE_Video, // Major type
-    &MEDIASUBTYPE_NULL // Minor type
+	{
+		&MEDIATYPE_Video, // Major type
+		&MEDIASUBTYPE_NV12 // Minor type
+	},
+	{
+		&MEDIATYPE_Video, // Major type
+		&MEDIASUBTYPE_P010 // Minor type
+	}
 };
 
 // Output pin types
@@ -183,21 +189,21 @@ constexpr AMOVIESETUP_PIN sudpPins[] =
 		FALSE, // Is it an output
 		FALSE, // Are we allowed none
 		FALSE, // And allowed many
-					    &CLSID_NULL, // Connects to filter
+		&CLSID_NULL, // Connects to filter
 		nullptr, // Connects to pin
-		1, // Number of types
-					    &sudPinTypesIn // Pin information
-					},
-					{
+		2, // Number of types
+		sudPinTypesIn // Pin information
+	},
+	{
 		L"Output", // Pins string name
 		FALSE, // Is it rendered
 		TRUE, // Is it an output
 		FALSE, // Are we allowed none
 		FALSE, // And allowed many
-					    &CLSID_NULL, // Connects to filter
+		&CLSID_NULL, // Connects to filter
 		nullptr, // Connects to pin
 		1, // Number of types
-					    &sudPinTypesOut // Pin information
+		&sudPinTypesOut // Pin information
 	}
 };
 
@@ -318,7 +324,7 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_dBlendingScalar(0.0),
     m_bUseDisplayFPS(true),
 	m_bValidFrameTimes(false),
-	m_bDisableHDR(false)
+	m_iSceneChangeThreshold(10000)
 	{
 
     InitializeLogging();
@@ -652,6 +658,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
 	// Retrieve the input frame time and dimensions
 	if (avgTimePerFrame > 0)
 		m_rtSourceFrameTime = avgTimePerFrame;
+		m_rtCurrPlaybackFrameTime = m_rtSourceFrameTime;
 	m_iDimX = biWidth;
 	m_iDimY = biHeight;
     
@@ -687,8 +694,6 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     // Set the media type information
     pMediaType->SetSampleSize((biWidth * biHeight * 24) >> 3);
     pMediaType->SetTemporalCompression(0);
-
-	m_bDisableHDR = (dwControlFlags == 0x2880a581);
 
     return NOERROR;
 }
@@ -983,7 +988,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		sprintf_s(logMsg, "Initializing Optical Flow Calculator with %dx%d (input stride: %d, output stride: %d)", 
 				m_iDimX, m_iDimY, inputStride, outputStride);
 		LogGlobalInfo("DeliverToRenderer", logMsg);
-		if (!m_bDisableHDR && (sideDataSize4 > 0 || m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010)) {
+		if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
 			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, m_iDimX, inputStride, outputStride, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
 			LogGlobalInfo("DeliverToRenderer", "Using HDR Optical Flow Calculator");
 		} else {
@@ -1191,7 +1196,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		}
 
 		// Interpolate the frame if necessary
-		if (m_iIntActiveState == Active && m_iFrameCounter >= 2) {
+		if (m_iIntActiveState == Active && m_iFrameCounter >= 2 && m_pofcOpticalFlowCalc->m_totalFrameDelta < m_iSceneChangeThreshold) {
 			m_pofcOpticalFlowCalc->warpFrames(m_dBlendingScalar, m_iFrameOutput);
 		} else {
 			m_pofcOpticalFlowCalc->copyFrame();
@@ -1263,6 +1268,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		int* piNeighborScalar,
 		int* piBlackLevel,
 		int* piWhiteLevel,
+		int* piSceneChangeThreshold,
 		int* piIntActiveState,
 		double* pdSourceFPS,
 		double* pdOFCCalcTime,
@@ -1272,7 +1278,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		int* piDimX,
 		int* piDimY,
 		int* piLowDimX,
-		int* piLowDimY) {
+		int* piLowDimY,
+		unsigned int* piTotalFrameDelta) {
     CAutoLock cAutolock(&m_csHopperRenderLock);
 	CheckPointer(pbActivated, E_POINTER)
 	CheckPointer(piFrameOutput, E_POINTER)
@@ -1282,6 +1289,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	CheckPointer(piNeighborScalar, E_POINTER)
 	CheckPointer(piBlackLevel, E_POINTER)
 	CheckPointer(piWhiteLevel, E_POINTER)
+	CheckPointer(piSceneChangeThreshold, E_POINTER)
 	CheckPointer(piIntActiveState, E_POINTER)
 	CheckPointer(pdSourceFPS, E_POINTER)
 	CheckPointer(pdOFCCalcTime, E_POINTER)
@@ -1292,6 +1300,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	CheckPointer(piDimY, E_POINTER)
 	CheckPointer(piLowDimX, E_POINTER)
 	CheckPointer(piLowDimY, E_POINTER)
+	CheckPointer(piTotalFrameDelta, E_POINTER)
 
 	// Optical Flow Calculator not initialized yet
 	if (m_pofcOpticalFlowCalc == nullptr) {
@@ -1311,6 +1320,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piNeighborScalar = neighborScalar;
 		*piBlackLevel = blackLevel / 256.0f;
 		*piWhiteLevel = whiteLevel / 256.0f;
+		*piSceneChangeThreshold = m_iSceneChangeThreshold;
 		*piIntActiveState = Active;
 		*pdSourceFPS = 0.0;
 		*pdOFCCalcTime = 0.0;
@@ -1321,6 +1331,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piDimY = 0;
 		*piLowDimX = 0;
 		*piLowDimY = 0;
+		*piTotalFrameDelta = 0;
 	} else {
 		*pbActivated = m_iIntActiveState != 0;
 		*piFrameOutput = m_iFrameOutput;
@@ -1332,6 +1343,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piNeighborScalar = m_pofcOpticalFlowCalc->m_neighborBiasScalar;
 		*piBlackLevel = (int)(m_pofcOpticalFlowCalc->m_outputBlackLevel) >> 8;
 		*piWhiteLevel = (int)(m_pofcOpticalFlowCalc->m_outputWhiteLevel) >> 8;
+		*piSceneChangeThreshold = m_iSceneChangeThreshold;
 		*piIntActiveState = m_iIntActiveState;
 		*pdSourceFPS = 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime);
 		*pdOFCCalcTime = 1000.0 * m_pofcOpticalFlowCalc->m_ofcCalcTime;
@@ -1342,12 +1354,13 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piDimY = m_iDimY;
 		*piLowDimX = m_pofcOpticalFlowCalc->m_opticalFlowFrameWidth;
 		*piLowDimY = m_pofcOpticalFlowCalc->m_opticalFlowFrameHeight;
+		*piTotalFrameDelta = m_pofcOpticalFlowCalc->m_totalFrameDelta;
 	}
 	return NOERROR;
 }
 
 // Apply the new settings
-STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS, int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel) {
+STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS, int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel, int iSceneChangeThreshold) {
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 
 	if (!bActivated) {
@@ -1362,6 +1375,7 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput
 	    useDisplayRefreshRate();
 	}
 	m_bUseDisplayFPS = bUseDisplayFPS;
+	m_iSceneChangeThreshold = iSceneChangeThreshold;
 	UpdateInterpolationStatus();
 	if (m_pofcOpticalFlowCalc != nullptr) {
 		m_pofcOpticalFlowCalc->m_deltaScalar = iDeltaScalar;
@@ -1506,6 +1520,16 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 			*maxCalcRes = value;
 		} else {
 			*maxCalcRes = MAX_CALC_RES;
+		}
+
+		// Load the scene change threshold
+		valueName = L"SceneChangeThreshold";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0 && value >= 0) {
+			m_iSceneChangeThreshold = value;
+		} else {
+			m_iSceneChangeThreshold = 10000;
 		}
 
 		RegCloseKey(hKey); // Close the registry key

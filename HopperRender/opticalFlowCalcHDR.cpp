@@ -84,6 +84,12 @@ void OpticalFlowCalcHDR::calculateOpticalFlow() {
             CHECK_ERROR(err);
             CHECK_ERROR(clEnqueueNDRangeKernel(m_queue, m_calcDeltaSumsKernel, 3, NULL, m_lowGrid8x8xL, m_threads8x8x1, 0, NULL, NULL));
 
+            // Retrieve the summed up delta for the fully overlapping frames
+			if (iter == 0 && step == 0) {
+				CHECK_ERROR(clEnqueueReadBuffer(m_queue, m_summedDeltaValuesArray, CL_TRUE, ((m_opticalFlowSearchRadius / 2) - 1) * m_opticalFlowFrameHeight * m_opticalFlowFrameWidth * sizeof(unsigned int), sizeof(unsigned int), &m_totalFrameDelta, 0, NULL, NULL));
+                m_totalFrameDelta /= (m_opticalFlowFrameHeight * m_opticalFlowFrameWidth * 6);
+            }
+
             // 2. Find the layer with the lowest delta sum
             CHECK_ERROR(clSetKernelArg(m_determineLowestLayerKernel, 2, sizeof(int), &windowSize));
             CHECK_ERROR(clSetKernelArg(m_determineLowestLayerKernel, 3, sizeof(int), &m_opticalFlowSearchRadius));
@@ -213,6 +219,7 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const int frameHeight, const int frameWid
     m_warpCalcTime = 0.0;
     m_deltaScalar = deltaScalar;
     m_neighborBiasScalar = neighborScalar;
+	m_totalFrameDelta = 0;
 
     // Define the global and local work sizes
     m_lowGrid16x16x2[0] = ceil(m_opticalFlowFrameWidth / 16.0) * 16.0;

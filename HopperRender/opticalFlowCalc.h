@@ -35,6 +35,7 @@ public:
     double m_warpCalcTime;          // The time it took to warp the current intermediate frame
     int m_deltaScalar;              // How many bits the pixel delta values are shifted to the left (affects the weight of the delta values)
     int m_neighborBiasScalar;       // How many bits the neighbor bias values are shifted to the left (affects the weight of the neighbor bias)
+    unsigned int m_totalFrameDelta; // The total summed up delta value of the entire frame
     
     // OpenCL variables
     cl_device_id m_clDeviceId;
