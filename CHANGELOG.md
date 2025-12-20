@@ -337,3 +337,12 @@
 ## [Version 2.0.1.8] - 2025-12-19 - Fully functional
 ### Added
 - Added scene change detection to allow the user to prevent scene changes from being interpolated
+
+## [Version 2.0.1.9] - 2025-12-20 - Fully functional
+### Added
+- Added scene change peak value of the last 3 seconds for easier threshold configuration
+- Added version number to log file for better debugging
+
+### Fixed
+- Fixed certain resolutions causing the wrong stride to be calculated and destroying the video
+- Added missing defaults value for scene change detection threshold
