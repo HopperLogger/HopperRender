@@ -74,6 +74,7 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 					m_iNeighborScalar = DEFAULT_NEIGHBOR_SCALAR;
 					m_iBlackLevel = DEFAULT_BLACK_LEVEL;
 					m_iWhiteLevel = DEFAULT_WHITE_LEVEL;
+					m_iSceneChangeThreshold = 10000;
 					CheckRadioButton(m_Dlg, IDC_ON, IDC_OFF, IDC_ON); 
 					CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_BLENDEDFRAME);
 					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f\0"), m_dTargetFPS);
@@ -86,6 +87,8 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 					Edit_SetText(GetDlgItem(m_Dlg, IDC_BLACKLEVEL), sz);
 					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iWhiteLevel);
 					Edit_SetText(GetDlgItem(m_Dlg, IDC_WHITELEVEL), sz);
+					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iSceneChangeThreshold);
+					Edit_SetText(GetDlgItem(m_Dlg, IDC_SCENECHANGETHRESHOLD), sz);
 					CheckDlgButton(m_Dlg, IDC_DEFAULTS, BST_UNCHECKED);
 					CheckDlgButton(m_Dlg, IDC_USEDISPLAYFPS, BST_CHECKED);
 				}

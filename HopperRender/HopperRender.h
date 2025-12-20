@@ -3,6 +3,7 @@
 #include "iez.h"
 #include <chrono>
 #include <fstream>
+#include <deque>
 
 #include "opticalFlowCalc.h"
 
@@ -85,7 +86,7 @@ class CHopperRender : public CTransformFilter,
 	HRESULT loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* maxCalcRes);
     void UpdateInterpolationStatus();
     void useDisplayRefreshRate();
-    long CalculateStride(long bufferSize, CMediaType* pMediaType);
+    long CalculateOutputStride();
 
     // Logging functions
     void InitializeLogging();
@@ -123,4 +124,12 @@ class CHopperRender : public CTransformFilter,
 	bool m_bUseDisplayFPS; // Whether to use the display refresh rate as target FPS
 	bool m_bValidFrameTimes; // Whether valid frame times have been received
 	unsigned int m_iSceneChangeThreshold; // Threshold for scene change detection (total frame delta value)
+	
+	// Peak total frame delta tracking with sliding window
+	struct FrameDeltaEntry {
+		unsigned int frameNumber;
+		unsigned int totalDelta;
+	};
+	std::deque<FrameDeltaEntry> m_frameDeltaHistory; // History of frame deltas for sliding window
+	unsigned int m_iPeakTotalFrameDelta; // Cached peak total frame delta in the last 3 seconds
 };

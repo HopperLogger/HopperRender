@@ -73,7 +73,7 @@ void InitializeGlobalLogging() {
 
     if (g_globalLogFile.is_open()) {
         g_globalLogFile << "=================================================\n";
-        g_globalLogFile << "HopperRender Filter Log\n";
+        g_globalLogFile << "HopperRender v2.0.1.9 Filter Log\n";
         g_globalLogFile << "DLL loaded at: "
                        << std::put_time(&timeInfo, "%Y-%m-%d %H:%M:%S") << "\n";
         g_globalLogFile << "=================================================\n";
@@ -324,7 +324,8 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_dBlendingScalar(0.0),
     m_bUseDisplayFPS(true),
 	m_bValidFrameTimes(false),
-	m_iSceneChangeThreshold(10000)
+	m_iSceneChangeThreshold(10000),
+	m_iPeakTotalFrameDelta(0)
 	{
 
     InitializeLogging();
@@ -856,6 +857,8 @@ void CHopperRender::UpdateInterpolationStatus() {
 
     m_iFrameCounter = 0;
 	m_rtCurrStartTime = -1; // Tells the DeliverToRenderer function that we are at the start of a new segment
+	m_iPeakTotalFrameDelta = 0;
+	m_frameDeltaHistory.clear();
 }
 
 // Called when a new segment is started (by seeking or changing the playback speed)
@@ -868,53 +871,30 @@ HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, d
     return __super::NewSegment(tStart, tStop, dRate);
 }
 
-// Calculates the stride of the input/output buffer
-long CHopperRender::CalculateStride(long bufferSize, CMediaType* pMediaType) {
-	long stride = 0;
-	bool bStrideFound = false;
-	double bytesPerPixel = 3.0; // Default to P010 (16-bit per channel)
+// Calculates the stride expected by the renderer
+long CHopperRender::CalculateOutputStride() {
+	long outputStride = m_iDimX; // Default to frame width
 
-	if (IsEqualGUID(*pMediaType->Subtype(), MEDIASUBTYPE_NV12)) {
-		bytesPerPixel = 1.5; // NV12 (8-bit per channel)
-	}
-	
-	// Try to calcualte the stride using the negotiated buffer size
-	if (bufferSize > 0 && m_iDimY > 0) {
-		stride = bufferSize / (m_iDimY * bytesPerPixel);
-		if (stride < m_iDimX || (bufferSize % (long)(m_iDimY * bytesPerPixel)) != 0) {
-			LogGlobalInfo("DeliverToRenderer", "Buffer derived stride seems incorrect, using media type derived stride instead!");
-
-			// The stride of the buffer seems to be incorrect so we calculate it from the media type
-			if (*pMediaType->FormatType() == FORMAT_VideoInfo2) {
-				VIDEOINFOHEADER2* pvi2 = (VIDEOINFOHEADER2*)pMediaType->Format();
-				if (pvi2 && pvi2->bmiHeader.biSizeImage > 0 && pvi2->bmiHeader.biHeight != 0) {
-					stride = pvi2->bmiHeader.biSizeImage / (abs(pvi2->bmiHeader.biHeight) * bytesPerPixel);
-					if (stride >= pvi2->bmiHeader.biWidth) {
-						bStrideFound = true;
+	// Check if the downstream filter is madVR
+	IPin* pDownstreamPin = m_pOutput->GetConnected();
+	if (pDownstreamPin) {
+		IBaseFilter* pDownstreamFilter = GetFilterFromPin(pDownstreamPin);
+		if (pDownstreamFilter) {
+			CLSID filterCLSID;
+			if (SUCCEEDED(pDownstreamFilter->GetClassID(&filterCLSID))) {
+				if (filterCLSID == CLSID_madVR) {
+					long roundedStride = 1;
+					while (roundedStride < (long)m_iDimX) {
+						roundedStride <<= 1;
 					}
-				}
-			} else if (*pMediaType->FormatType() == FORMAT_VideoInfo) {
-				VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)pMediaType->Format();
-				if (pvi && pvi->bmiHeader.biSizeImage > 0 && pvi->bmiHeader.biHeight != 0) {
-					stride = pvi->bmiHeader.biSizeImage / (abs(pvi->bmiHeader.biHeight) * bytesPerPixel);
-					if (stride >= pvi->bmiHeader.biWidth) {
-						bStrideFound = true;
-					}
+					outputStride = roundedStride;
 				}
 			}
-		} else {
-			bStrideFound = true;
+			pDownstreamFilter->Release();
 		}
 	}
-	
-	// Fallback: use actual width
-	if (!bStrideFound) {
-		stride = m_iDimX;
-		char logMsg[256];
-		sprintf_s(logMsg, "Using actual width as stride: %d (no valid stride info found)", m_iDimX);
-		LogGlobalInfo("DeliverToRenderer", logMsg);
-	}
-	return stride;
+
+	return outputStride;
 }
 
 // Delivers the new samples (interpolated frames) to the renderer
@@ -971,12 +951,8 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 
     // Initialize the Optical Flow Calculator
     if (m_pofcOpticalFlowCalc == nullptr) {
-		const long lInSize = pIn->GetActualDataLength();
-		CMediaType* mtIn = &m_pInput->CurrentMediaType();
-		CMediaType* mtOut = &m_pOutput->CurrentMediaType();
-		
-		const long inputStride = CalculateStride(lInSize, mtIn);
-		const long outputStride = CalculateStride(lOutSize, mtOut);
+		const long inputStride = m_iDimX;
+		const long outputStride = CalculateOutputStride();
 		
 		int deltaScalar;
 		int neighborScalar;
@@ -1031,6 +1007,29 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     if (m_iIntActiveState == Active && m_iFrameCounter >= 2) {
 		// Calculate the optical flow (frame 1 to frame 2)
 		m_pofcOpticalFlowCalc->calculateOpticalFlow();
+
+		// Track peak total frame delta using sliding window (3 seconds)
+		int framesIn3Seconds = (int)(3.0 * 10000000.0 / m_rtSourceFrameTime);
+		
+		// Add current frame delta to history
+		FrameDeltaEntry entry;
+		entry.frameNumber = m_iFrameCounter;
+		entry.totalDelta = m_pofcOpticalFlowCalc->m_totalFrameDelta;
+		m_frameDeltaHistory.push_back(entry);
+		
+		// Remove entries older than 3 seconds
+		while (!m_frameDeltaHistory.empty() && 
+		       (m_iFrameCounter - m_frameDeltaHistory.front().frameNumber) > framesIn3Seconds) {
+			m_frameDeltaHistory.pop_front();
+		}
+		
+		// Calculate peak from remaining entries
+		m_iPeakTotalFrameDelta = 0;
+		for (const auto& histEntry : m_frameDeltaHistory) {
+			if (histEntry.totalDelta > m_iPeakTotalFrameDelta) {
+				m_iPeakTotalFrameDelta = histEntry.totalDelta;
+			}
+		}
     }
 
     // Assemble the output samples
@@ -1354,7 +1353,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piDimY = m_iDimY;
 		*piLowDimX = m_pofcOpticalFlowCalc->m_opticalFlowFrameWidth;
 		*piLowDimY = m_pofcOpticalFlowCalc->m_opticalFlowFrameHeight;
-		*piTotalFrameDelta = m_pofcOpticalFlowCalc->m_totalFrameDelta;
+		*piTotalFrameDelta = m_iPeakTotalFrameDelta;
 	}
 	return NOERROR;
 }

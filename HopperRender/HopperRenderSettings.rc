@@ -75,7 +75,8 @@ BEGIN
         LTEXT           "Black Level", IDS_STATIC, 132, 70, 60, 9
         LTEXT           "White Level", IDS_STATIC, 132, 85, 60, 9
         LTEXT           "Scene Change", IDS_STATIC, 132, 100, 60, 9
-        LTEXT           "n/a", IDC_TOTALFRAMEDELTA, 245, 100, 60, 9
+        LTEXT           "n/a", IDC_TOTALFRAMEDELTA, 245, 100, 20, 9
+        LTEXT           "(peak 3s)", IDS_STATIC, 270, 100, 60, 9
         CONTROL         "Use Display FPS", IDC_USEDISPLAYFPS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 245, 25, 70, 13
 
     GROUPBOX        "Status", IDS_STATIC, 125, 125, 130, 130
@@ -95,7 +96,7 @@ BEGIN
         LTEXT           "n/a", IDC_WARPCALCTIME, 200, 210, 50, 9
         LTEXT           "n/a", IDC_FRAMERES, 200, 225, 50, 9
         LTEXT           "n/a", IDC_CALCRES, 200, 240, 50, 9
-    LTEXT           "HopperRender V2.0.1.8", IDS_STATIC, 10, 190, 100, 9
+    LTEXT           "HopperRender V2.0.1.9", IDS_STATIC, 10, 190, 100, 9
     PUSHBUTTON      "Defaults", IDC_DEFAULTS, 260, 240, 50, 14
 END
 
