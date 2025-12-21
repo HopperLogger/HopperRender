@@ -24,6 +24,11 @@ typedef enum ActiveState {
     TooSlow
 } ActiveState;
 
+typedef enum LogLevel { 
+    Info, 
+    Error 
+} LogLevel;
+
 class CHopperRender : public CTransformFilter,
 		      public SettingsInterface,
 		      public ISpecifyPropertyPages {
@@ -88,14 +93,10 @@ class CHopperRender : public CTransformFilter,
     void UpdateInterpolationStatus();
     void useDisplayRefreshRate();
     long CalculateOutputStride(long bufferSize);
-
-    // Logging functions
-    void InitializeLogging();
-    void CloseLogging();
-    void LogError(const char* functionName, const char* errorMessage);
+    void Log(LogLevel level, const char* functionName, const char* message);
 
     CCritSec m_csHopperRenderLock; // Private play critical section
-    CCritSec m_csLogLock; // Critical section for logging
+    std::ofstream m_logFile; // Log file stream
 
     // Settings
 	FrameOutput m_iFrameOutput; // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)

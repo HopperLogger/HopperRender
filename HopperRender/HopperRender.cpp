@@ -30,128 +30,9 @@
 #include <vector>
 #include <cwchar>
 
-// Global logging infrastructure
-static std::ofstream g_globalLogFile;
-static CRITICAL_SECTION g_globalLogLock;
-static bool g_loggingInitialized = false;
-static bool g_critSecInitialized = false;
-
 // Debug message function
 void DebugMessage(const std::string& logMessage, const bool showLog) {
 	if (showLog) OutputDebugStringA((logMessage + "\n").c_str());
-}
-
-// Global logging functions
-void InitializeGlobalLogging() {
-    // Initialize critical section
-    if (!g_critSecInitialized) {
-        InitializeCriticalSection(&g_globalLogLock);
-        g_critSecInitialized = true;
-    }
-    
-    EnterCriticalSection(&g_globalLogLock);
-    
-    if (g_loggingInitialized) {
-        LeaveCriticalSection(&g_globalLogLock);
-        return;
-    }
-
-    // Get the temp directory path
-    char tempPath[MAX_PATH];
-    GetTempPathA(MAX_PATH, tempPath);
-
-    // Create log filename with timestamp
-    std::time_t now = std::time(nullptr);
-    std::tm timeInfo;
-    localtime_s(&timeInfo, &now);
-
-    std::ostringstream logFileName;
-    logFileName << tempPath << "HopperRender_"
-                << std::put_time(&timeInfo, "%Y%m%d_%H%M%S") << ".log";
-
-    g_globalLogFile.open(logFileName.str(), std::ios::out | std::ios::app);
-
-    if (g_globalLogFile.is_open()) {
-        g_globalLogFile << "=================================================\n";
-        g_globalLogFile << "HopperRender v2.0.2.0 Filter Log\n";
-        g_globalLogFile << "DLL loaded at: "
-                       << std::put_time(&timeInfo, "%Y-%m-%d %H:%M:%S") << "\n";
-        g_globalLogFile << "=================================================\n";
-        g_globalLogFile.flush();
-        g_loggingInitialized = true;
-    }
-    
-    LeaveCriticalSection(&g_globalLogLock);
-}
-
-void CloseGlobalLogging() {
-    if (!g_critSecInitialized) return;
-    
-    EnterCriticalSection(&g_globalLogLock);
-
-    if (g_globalLogFile.is_open()) {
-        std::time_t now = std::time(nullptr);
-        std::tm timeInfo;
-        localtime_s(&timeInfo, &now);
-
-        g_globalLogFile << "=================================================\n";
-        g_globalLogFile << "DLL unloaded at: "
-                       << std::put_time(&timeInfo, "%Y-%m-%d %H:%M:%S") << "\n";
-        g_globalLogFile << "=================================================\n";
-        g_globalLogFile.close();
-        g_loggingInitialized = false;
-    }
-    
-    LeaveCriticalSection(&g_globalLogLock);
-    DeleteCriticalSection(&g_globalLogLock);
-}
-
-void LogGlobalError(const char* functionName, const char* errorMessage) {
-    if (!g_critSecInitialized) return;
-    
-    EnterCriticalSection(&g_globalLogLock);
-
-    if (g_globalLogFile.is_open()) {
-        std::time_t now = std::time(nullptr);
-        std::tm timeInfo;
-        localtime_s(&timeInfo, &now);
-
-        g_globalLogFile << "[" << std::put_time(&timeInfo, "%H:%M:%S") << "] "
-                       << "ERROR in " << functionName << ": " << errorMessage
-                       << "\n";
-        g_globalLogFile.flush();
-    }
-    
-    LeaveCriticalSection(&g_globalLogLock);
-
-    // Also output to debug console
-    std::ostringstream debugMsg;
-    debugMsg << "HopperRender ERROR in " << functionName << ": " << errorMessage;
-    OutputDebugStringA(debugMsg.str().c_str());
-}
-
-void LogGlobalInfo(const char* functionName, const char* message) {
-    if (!g_critSecInitialized) return;
-    
-    EnterCriticalSection(&g_globalLogLock);
-
-    if (g_globalLogFile.is_open()) {
-        std::time_t now = std::time(nullptr);
-        std::tm timeInfo;
-        localtime_s(&timeInfo, &now);
-
-        g_globalLogFile << "[" << std::put_time(&timeInfo, "%H:%M:%S") << "] "
-                       << "INFO in " << functionName << ": " << message
-                       << "\n";
-        g_globalLogFile.flush();
-    }
-    
-    LeaveCriticalSection(&g_globalLogLock);
-
-    // Also output to debug console
-    std::ostringstream debugMsg;
-    debugMsg << "HopperRender INFO in " << functionName << ": " << message;
-    OutputDebugStringA(debugMsg.str().c_str());
 }
 
 DWORD WINAPI MessageBoxThread(LPVOID lpParam) {
@@ -228,76 +109,44 @@ int g_cTemplates = sizeof(g_Templates) / sizeof(g_Templates[0]);
 
 // Handles sample registry
 STDAPI DllRegisterServer() {
-	LogGlobalInfo("DllRegisterServer", "Registering HopperRender filter");
-	HRESULT hr = AMovieDllRegisterServer2(TRUE);
-	if (FAILED(hr)) {
-		LogGlobalError("DllRegisterServer", "Failed to register filter");
-	} else {
-		LogGlobalInfo("DllRegisterServer", "Filter registered successfully");
-	}
-	return hr;
+	return AMovieDllRegisterServer2(TRUE);
 }
 
 // Handles sample unregistry
 STDAPI DllUnregisterServer() {
-	LogGlobalInfo("DllUnregisterServer", "Unregistering HopperRender filter");
-	HRESULT hr = AMovieDllRegisterServer2(FALSE);
-	if (FAILED(hr)) {
-		LogGlobalError("DllUnregisterServer", "Failed to unregister filter");
-	} else {
-		LogGlobalInfo("DllUnregisterServer", "Filter unregistered successfully");
-	}
-	return hr;
+	return AMovieDllRegisterServer2(FALSE);
 }
 
 // DllEntryPoint
 extern "C" BOOL WINAPI DllEntryPoint(HINSTANCE, ULONG, LPVOID);
 
-BOOL APIENTRY DllMain(HANDLE hModule,
-                      DWORD dwReason,
-                      LPVOID lpReserved) {
-    if (dwReason == DLL_PROCESS_ATTACH) {
-        InitializeGlobalLogging();
-        LogGlobalInfo("DllMain", "DLL_PROCESS_ATTACH - HopperRender DLL loaded");
-    }
-    else if (dwReason == DLL_PROCESS_DETACH) {
-        LogGlobalInfo("DllMain", "DLL_PROCESS_DETACH - HopperRender DLL unloading");
-        CloseGlobalLogging();
-    }
-    
+BOOL APIENTRY DllMain(HANDLE hModule, DWORD dwReason, LPVOID lpReserved) {
     return DllEntryPoint(static_cast<HINSTANCE>(hModule), dwReason, lpReserved);
 }
 
-// Initialize logging
-void CHopperRender::InitializeLogging() {
-    CAutoLock lock(&m_csLogLock);
-
-    // Use the global log file instead of creating a new one
+// Logging method
+void CHopperRender::Log(LogLevel level, const char* functionName, const char* message) {
+    CAutoLock lock(&m_csHopperRenderLock);
+    
+    if (!m_logFile.is_open()) return;
+    
     std::time_t now = std::time(nullptr);
     std::tm timeInfo;
     localtime_s(&timeInfo, &now);
-
-    LogGlobalInfo("CHopperRender::InitializeLogging", "Filter instance created");
-}
-
-// Close logging
-void CHopperRender::CloseLogging() {
-    CAutoLock lock(&m_csLogLock);
-    LogGlobalInfo("CHopperRender::CloseLogging", "Filter instance destroyed");
-}
-
-// Log error messages
-void CHopperRender::LogError(const char* functionName,
-			     const char* errorMessage) {
-    CAutoLock lock(&m_csLogLock);
-    LogGlobalError(functionName, errorMessage);
+    
+    const char* levelStr = (level == LogLevel::Error) ? "ERROR" : "INFO";
+    m_logFile << "[" << std::put_time(&timeInfo, "%H:%M:%S") << "] "
+              << levelStr << " in " << functionName << ": " << message << "\n";
+    m_logFile.flush();
+    
+    // Also output to debug console
+    std::ostringstream debugMsg;
+    debugMsg << "HopperRender " << levelStr << " in " << functionName << ": " << message;
+    OutputDebugStringA(debugMsg.str().c_str());
 }
 
 // Constructor
-CHopperRender::CHopperRender(TCHAR* tszName,
-                             LPUNKNOWN punk,
-                             HRESULT* phr) :
-	CTransformFilter(tszName, punk, CLSID_HopperRender),
+CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CTransformFilter(tszName, punk, CLSID_HopperRender),
     // Settings
     m_iFrameOutput(BlendedFrame),
 
@@ -307,9 +156,9 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 
     // Timings
 	m_rtCurrStartTime(-1),
-	m_rtSourceFrameTime(416667),
+	m_rtSourceFrameTime(417083),
 	m_rtTargetFrameTime(166667),
-	m_rtCurrPlaybackFrameTime(416667),
+	m_rtCurrPlaybackFrameTime(417083),
 
     // Optical Flow calculation
     m_pofcOpticalFlowCalc(nullptr),
@@ -328,8 +177,21 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_iPeakTotalFrameDelta(0),
 	m_iBufferFrames(DEFAULT_BUFFER_FRAMES)
 	{
+    // Initialize logging
+    char tempPath[MAX_PATH];
+    GetTempPathA(MAX_PATH, tempPath);
+    std::time_t now = std::time(nullptr);
+    std::tm timeInfo;
+    localtime_s(&timeInfo, &now);
+    std::ostringstream logFileName;
+    logFileName << tempPath << "HopperRender_" << std::put_time(&timeInfo, "%Y%m%d_%H%M%S") << ".log";
+    m_logFile.open(logFileName.str(), std::ios::out | std::ios::app);
+    
+    if (m_logFile.is_open()) {
+        m_logFile << "[" << std::put_time(&timeInfo, "%H:%M:%S") << "] HopperRender v2.0.2.0 - Filter instance created\n";
+        m_logFile.flush();
+    }
 
-    InitializeLogging();
     UpdateInterpolationStatus();
 
     delete m_pInput;
@@ -340,32 +202,34 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 
 // Destructor
 CHopperRender::~CHopperRender() {
-	LogGlobalInfo("CHopperRender::~CHopperRender", "Destructor called - cleaning up filter instance");
-	CloseLogging();
+	Log(LogLevel::Info, "~CHopperRender", "Cleaning up filter instance");
+	
 	if (m_pofcOpticalFlowCalc) {
 		delete m_pofcOpticalFlowCalc;
 		m_pofcOpticalFlowCalc = nullptr;
 	}
-	LogGlobalInfo("CHopperRender::~CHopperRender", "Destructor completed");
+	
+	if (m_logFile.is_open()) {
+		m_logFile.close();
+	}
 }
 
 // Override Stop to ensure proper cleanup
 STDMETHODIMP CHopperRender::Stop() {
-    LogGlobalInfo("CHopperRender::Stop", "Filter stopping");
+    Log(LogLevel::Info, "Stop", "Filter stopping");
     
     HRESULT hr = CTransformFilter::Stop();
     
     if (FAILED(hr)) {
-        LogGlobalError("CHopperRender::Stop", "Failed to stop filter");
+        Log(LogLevel::Error, "Stop", "Failed to stop filter");
     } else {
-        LogGlobalInfo("CHopperRender::Stop", "Filter stopped successfully");
+        Log(LogLevel::Info, "Stop", "Filter stopped successfully");
     }
     
     return hr;
 }
 
-static inline double ComputeRefreshHz(const DISPLAYCONFIG_PATH_INFO& path, const DISPLAYCONFIG_MODE_INFO* modes) noexcept
-{
+static inline double ComputeRefreshHz(const DISPLAYCONFIG_PATH_INFO& path, const DISPLAYCONFIG_MODE_INFO* modes) noexcept {
     double freq = 0.0;
 
     if (path.targetInfo.modeInfoIdx != DISPLAYCONFIG_PATH_MODE_IDX_INVALID) {
@@ -388,8 +252,7 @@ static inline double ComputeRefreshHz(const DISPLAYCONFIG_PATH_INFO& path, const
     return freq;
 }
 
-double GetDisplayRefreshRateByName(const wchar_t* displayName) noexcept
-{
+double GetDisplayRefreshRateByName(const wchar_t* displayName) noexcept {
     if (!displayName || !displayName[0]) {
         return 0.0;
     }
@@ -433,8 +296,7 @@ double GetDisplayRefreshRateByName(const wchar_t* displayName) noexcept
     return 0.0;
 }
 
-double GetDisplayRefreshRateForWindow(HWND hwnd) noexcept
-{
+double GetDisplayRefreshRateForWindow(HWND hwnd) noexcept {
     HMONITOR hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
     if (!hMon) {
         return 0.0;
@@ -479,16 +341,10 @@ template <class T> void SafeRelease(T** ppT) {
 CUnknown* CHopperRender::CreateInstance(LPUNKNOWN punk, HRESULT* phr) {
     ASSERT(phr);
 
-    LogGlobalInfo("CHopperRender::CreateInstance", "Attempting to create filter instance");
-
     auto pNewObject = new CHopperRender(NAME("HopperRender"), punk, phr);
 
-    if (pNewObject == nullptr) {
-	LogGlobalError("CHopperRender::CreateInstance", "Failed to allocate memory for filter instance");
-	if (phr)
-	    *phr = E_OUTOFMEMORY;
-    } else {
-	LogGlobalInfo("CHopperRender::CreateInstance", "Filter instance created successfully");
+    if (pNewObject == nullptr && phr) {
+		*phr = E_OUTOFMEMORY;
     }
     return pNewObject;
 }
@@ -498,10 +354,10 @@ STDMETHODIMP CHopperRender::NonDelegatingQueryInterface(REFIID riid, void** ppv)
     CheckPointer(ppv, E_POINTER)
 
 	if (riid == IID_SettingsInterface) {
-	return GetInterface(static_cast<SettingsInterface*>(this), ppv);
+		return GetInterface(static_cast<SettingsInterface*>(this), ppv);
     }
     if (riid == IID_ISpecifyPropertyPages) {
-	return GetInterface(static_cast<ISpecifyPropertyPages*>(this), ppv);
+		return GetInterface(static_cast<ISpecifyPropertyPages*>(this), ppv);
     }
     return CTransformFilter::NonDelegatingQueryInterface(riid, ppv);
 }
@@ -518,7 +374,7 @@ HRESULT CHopperRender::CheckInputType(const CMediaType* mtIn) {
 			formatType.Data1, formatType.Data2, formatType.Data3,
 			formatType.Data4[0], formatType.Data4[1], formatType.Data4[2], formatType.Data4[3],
 			formatType.Data4[4], formatType.Data4[5], formatType.Data4[6], formatType.Data4[7]);
-		LogError("CheckInputType", formatTypeStr);
+		Log(LogLevel::Error, "CheckInputType", formatTypeStr);
 		return E_INVALIDARG;
 	} else {
 	    char formatTypeStr[100];
@@ -527,7 +383,7 @@ HRESULT CHopperRender::CheckInputType(const CMediaType* mtIn) {
 			formatType.Data4[0], formatType.Data4[1], formatType.Data4[2], formatType.Data4[3],
 		      formatType.Data4[4], formatType.Data4[5],
 		      formatType.Data4[6], formatType.Data4[7]);
-	    LogGlobalInfo("CheckInputType", formatTypeStr);
+	    Log(LogLevel::Info, "CheckInputType", formatTypeStr);
 	}
 
     // We only accept NV12 or P010 input
@@ -536,7 +392,7 @@ HRESULT CHopperRender::CheckInputType(const CMediaType* mtIn) {
 		return NOERROR;
     }
 
-    LogError("CheckInputType", "Invalid media subtype - only NV12 or P010 is accepted");
+    Log(LogLevel::Error, "CheckInputType", "Invalid media subtype - only NV12 or P010 is accepted");
     return E_FAIL;
 }
 
@@ -549,10 +405,10 @@ HRESULT CHopperRender::CheckTransform(const CMediaType* mtIn, const CMediaType* 
 	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) &&
 		(IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) || IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010)) && 
 	    IsEqualGUID(*mtOut->Subtype(), MEDIASUBTYPE_P010)) {
-	return NOERROR;
+		return NOERROR;
     }
 
-    LogError("CheckTransform", "Incompatible media types for transformation");
+    Log(LogLevel::Error, "CheckTransform", "Incompatible media types for transformation");
     return E_FAIL;
 }
 
@@ -560,8 +416,8 @@ HRESULT CHopperRender::CheckTransform(const CMediaType* mtIn, const CMediaType* 
 HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERTIES* ppropInputRequest) {
     // Is the input pin connected
     if (m_pInput->IsConnected() == FALSE) {
-	LogError("DecideBufferSize", "Input pin is not connected");
-	return E_UNEXPECTED;
+		Log(LogLevel::Error, "DecideBufferSize", "Input pin is not connected");
+		return E_UNEXPECTED;
     }
 
 	CheckPointer(pAlloc, E_POINTER)
@@ -580,17 +436,17 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
     ALLOCATOR_PROPERTIES Actual;
     hr = pAlloc->SetProperties(ppropInputRequest, &Actual);
     if (FAILED(hr)) {
-	LogError("DecideBufferSize", "Failed to set allocator properties");
-	return hr;
+		Log(LogLevel::Error, "DecideBufferSize", "Failed to set allocator properties");
+		return hr;
     }
 
     ASSERT(Actual.cBuffers == 5);
 
     if (ppropInputRequest->cBuffers > Actual.cBuffers ||
-	ppropInputRequest->cbBuffer > Actual.cbBuffer) {
-	LogError("DecideBufferSize",
+		ppropInputRequest->cbBuffer > Actual.cbBuffer) {
+		Log(LogLevel::Error, "DecideBufferSize",
 		 "Allocator did not allocate requested buffer size");
-	return E_FAIL;
+		return E_FAIL;
     }
     return NOERROR;
 }
@@ -598,11 +454,11 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
 // Retrieves a preferred media type for the output pin
 HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType) {
     if (iPosition < 0) {
-	return E_INVALIDARG;
+		return E_INVALIDARG;
     }
 
     if (iPosition > 0) {
-	return VFW_S_NO_MORE_ITEMS;
+		return VFW_S_NO_MORE_ITEMS;
     }
 
     CheckPointer(pMediaType, E_POINTER);
@@ -701,14 +557,12 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
 }
 
 // Retrieves a filter from a pin
-IBaseFilter* GetFilterFromPin(IPin* pPin)
-{
+IBaseFilter* GetFilterFromPin(IPin* pPin) {
     CheckPointer(pPin, nullptr);
 
     PIN_INFO pi;
-	if (pPin && SUCCEEDED(pPin->QueryPinInfo(&pi)))
-	{
-	return pi.pFilter;
+	if (pPin && SUCCEEDED(pPin->QueryPinInfo(&pi))) {
+		return pi.pFilter;
     }
 
     return nullptr;
@@ -726,7 +580,7 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 	
 	if (hrMediaType == S_OK && pmt != nullptr) {
 		// Input sample has a new media type - format change!
-		LogGlobalInfo("Transform", "Dynamic format change detected on input sample");
+		Log(LogLevel::Info, "Transform", "Dynamic format change detected on input sample");
 		
 		// Extract new dimensions
 		long newWidth = 0, newHeight = 0;
@@ -744,7 +598,7 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 			char logMsg[256];
 			sprintf_s(logMsg, "Resolution change detected: %dx%d -> %dx%d", 
 					m_iDimX, m_iDimY, newWidth, newHeight);
-			LogGlobalInfo("Transform", logMsg);
+			Log(LogLevel::Info, "Transform", logMsg);
 			
 			m_iDimX = newWidth;
 			m_iDimY = newHeight;
@@ -777,7 +631,7 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 			char logMsg[256];
 			sprintf_s(logMsg, "Resolution initialized/changed: %dx%d -> %dx%d", 
 					m_iDimX, m_iDimY, currentWidth, currentHeight);
-			LogGlobalInfo("Transform", logMsg);
+			Log(LogLevel::Info, "Transform", logMsg);
 			
 			m_iDimX = currentWidth;
 			m_iDimY = currentHeight;
@@ -803,7 +657,7 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 		// Try to set the new format on the output pin
 		HRESULT hrAccept = m_pOutput->GetConnected()->QueryAccept(&mtOut);
 		if (hrAccept == S_OK) {
-			LogGlobalInfo("Transform", "Downstream filter accepted new format");
+			Log(LogLevel::Info, "Transform", "Downstream filter accepted new format");
 			m_pOutput->SetMediaType(&mtOut);
 			
 			// Set the media type on the output sample to signal format change
@@ -815,17 +669,17 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 		} else {
 			char logMsg[128];
 			sprintf_s(logMsg, "Downstream filter rejected format change (HRESULT: 0x%08X)", hrAccept);
-			LogGlobalError("Transform", logMsg);
+			Log(LogLevel::Error, "Transform", logMsg);
 			
 			// Try to reconnect
 			IFilterGraph* pGraph = nullptr;
 			if (SUCCEEDED(m_pGraph->QueryInterface(IID_IFilterGraph, (void**)&pGraph))) {
 				HRESULT hrReconnect = pGraph->Reconnect(m_pOutput);
 				if (SUCCEEDED(hrReconnect)) {
-					LogGlobalInfo("Transform", "Successfully reconnected output pin with new format");
+					Log(LogLevel::Info, "Transform", "Successfully reconnected output pin with new format");
 				} else {
 					sprintf_s(logMsg, "Failed to reconnect output pin (HRESULT: 0x%08X)", hrReconnect);
-					LogGlobalError("Transform", logMsg);
+					Log(LogLevel::Error, "Transform", logMsg);
 				}
 				pGraph->Release();
 			}
@@ -841,8 +695,8 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 
     HRESULT hr = DeliverToRenderer(pIn, pOut);
     if (FAILED(hr)) {
-	LogError("Transform", "Failed to deliver frame to renderer");
-	return hr;
+		Log(LogLevel::Error, "Transform", "Failed to deliver frame to renderer");
+		return hr;
     }
 
     return NOERROR;
@@ -851,9 +705,9 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 void CHopperRender::UpdateInterpolationStatus() {
     // Check if interpolation is necessary
     if (m_iIntActiveState && m_rtCurrPlaybackFrameTime > m_rtTargetFrameTime) {
-	m_iIntActiveState = Active;
+		m_iIntActiveState = Active;
     } else if (m_iIntActiveState) {
-	m_iIntActiveState = NotNeeded;
+		m_iIntActiveState = NotNeeded;
     }
 
 	m_iPeakTotalFrameDelta = 0;
@@ -906,9 +760,9 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 	unsigned char* pInBuffer;
     HRESULT hr = pIn->GetPointer(&pInBuffer);
     if (FAILED(hr)) {
-	LogError("DeliverToRenderer", "Failed to get input buffer pointer");
-	return hr;
-    }
+		Log(LogLevel::Error, "DeliverToRenderer", "Failed to get input buffer pointer");
+		return hr;
+	}
 
     // Get the side data
     const BYTE* sideDataBytes1;
@@ -928,22 +782,14 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     size_t sideDataSize7 = 0;
     size_t sideDataSize8 = 0;
     if (CComQIPtr<IMediaSideData> sideDataIn = pIn) {
-	hr = sideDataIn->GetSideData(IID_MediaSideDataDOVIMetadata,
-				     &sideDataBytes1, &sideDataSize1);
-		hr = sideDataIn->GetSideData(IID_MediaSideDataDOVIRPU,
-					     &sideDataBytes2, &sideDataSize2);
-	hr = sideDataIn->GetSideData(IID_MediaSideDataControlFlags,
-				     &sideDataBytes3, &sideDataSize3);
-		hr = sideDataIn->GetSideData(IID_MediaSideDataHDR,
-					     &sideDataBytes4, &sideDataSize4);
-	hr = sideDataIn->GetSideData(IID_MediaSideDataHDR10Plus,
-				     &sideDataBytes5, &sideDataSize5);
-	hr = sideDataIn->GetSideData(IID_MediaSideDataHDRContentLightLevel,
-				     &sideDataBytes6, &sideDataSize6);
-		hr = sideDataIn->GetSideData(IID_MediaSideDataEIA608CC,
-					     &sideDataBytes7, &sideDataSize7);
-		hr = sideDataIn->GetSideData(IID_MediaSideData3DOffset,
-					     &sideDataBytes8, &sideDataSize8);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataDOVIMetadata, &sideDataBytes1, &sideDataSize1);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataDOVIRPU, &sideDataBytes2, &sideDataSize2);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataControlFlags, &sideDataBytes3, &sideDataSize3);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataHDR, &sideDataBytes4, &sideDataSize4);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataHDR10Plus, &sideDataBytes5, &sideDataSize5);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataHDRContentLightLevel, &sideDataBytes6, &sideDataSize6);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataEIA608CC, &sideDataBytes7, &sideDataSize7);
+		hr = sideDataIn->GetSideData(IID_MediaSideData3DOffset, &sideDataBytes8, &sideDataSize8);
     }
 
     // Get the size of the output sample
@@ -963,13 +809,13 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		char logMsg[256];
 		sprintf_s(logMsg, "Initializing Optical Flow Calculator with %dx%d (input stride: %d, output stride: %d)", 
 				m_iDimX, m_iDimY, inputStride, outputStride);
-		LogGlobalInfo("DeliverToRenderer", logMsg);
+		Log(LogLevel::Info, "DeliverToRenderer", logMsg);
 		if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
 			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, m_iDimX, inputStride, outputStride, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
-			LogGlobalInfo("DeliverToRenderer", "Using HDR Optical Flow Calculator");
+			Log(LogLevel::Info, "DeliverToRenderer", "Using HDR Optical Flow Calculator");
 		} else {
 			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, m_iDimX, inputStride, outputStride, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
-			LogGlobalInfo("DeliverToRenderer", "Using SDR Optical Flow Calculator");
+			Log(LogLevel::Info, "DeliverToRenderer", "Using SDR Optical Flow Calculator");
 		}
     }
 
@@ -978,7 +824,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     hr = pIn->GetTime(&rtStartTime, &rtEndTime);
     if (FAILED(hr)) {
 		// Capture cards often don't provide valid timestamps, continue with default values
-		LogGlobalInfo("DeliverToRenderer", "Failed to get sample time, using defaults");
+		Log(LogLevel::Info, "DeliverToRenderer", "Failed to get sample time, using defaults");
 		rtStartTime = 0;
 		rtEndTime = 0;
 		m_bValidFrameTimes = false;
@@ -1002,7 +848,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 	if (m_iFrameCounter == 1) {
 		char dbgLogMsg[256];
 		sprintf_s(dbgLogMsg, "Adding %d additional frames for LIVE content", m_iBufferFrames);
-		LogGlobalInfo("DeliverToRenderer", dbgLogMsg);
+		Log(LogLevel::Info, "DeliverToRenderer", dbgLogMsg);
 		m_iNumIntFrames += m_iBufferFrames;
 	}
 
@@ -1049,7 +895,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 			pOutNew = nullptr;
 			hr = m_pOutput->GetDeliveryBuffer(&pOutNew, nullptr, nullptr, 0);
 			if (FAILED(hr)) {
-				LogError("DeliverToRenderer", "Failed to get delivery buffer");
+				Log(LogLevel::Error, "DeliverToRenderer", "Failed to get delivery buffer");
 				return hr;
 			}
 			// Use the input sample for the last output sample
@@ -1091,7 +937,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		// Get the buffer pointer for the new output sample
 		hr = pOutNew->GetPointer(&pOutNewBuffer);
 		if (FAILED(hr)) {
-			LogError("DeliverToRenderer", "Failed to get output buffer pointer");
+			Log(LogLevel::Error, "DeliverToRenderer", "Failed to get output buffer pointer");
 			return hr;
 		}
 
@@ -1105,7 +951,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		if (m_bValidFrameTimes) {
 			hr = pOutNew->SetTime(&rtStartTime, &rtEndTime);
 			if (FAILED(hr)) {
-				LogError("DeliverToRenderer", "Failed to set sample time");
+				Log(LogLevel::Error, "DeliverToRenderer", "Failed to set sample time");
 				return hr;
 			}
 		}
@@ -1118,7 +964,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		if (NOERROR == pIn->GetMediaTime(&llMediaStart, &llMediaEnd)) {
 			hr = pOutNew->SetMediaTime(&llMediaStart, &llMediaEnd);
 			if (FAILED(hr)) {
-				LogError("DeliverToRenderer", "Failed to set media time");
+				Log(LogLevel::Error, "DeliverToRenderer", "Failed to set media time");
 				return hr;
 			}
 		}
@@ -1128,17 +974,17 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		if (hr == S_OK) {
 			hr = pOutNew->SetSyncPoint(TRUE);
 			if (FAILED(hr)) {
-				LogError("DeliverToRenderer", "Failed to set sync point");
+				Log(LogLevel::Error, "DeliverToRenderer", "Failed to set sync point");
 				return hr;
 			}
 		} else if (hr == S_FALSE) {
 			hr = pOutNew->SetSyncPoint(FALSE);
 			if (FAILED(hr)) {
-				LogError("DeliverToRenderer", "Failed to clear sync point");
+				Log(LogLevel::Error, "DeliverToRenderer", "Failed to clear sync point");
 				return hr;
 			}
 		} else {
-			LogError("DeliverToRenderer", "Unexpected result from IsSyncPoint");
+			Log(LogLevel::Error, "DeliverToRenderer", "Unexpected result from IsSyncPoint");
 			return E_UNEXPECTED;
 		}
 
@@ -1146,12 +992,12 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		AM_MEDIA_TYPE* pMediaType;
 		hr = pOut->GetMediaType(&pMediaType);
 		if (FAILED(hr)) {
-			LogError("DeliverToRenderer", "Failed to get media type");
+			Log(LogLevel::Error, "DeliverToRenderer", "Failed to get media type");
 			return hr;
 		}
 		hr = pOutNew->SetMediaType(pMediaType);
 		if (FAILED(hr)) {
-			LogError("DeliverToRenderer", "Failed to set media type");
+			Log(LogLevel::Error, "DeliverToRenderer", "Failed to set media type");
 			return hr;
 		}
 		DeleteMediaType(pMediaType);
@@ -1161,17 +1007,17 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		if (hr == S_OK) {
 			hr = pOutNew->SetPreroll(TRUE);
 			if (FAILED(hr)) {
-				LogError("DeliverToRenderer", "Failed to set preroll");
+				Log(LogLevel::Error, "DeliverToRenderer", "Failed to set preroll");
 				return hr;
 			}
 		} else if (hr == S_FALSE) {
 			hr = pOutNew->SetPreroll(FALSE);
 			if (FAILED(hr)) {
-				LogError("DeliverToRenderer", "Failed to clear preroll");
+				Log(LogLevel::Error, "DeliverToRenderer", "Failed to clear preroll");
 				return hr;
 			}
 		} else {
-			LogError("DeliverToRenderer", "Unexpected result from IsPreroll");
+			Log(LogLevel::Error, "DeliverToRenderer", "Unexpected result from IsPreroll");
 			return E_UNEXPECTED;
 		}
 
@@ -1180,24 +1026,24 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		if (hr == S_OK) {
 			hr = pOutNew->SetDiscontinuity(TRUE);
 			if (FAILED(hr)) {
-				LogError("DeliverToRenderer", "Failed to set discontinuity");
+				Log(LogLevel::Error, "DeliverToRenderer", "Failed to set discontinuity");
 				return hr;
 			}
 		} else if (hr == S_FALSE) {
 			hr = pOutNew->SetDiscontinuity(FALSE);
 			if (FAILED(hr)) {
-				LogError("DeliverToRenderer", "Failed to clear discontinuity");
+				Log(LogLevel::Error, "DeliverToRenderer", "Failed to clear discontinuity");
 				return hr;
 			}
 		} else {
-			LogError("DeliverToRenderer", "Unexpected result from IsDiscontinuity");
+			Log(LogLevel::Error, "DeliverToRenderer", "Unexpected result from IsDiscontinuity");
 			return E_UNEXPECTED;
 		}
 
 		// Copy the actual data length
 		hr = pOutNew->SetActualDataLength(lOutSize);
 		if (FAILED(hr)) {
-			LogError("DeliverToRenderer", "Failed to set actual data length");
+			Log(LogLevel::Error, "DeliverToRenderer", "Failed to set actual data length");
 			return hr;
 		}
 
@@ -1227,7 +1073,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		if (iIntFrameNum < (m_iNumIntFrames - 1)) {
 			hr = m_pOutput->Deliver(pOutNew);
 			if (FAILED(hr)) {
-				LogError("DeliverToRenderer", "Failed to deliver output sample");
+				Log(LogLevel::Error, "DeliverToRenderer", "Failed to deliver output sample");
 				return hr;
 			}
 
@@ -1257,7 +1103,7 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
 	pPages->cElems = 1;
     pPages->pElems = static_cast<GUID*>(CoTaskMemAlloc(sizeof(GUID)));
     if (pPages->pElems == nullptr) {
-		LogError("GetPages", "Failed to allocate memory for property pages");
+		Log(LogLevel::Error, "GetPages", "Failed to allocate memory for property pages");
 		return E_OUTOFMEMORY;
     }
 
@@ -1267,26 +1113,26 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
 
 // Return the current settings selected
 STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
-		int* piFrameOutput,
-		double* pdTargetFPS,
-		bool* pbUseDsiplayFPS,
-		int* piDeltaScalar,
-		int* piNeighborScalar,
-		int* piBlackLevel,
-		int* piWhiteLevel,
-		int* piSceneChangeThreshold,
-		int* piIntActiveState,
-		double* pdSourceFPS,
-		double* pdOFCCalcTime,
-		double* pdAVGOFCCalcTime,
-		double* pdPeakOFCCalcTime,
-		double* pdWarpCalcTime,
-		int* piDimX,
-		int* piDimY,
-		int* piLowDimX,
-		int* piLowDimY,
-		unsigned int* piTotalFrameDelta,
-		unsigned int* piBufferFrames) {
+											   int* piFrameOutput,
+											   double* pdTargetFPS,
+											   bool* pbUseDsiplayFPS,
+											   int* piDeltaScalar,
+											   int* piNeighborScalar,
+											   int* piBlackLevel,
+											   int* piWhiteLevel,
+											   int* piSceneChangeThreshold,
+											   int* piIntActiveState,
+											   double* pdSourceFPS,
+											   double* pdOFCCalcTime,
+											   double* pdAVGOFCCalcTime,
+											   double* pdPeakOFCCalcTime,
+											   double* pdWarpCalcTime,
+											   int* piDimX,
+											   int* piDimY,
+											   int* piLowDimX,
+											   int* piLowDimY,
+											   unsigned int* piTotalFrameDelta,
+											   unsigned int* piBufferFrames) {
     CAutoLock cAutolock(&m_csHopperRenderLock);
 	CheckPointer(pbActivated, E_POINTER)
 	CheckPointer(piFrameOutput, E_POINTER)
@@ -1370,7 +1216,16 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 }
 
 // Apply the new settings
-STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS, int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel, int iSceneChangeThreshold, unsigned int iBufferFrames) {
+STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated,
+											   int iFrameOutput,
+											   double dTargetFPS,
+											   bool bUseDisplayFPS,
+											   int iDeltaScalar,
+											   int iNeighborScalar,
+											   int iBlackLevel,
+											   int iWhiteLevel,
+											   int iSceneChangeThreshold,
+											   unsigned int iBufferFrames) {
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 
 	if (!bActivated) {
@@ -1428,8 +1283,8 @@ void CHopperRender::autoAdjustSettings() {
 
 // Loads the settings from the registry
 HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
-				    float* blackLevel, float* whiteLevel,
-				    int* maxCalcRes) {
+				    				float* blackLevel, float* whiteLevel,
+				    				int* maxCalcRes) {
     HKEY hKey;
     LPCWSTR subKey = L"SOFTWARE\\HopperRender";
     DWORD value = 0;
