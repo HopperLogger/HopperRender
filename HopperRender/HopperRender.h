@@ -104,6 +104,8 @@ class CHopperRender : public CTransformFilter,
     // Video info
     unsigned int m_iDimX; // The width of the frame
     unsigned int m_iDimY; // The height of the frame
+	unsigned int m_iInitialDimY; // The initial height of the frame when the buffer was created
+	bool m_bFirstBufferAlloc; // Whether the first buffer allocation has been done
 
     // Timings
 	REFERENCE_TIME m_rtCurrStartTime; // The start time of the current interpolated frame

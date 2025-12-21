@@ -143,6 +143,8 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CTr
     // Video info
 	m_iDimX(1),
 	m_iDimY(1),
+	m_iInitialDimY(1),
+	m_bFirstBufferAlloc(true),
 
     // Timings
 	m_rtCurrStartTime(-1),
@@ -398,6 +400,23 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
 		Log(LogLevel::Error, "DecideBufferSize", "Input pin is not connected");
 		return E_UNEXPECTED;
     }
+
+	// Get the frame height at the moment of buffer allocation
+	if (m_bFirstBufferAlloc) {
+		m_bFirstBufferAlloc = false;
+		AM_MEDIA_TYPE* pmt = &m_pOutput->CurrentMediaType();
+		bool bFormatChanged = false;
+	
+		if (pmt != nullptr) {
+			if (pmt->formattype == FORMAT_VideoInfo) {
+				VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)pmt->pbFormat;
+				m_iInitialDimY = abs(pvi->bmiHeader.biHeight);
+			} else if (pmt->formattype == FORMAT_VideoInfo2) {
+				VIDEOINFOHEADER2* pvi2 = (VIDEOINFOHEADER2*)pmt->pbFormat;
+				m_iInitialDimY = abs(pvi2->bmiHeader.biHeight);
+			}
+		}
+	}
 
     ppropInputRequest->cBuffers = 15;
     ppropInputRequest->cbBuffer = m_pOutput->CurrentMediaType().GetSampleSize();
@@ -712,8 +731,8 @@ long CHopperRender::CalculateOutputStride(long bufferSize) {
 			CLSID filterCLSID;
 			if (SUCCEEDED(pDownstreamFilter->GetClassID(&filterCLSID))) {
 				if (filterCLSID != CLSID_MPC_VR) {
-					if (m_iDimY > 0 && bufferSize > 0) {
-						outputStride = bufferSize / (m_iDimY * 3);
+					if (m_iInitialDimY > 0 && bufferSize > 0) {
+						outputStride = bufferSize / (m_iInitialDimY * 3);
 					}
 				}
 			}
