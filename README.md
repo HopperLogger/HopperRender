@@ -6,7 +6,7 @@
 An optical flow frame interpolator with DirectShow integration that allows you to watch any local media file at the native refresh rate of your monitor.
 This is my first project using DirectShow and CUDA, which has now transitioned to OpenCL for better cross-platform compatibility. The goal is to achieve pretty decent frame interpolation with a variety of user customizable settings.
 The filter can be added to a DirectShow media player like MPC-HC or MPC-BE.
-> Please note that this project is no longer in development and is superseded by my [mpv frame interpolator](https://github.com/HopperLogger/mpv-frame-interpolator). However, I will occasionally port significant improvements over to this project.
+> Note: This project is also availbale on Linux as an integration into mpv. You can find it here: [mpv frame interpolator](https://github.com/HopperLogger/mpv-frame-interpolator).
 
 ## Features
 - Realtime frame interpolation of any source framerate to the native refresh rate of your monitor
@@ -18,7 +18,7 @@ The filter can be added to a DirectShow media player like MPC-HC or MPC-BE.
 - User customizable settings to adjust the quality and presentation of the interpolation
 - HSV Flow visualization lets you see the calculated movements of objects in a scene
 - Automatically adjusts internal settings to match the PC's performance
-- Compatible with madVR, Enhanced Video Renderer, MPC-Video Renderer, and more
+- Compatible with madVR, MPC-Video Renderer, Enhanced Video Renderer, and more
 - Automatically detects the source frame rate (as well as playback speed) and disables interpolation if not needed
 
 ## How to get started?
@@ -55,7 +55,7 @@ That's it! You can now play a video with MPC-HC/BE and HopperRender will interpo
 You can access the settings when playing back a video with HopperRender by right clicking on the video in MPC-HC/BE, selecting the Filters menu and then HopperRender.
 
 <div align="center">
-  <img alt="properties" height="300px" src="https://github.com/user-attachments/assets/be4efd96-9c23-4094-8beb-853ac2a2d707">
+  <img alt="properties" height="500px" src="https://github.com/user-attachments/assets/e73060fc-177b-403f-80ab-f42ec73762ef">
 </div>
 
 - You can activate and deactivate the interpolation
