@@ -73,7 +73,7 @@ void InitializeGlobalLogging() {
 
     if (g_globalLogFile.is_open()) {
         g_globalLogFile << "=================================================\n";
-        g_globalLogFile << "HopperRender v2.0.1.9 Filter Log\n";
+        g_globalLogFile << "HopperRender v2.0.2.0 Filter Log\n";
         g_globalLogFile << "DLL loaded at: "
                        << std::put_time(&timeInfo, "%Y-%m-%d %H:%M:%S") << "\n";
         g_globalLogFile << "=================================================\n";
@@ -324,8 +324,9 @@ CHopperRender::CHopperRender(TCHAR* tszName,
 	m_dBlendingScalar(0.0),
     m_bUseDisplayFPS(true),
 	m_bValidFrameTimes(false),
-	m_iSceneChangeThreshold(10000),
-	m_iPeakTotalFrameDelta(0)
+	m_iSceneChangeThreshold(DEFAULT_SCENE_CHANGE_THRESHOLD),
+	m_iPeakTotalFrameDelta(0),
+	m_iBufferFrames(DEFAULT_BUFFER_FRAMES)
 	{
 
     InitializeLogging();
@@ -855,8 +856,6 @@ void CHopperRender::UpdateInterpolationStatus() {
 	m_iIntActiveState = NotNeeded;
     }
 
-    m_iFrameCounter = 0;
-	m_rtCurrStartTime = -1; // Tells the DeliverToRenderer function that we are at the start of a new segment
 	m_iPeakTotalFrameDelta = 0;
 	m_frameDeltaHistory.clear();
 }
@@ -868,11 +867,14 @@ HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, d
 
     UpdateInterpolationStatus();
 
+	m_iFrameCounter = 0;
+	m_rtCurrStartTime = -1; // Tells the DeliverToRenderer function that we are at the start of a new segment
+
     return __super::NewSegment(tStart, tStop, dRate);
 }
 
 // Calculates the stride expected by the renderer
-long CHopperRender::CalculateOutputStride() {
+long CHopperRender::CalculateOutputStride(long bufferSize) {
 	long outputStride = m_iDimX; // Default to frame width
 
 	// Check if the downstream filter is madVR
@@ -883,11 +885,9 @@ long CHopperRender::CalculateOutputStride() {
 			CLSID filterCLSID;
 			if (SUCCEEDED(pDownstreamFilter->GetClassID(&filterCLSID))) {
 				if (filterCLSID == CLSID_madVR) {
-					long roundedStride = 1;
-					while (roundedStride < (long)m_iDimX) {
-						roundedStride <<= 1;
+					if (m_iDimY > 0 && bufferSize > 0) {
+						outputStride = bufferSize / (m_iDimY * 3);
 					}
-					outputStride = roundedStride;
 				}
 			}
 			pDownstreamFilter->Release();
@@ -952,7 +952,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     // Initialize the Optical Flow Calculator
     if (m_pofcOpticalFlowCalc == nullptr) {
 		const long inputStride = m_iDimX;
-		const long outputStride = CalculateOutputStride();
+		const long outputStride = CalculateOutputStride(lOutSize);
 		
 		int deltaScalar;
 		int neighborScalar;
@@ -997,6 +997,13 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		m_iNumIntFrames = (int)max(ceil((1.0 - m_dBlendingScalar) / ((double)m_rtTargetFrameTime / (double)m_rtCurrPlaybackFrameTime)), 1.0);
 	} else {
 		m_iNumIntFrames = 1;
+	}
+
+	if (m_iFrameCounter == 1) {
+		char dbgLogMsg[256];
+		sprintf_s(dbgLogMsg, "Adding %d additional frames for LIVE content", m_iBufferFrames);
+		LogGlobalInfo("DeliverToRenderer", dbgLogMsg);
+		m_iNumIntFrames += m_iBufferFrames;
 	}
 
     // Adjust the settings to process everything fast enough
@@ -1278,7 +1285,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		int* piDimY,
 		int* piLowDimX,
 		int* piLowDimY,
-		unsigned int* piTotalFrameDelta) {
+		unsigned int* piTotalFrameDelta,
+		unsigned int* piBufferFrames) {
     CAutoLock cAutolock(&m_csHopperRenderLock);
 	CheckPointer(pbActivated, E_POINTER)
 	CheckPointer(piFrameOutput, E_POINTER)
@@ -1300,6 +1308,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	CheckPointer(piLowDimX, E_POINTER)
 	CheckPointer(piLowDimY, E_POINTER)
 	CheckPointer(piTotalFrameDelta, E_POINTER)
+	CheckPointer(piBufferFrames, E_POINTER)
 
 	// Optical Flow Calculator not initialized yet
 	if (m_pofcOpticalFlowCalc == nullptr) {
@@ -1331,6 +1340,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piLowDimX = 0;
 		*piLowDimY = 0;
 		*piTotalFrameDelta = 0;
+		*piBufferFrames = m_iBufferFrames;
 	} else {
 		*pbActivated = m_iIntActiveState != 0;
 		*piFrameOutput = m_iFrameOutput;
@@ -1354,12 +1364,13 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piLowDimX = m_pofcOpticalFlowCalc->m_opticalFlowFrameWidth;
 		*piLowDimY = m_pofcOpticalFlowCalc->m_opticalFlowFrameHeight;
 		*piTotalFrameDelta = m_iPeakTotalFrameDelta;
+		*piBufferFrames = m_iBufferFrames;
 	}
 	return NOERROR;
 }
 
 // Apply the new settings
-STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS, int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel, int iSceneChangeThreshold) {
+STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS, int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel, int iSceneChangeThreshold, unsigned int iBufferFrames) {
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 
 	if (!bActivated) {
@@ -1375,6 +1386,7 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated, int iFrameOutput
 	}
 	m_bUseDisplayFPS = bUseDisplayFPS;
 	m_iSceneChangeThreshold = iSceneChangeThreshold;
+	m_iBufferFrames = iBufferFrames;
 	UpdateInterpolationStatus();
 	if (m_pofcOpticalFlowCalc != nullptr) {
 		m_pofcOpticalFlowCalc->m_deltaScalar = iDeltaScalar;
@@ -1478,7 +1490,7 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		if (result == 0 && value >= 0 && value <= 10) {
 			*deltaScalar = value;
 		} else {
-			*deltaScalar = 8;
+			*deltaScalar = DEFAULT_DELTA_SCALAR;
 		}
 
 		// Load the neighbor scalar
@@ -1488,7 +1500,7 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		if (result == 0 && value >= 0 && value <= 10) {
 			*neighborScalar = value;
 		} else {
-			*neighborScalar = 6;
+			*neighborScalar = DEFAULT_NEIGHBOR_SCALAR;
 		}
 
 		// Load the black level
@@ -1498,7 +1510,7 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		if (result == 0 && value >= 0 && value <= 255) {
 			*blackLevel = (float)(value << 8);
 		} else {
-			*blackLevel = 0.0f;
+			*blackLevel = (float)DEFAULT_BLACK_LEVEL;
 		}
 
 		// Load the white level
@@ -1508,7 +1520,7 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		if (result == 0 && value >= 0 && value <= 255) {
 			*whiteLevel = (float)(value << 8);
 		} else {
-			*whiteLevel = 65535.0f;
+			*whiteLevel = (float)(DEFAULT_WHITE_LEVEL << 8);
 		}
 
 		// Load the maximum calculation resolution
@@ -1528,7 +1540,17 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		if (result == 0 && value >= 0) {
 			m_iSceneChangeThreshold = value;
 		} else {
-			m_iSceneChangeThreshold = 10000;
+			m_iSceneChangeThreshold = DEFAULT_SCENE_CHANGE_THRESHOLD;
+		}
+
+		// Load the buffer frames
+		valueName = L"BufferFrames";
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					 reinterpret_cast<BYTE*>(&value), &dataSize);
+		if (result == 0 && value >= 0 && value <= 1000) {
+			m_iBufferFrames = value;
+		} else {
+			m_iBufferFrames = DEFAULT_BUFFER_FRAMES;
 		}
 
 		RegCloseKey(hKey); // Close the registry key

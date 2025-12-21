@@ -30,7 +30,8 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int* piDimY, // The height of the frame
 		int* piLowDimX, // The width of the downscaled frame used in the optical flow calculation
 		int* piLowDimY, // The height of the downscaled frame used in the optical flow calculation
-		unsigned int* piTotalFrameDelta // The total frame delta from optical flow calculation
+		unsigned int* piTotalFrameDelta, // The total frame delta from optical flow calculation
+		unsigned int* piBufferFrames // Number of additional frames to buffer at the start
 	) PURE;
 
 	STDMETHOD(UpdateUserSettings)(THIS_
@@ -42,7 +43,8 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int iNeighborScalar,
 		int iBlackLevel,
 		int iWhiteLevel,
-		int iSceneChangeThreshold
+		int iSceneChangeThreshold,
+		unsigned int iBufferFrames
 	) PURE;
 };
 
