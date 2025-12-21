@@ -1,6 +1,7 @@
 #include <windows.h>
 
 #include "resource.h"
+#include "version.h"
 
 #define APSTUDIO_READONLY_SYMBOLS
 /////////////////////////////////////////////////////////////////////////////
@@ -98,7 +99,7 @@ BEGIN
         LTEXT           "n/a", IDC_WARPCALCTIME, 200, 225, 50, 9
         LTEXT           "n/a", IDC_FRAMERES, 200, 240, 50, 9
         LTEXT           "n/a", IDC_CALCRES, 200, 255, 50, 9
-    LTEXT           "HopperRender V2.0.2.0", IDS_STATIC, 10, 205, 100, 9
+    LTEXT           VERSION_STRING_WITH_NAME, IDS_STATIC, 10, 205, 100, 9
     PUSHBUTTON      "Defaults", IDC_DEFAULTS, 260, 256, 50, 14
 END
 
