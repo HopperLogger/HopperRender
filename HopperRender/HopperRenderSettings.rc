@@ -79,7 +79,7 @@ BEGIN
         LTEXT           "Buffer Frames", IDS_STATIC, 132, 115, 60, 9
         LTEXT           "n/a", IDC_TOTALFRAMEDELTA, 245, 100, 20, 9
         LTEXT           "(peak 3s)", IDS_STATIC, 270, 100, 30, 9
-        CONTROL         "Use Display FPS", IDC_USEDISPLAYFPS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 245, 25, 40, 13
+        CONTROL         "Use Display FPS", IDC_USEDISPLAYFPS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 245, 25, 65, 13
 
     GROUPBOX        "Status", IDS_STATIC, 125, 140, 130, 130
         LTEXT           "Int Active", IDS_STATIC, 132, 150, 60, 9
