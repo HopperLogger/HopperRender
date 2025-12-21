@@ -24,6 +24,7 @@
 #include "opticalFlowCalcSDR.h"
 #include "opticalFlowCalcHDR.h"
 #include "resource.h"
+#include "version.h"
 #include "CustomInputPin.h"
 #include "IMediaSideData.h"
 #include <atlcomcli.h>
@@ -177,7 +178,7 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CTr
     m_logFile.open(logFileName.str(), std::ios::out | std::ios::app);
     
     if (m_logFile.is_open()) {
-        m_logFile << "[" << std::put_time(&timeInfo, "%H:%M:%S") << "] HopperRender v2.0.2.0 - Filter instance created\n";
+        m_logFile << "[" << std::put_time(&timeInfo, "%H:%M:%S") << "] " VERSION_STRING_WITH_NAME " - Filter instance created\n";
         m_logFile.flush();
     }
 
