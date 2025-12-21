@@ -100,6 +100,21 @@ You can access the settings when playing back a video with HopperRender by right
 - Then we use these offset arrays to generate intermediate frames by multiplying the offset values by certain scalars
 - We add a bit of artifact removal for the pixels that weren't ideally moved and blend the warped frames from both directions together
 
+## Compilation
+To compile HopperRender, you need to have Visual Studio 2022 installed with C++ support as well as the Windows 10 SDK.
+
+To compile the OpenCL parts, you need to have CUDA Toolkit 13.1 installed.
+
+> Visual Studio 2026 currently only works by manually copying the CUDA Build Customization files from the VS2022 installation folder to the VS2026 installation folder.
+>
+> Newer CUDA versions can be used as well, but the references to the CUDA 13.1 Build Customization files need to be updated in the HopperRender.vcxproj file.
+
+1. Clone the repository
+2. Open the HopperRender.sln file in Visual Studio
+3. Set the build configuration to Release
+4. Build the solution (Build -> Build Solution)
+5. The compiled HopperRender.dll file can be found in the x64\Release folder
+
 ## Acknowledgements
 
 This project is based on the [EZRGB24 Filter Sample](https://learn.microsoft.com/en-us/windows/win32/directshow/ezrgb24-filter-sample) and the DirectShow core parts were inspired by the [LAV Video Decoder](https://github.com/clsid2/LAVFilters).
