@@ -25,3 +25,5 @@
 #define DEFAULT_NEIGHBOR_SCALAR 6 // The default neighbor scalar used in the ofc calculation
 #define DEFAULT_BLACK_LEVEL 0 // The default black level for the output
 #define DEFAULT_WHITE_LEVEL 255 // The default white level for the output
+#define DEFAULT_SCENE_CHANGE_THRESHOLD 10000 // The default scene change threshold
+#define DEFAULT_BUFFER_FRAMES 0 // The default number of additional frames to buffer at the start

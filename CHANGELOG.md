@@ -346,3 +346,11 @@
 ### Fixed
 - Fixed certain resolutions causing the wrong stride to be calculated and destroying the video
 - Added missing defaults value for scene change detection threshold
+
+## [Version 2.0.2.0] - 2025-12-21 - Fully functional
+### Added
+- Added user customizable buffer frames which fix dropped frames when playing live content like a capture card
+
+### Fixed
+- Fixed settings change causing frame drops
+- Fixed wrong stride being used with madVR when playing from a capture card

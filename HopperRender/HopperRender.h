@@ -66,9 +66,10 @@ class CHopperRender : public CTransformFilter,
 		int* piDimY,
 		int* piLowDimX,
 		int* piLowDimY,
-		unsigned int* piTotalFrameDelta) override;
+		unsigned int* piTotalFrameDelta,
+		unsigned int* piBufferFrames) override;
 	STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS,
-							        int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel, int iSceneChangeThreshold) override;
+							        int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel, int iSceneChangeThreshold, unsigned int iBufferFrames) override;
 
     // ISpecifyPropertyPages interface
     STDMETHODIMP GetPages(CAUUID* pPages) override;
@@ -86,7 +87,7 @@ class CHopperRender : public CTransformFilter,
 	HRESULT loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* maxCalcRes);
     void UpdateInterpolationStatus();
     void useDisplayRefreshRate();
-    long CalculateOutputStride();
+    long CalculateOutputStride(long bufferSize);
 
     // Logging functions
     void InitializeLogging();
@@ -132,4 +133,5 @@ class CHopperRender : public CTransformFilter,
 	};
 	std::deque<FrameDeltaEntry> m_frameDeltaHistory; // History of frame deltas for sliding window
 	unsigned int m_iPeakTotalFrameDelta; // Cached peak total frame delta in the last 3 seconds
+	unsigned int m_iBufferFrames; // Number of additional frames to buffer at the start
 };

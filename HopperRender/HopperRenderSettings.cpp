@@ -36,11 +36,12 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 	CBasePropertyPage(NAME("HopperRender Settings"), pUnk, IDD_HopperRenderSettings, IDS_TITLE),
 	m_bActivated(false),
 	m_iFrameOutput(BlendedFrame),
-	m_iDeltaScalar(8),
-	m_iNeighborScalar(6),
-	m_iBlackLevel(0),
-	m_iWhiteLevel(255),
-	m_iSceneChangeThreshold(10000),
+	m_iDeltaScalar(DEFAULT_DELTA_SCALAR),
+	m_iNeighborScalar(DEFAULT_NEIGHBOR_SCALAR),
+	m_iBlackLevel(DEFAULT_BLACK_LEVEL),
+	m_iWhiteLevel(DEFAULT_WHITE_LEVEL),
+	m_iSceneChangeThreshold(DEFAULT_SCENE_CHANGE_THRESHOLD),
+	m_iBufferFrames(DEFAULT_BUFFER_FRAMES),
 	m_iTotalFrameDelta(0),
 	m_iIntActiveState(Active),
 	m_dSourceFPS(0.0),
@@ -74,7 +75,8 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 					m_iNeighborScalar = DEFAULT_NEIGHBOR_SCALAR;
 					m_iBlackLevel = DEFAULT_BLACK_LEVEL;
 					m_iWhiteLevel = DEFAULT_WHITE_LEVEL;
-					m_iSceneChangeThreshold = 10000;
+					m_iSceneChangeThreshold = DEFAULT_SCENE_CHANGE_THRESHOLD;
+					m_iBufferFrames = DEFAULT_BUFFER_FRAMES;
 					CheckRadioButton(m_Dlg, IDC_ON, IDC_OFF, IDC_ON); 
 					CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_BLENDEDFRAME);
 					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f\0"), m_dTargetFPS);
@@ -89,6 +91,8 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 					Edit_SetText(GetDlgItem(m_Dlg, IDC_WHITELEVEL), sz);
 					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iSceneChangeThreshold);
 					Edit_SetText(GetDlgItem(m_Dlg, IDC_SCENECHANGETHRESHOLD), sz);
+					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%u\0"), m_iBufferFrames);
+					Edit_SetText(GetDlgItem(m_Dlg, IDC_BUFFERFRAMES), sz);
 					CheckDlgButton(m_Dlg, IDC_DEFAULTS, BST_UNCHECKED);
 					CheckDlgButton(m_Dlg, IDC_USEDISPLAYFPS, BST_CHECKED);
 				}
@@ -106,7 +110,7 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			int activeState;
 			double currentFPS = m_dSourceFPS;
 			m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel, &m_iSceneChangeThreshold,
-												 &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta);
+									 &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta, &m_iBufferFrames);
 			m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 			m_iIntActiveState = static_cast<ActiveState>(activeState);
 
@@ -190,7 +194,7 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 	int activeState;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
 	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel, &m_iSceneChangeThreshold,
-	                                         &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta);
+	                                         &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta, &m_iBufferFrames);
 	m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 	m_iIntActiveState = static_cast<ActiveState>(activeState);
 
@@ -275,6 +279,10 @@ HRESULT CHopperRenderSettings::OnActivate() {
 	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iSceneChangeThreshold);
 	Edit_SetText(GetDlgItem(m_Dlg, IDC_SCENECHANGETHRESHOLD), sz);
 
+	// Set the initial Buffer Frames
+	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%u\0"), m_iBufferFrames);
+	Edit_SetText(GetDlgItem(m_Dlg, IDC_BUFFERFRAMES), sz);
+
 	// Update the status for every frame
 	int delay = (1.0 / m_dSourceFPS) * 1000.0;
 	SetTimer(m_Dlg, 1, delay, nullptr);
@@ -316,9 +324,13 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 	ValidateParameter(m_iBlackLevel, 255, IDC_BLACKLEVEL);
 	ValidateParameter(m_iWhiteLevel, 255, IDC_WHITELEVEL);
 	ValidateParameter(m_iSceneChangeThreshold, 100000, IDC_SCENECHANGETHRESHOLD);
+	// Validate buffer frames (must be positive, max 10)
+	int bufferFramesInt = static_cast<int>(m_iBufferFrames);
+	ValidateParameter(bufferFramesInt, 1000, IDC_BUFFERFRAMES);
+	m_iBufferFrames = static_cast<unsigned int>(bufferFramesInt);
 
 	// Tell the filter about the new settings
-	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_dTargetFPS, m_bUseDisplayFPS, m_iDeltaScalar, m_iNeighborScalar, m_iBlackLevel, m_iWhiteLevel, m_iSceneChangeThreshold);
+	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_dTargetFPS, m_bUseDisplayFPS, m_iDeltaScalar, m_iNeighborScalar, m_iBlackLevel, m_iWhiteLevel, m_iSceneChangeThreshold, m_iBufferFrames);
 
 	// Save the settings to the registry
 	if (saveSettings() != S_OK) {
@@ -333,9 +345,10 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 	int frameOutput;
 	int activeState;
 	unsigned int totalFrameDelta;
+	unsigned int bufferFrames;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
 	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
-	                                         &m_iSceneChangeThreshold, &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &totalFrameDelta);
+	                                         &m_iSceneChangeThreshold, &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &totalFrameDelta, &bufferFrames);
 	TCHAR sz[60];
 	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f\0"), m_dTargetFPS);
 	SetDlgItemText(m_Dlg, IDC_TARGETFPS, sz);
@@ -440,12 +453,24 @@ void CHopperRenderSettings::GetControlValues() {
     int tmp6 = atoi(sz);
 #endif
 
+	// Get the buffer frames
+	Edit_GetText(GetDlgItem(m_Dlg, IDC_BUFFERFRAMES), sz, STR_MAX_LENGTH);
+
+#ifdef UNICODE
+	// Convert Multibyte string to ANSI
+	rc = WideCharToMultiByte(CP_ACP, 0, sz, -1, szANSI, STR_MAX_LENGTH, nullptr, nullptr);
+	unsigned int tmp7 = static_cast<unsigned int>(atoi(szANSI));
+#else
+    unsigned int tmp7 = static_cast<unsigned int>(atoi(sz));
+#endif
+
 	m_dTargetFPS = tmp1;
 	m_iDeltaScalar = tmp2;
 	m_iNeighborScalar = tmp3;
 	m_iBlackLevel = tmp4;
 	m_iWhiteLevel = tmp5;
 	m_iSceneChangeThreshold = tmp6;
+	m_iBufferFrames = tmp7;
 }
 
 // Saves the settings to the registry
@@ -485,11 +510,14 @@ HRESULT CHopperRenderSettings::saveSettings() {
 
 		// Save the scene change threshold
 		LONG result9 = RegSetValueEx(hKey, L"SceneChangeThreshold", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iSceneChangeThreshold), sizeof(DWORD));
+
+		// Save the buffer frames
+		LONG result10 = RegSetValueEx(hKey, L"BufferFrames", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iBufferFrames), sizeof(DWORD));
 		
 		RegCloseKey(hKey); // Close the registry key
 
 		// Check for errors
-        if (result1 || result2 || result3 || result4 || result5 || result6 || result7 || result8 || result9) {
+        if (result1 || result2 || result3 || result4 || result5 || result6 || result7 || result8 || result9 || result10) {
 			return E_FAIL;
         } else {
             return S_OK;
