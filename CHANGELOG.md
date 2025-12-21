@@ -350,6 +350,7 @@
 ## [Version 2.0.2.0] - 2025-12-21 - Fully functional
 ### Added
 - Added user customizable buffer frames which fix dropped frames when playing live content like a capture card
+- Added support for Enhanced Video Renderer
 
 ### Fixed
 - Fixed settings change causing frame drops

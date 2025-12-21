@@ -24,11 +24,7 @@ The filter can be added to a DirectShow media player like MPC-HC or MPC-BE.
 ## How to get started?
 To use this filter, you need to use a DirectShow player like [MPC-HC](https://github.com/clsid2/mpc-hc/releases) or [MPC-BE](https://sourceforge.net/projects/mpcbe).
 
-If you decide to use MPC-BE, please install [LAVFilters](https://github.com/Nevcairiel/LAVFilters/releases) and add the _LAV Video Filter_ to your filters in the player settings. This will ensure proper compatibility with HopperRender.
-
-The usage of [madVR](https://www.videohelp.com/software/madVR) is recommended, but not necessary.
-
-MPC Video Renderer and madVR are officially supported. Using the Enhanced Video Renderer is not advised, as it doesn't support HDR and tends to be incompatible with HopperRender.
+The usage of [madVR](https://www.videohelp.com/software/madVR) or [MPC Video Renderer](https://github.com/Aleksoid1978/VideoRenderer) is recommended as they are the most up to date and properly support HDR.
 
 ### Installation
 1. Open MPC-HC or MPC-BE's settings.
@@ -80,6 +76,8 @@ You can access the settings when playing back a video with HopperRender by right
 - You can set the Delta Scalar (controls how much the filter will try to move the frames to simulate the motion on screen)
 - You can set the Neighbor Scalar (controls how much the filter will be biased by the surrounding motion, higher values will lead to more uniform interpolation but might miss small motions)
 - You can set the Black and White levels which allows for level correction if the input has limited range (i.e. the blacks look grey, and the whites are not full brightness)
+- You can set the Scene Change Threshold to avoid scene changes from being interpolated. You can watch the peak detected scene change next to the selector. Anything higher than the selected threshold will not be interpolated.
+- You can set the Buffer Frames to a value like 15 if you're playing a live video stream (e.g. from a capture card) which fixes dropped frames. For normal video playback this should be kept at 0!
 - In the status section, you can see the current state of HopperRender, the source and target framerate, the frame and calculation resolutions, as well as the calculation times of the optical flow calulcation and frame warping pipeline *(both times combined should always be lower than 1/source framerate!)*
 - The settings will be automatically saved to the registry `HKEY_CURRENT_USER\Software\HopperRender` so next time the filter is used, it loads the settings automatically
 - It is also possible to manually configure the resolution used in the internal optical flow calculation and thus change the load on the GPU. Although this isn't recommended, as higher resolutions actually produce a worse result, and lower resolutions don't provide much benifit as the calculation is already limited to 270p. If you still want to experiment with this, open the registry editor, navigate to `HKEY_CURRENT_USER\Software\HopperRender` and create a new DWORD value named `MaxCalcRes`. When setting a value, please make sure to use the _Decimal_ type. The resolution of the input video will be repeatedly halved until the frame height is less or equal to the configured value. This means you can't specify the exact resolution used, but a limit that ensures the used resolution isn't too high. To use the default value of 270, simply delete the DWORD value.

@@ -30,17 +30,6 @@
 #include <vector>
 #include <cwchar>
 
-// Debug message function
-void DebugMessage(const std::string& logMessage, const bool showLog) {
-	if (showLog) OutputDebugStringA((logMessage + "\n").c_str());
-}
-
-DWORD WINAPI MessageBoxThread(LPVOID lpParam) {
-    LPCWSTR message = reinterpret_cast<LPCWSTR>(lpParam);
-    MessageBox(NULL, message, TEXT("CUDA Error"), MB_OK | MB_ICONERROR);
-    return 0;
-}
-
 // Input pin types
 constexpr AMOVIESETUP_MEDIATYPE sudPinTypesIn[] = 
 {
@@ -366,34 +355,21 @@ STDMETHODIMP CHopperRender::NonDelegatingQueryInterface(REFIID riid, void** ppv)
 HRESULT CHopperRender::CheckInputType(const CMediaType* mtIn) {
     CheckPointer(mtIn, E_POINTER)
 
-	// We only accept the VideoInfo2 header
+	// We only accept the VideoInfo & VideoInfo2 format types
 	GUID formatType = *mtIn->FormatType();
 	if (formatType != FORMAT_VideoInfo && formatType != FORMAT_VideoInfo2) {
-		char formatTypeStr[100];
-		sprintf_s(formatTypeStr, "Invalid format type - GUID: {%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
-			formatType.Data1, formatType.Data2, formatType.Data3,
-			formatType.Data4[0], formatType.Data4[1], formatType.Data4[2], formatType.Data4[3],
-			formatType.Data4[4], formatType.Data4[5], formatType.Data4[6], formatType.Data4[7]);
-		Log(LogLevel::Error, "CheckInputType", formatTypeStr);
+		Log(LogLevel::Error, "CheckInputType", "Invalid format type - only VIDEOINFOHEADER and VIDEOINFOHEADER2 are accepted");
 		return E_INVALIDARG;
-	} else {
-	    char formatTypeStr[100];
-		sprintf_s(formatTypeStr, "Accepted format type - GUID: {%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
-			formatType.Data1, formatType.Data2, formatType.Data3,
-			formatType.Data4[0], formatType.Data4[1], formatType.Data4[2], formatType.Data4[3],
-		      formatType.Data4[4], formatType.Data4[5],
-		      formatType.Data4[6], formatType.Data4[7]);
-	    Log(LogLevel::Info, "CheckInputType", formatTypeStr);
 	}
 
     // We only accept NV12 or P010 input
-    if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) &&
-		(IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) || IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010))) {
-		return NOERROR;
+    if (!IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) ||
+		(!IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) && !IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010))) {
+		Log(LogLevel::Error, "CheckInputType", "Invalid media subtype - only NV12 or P010 is accepted");
+		return E_FAIL;
     }
 
-    Log(LogLevel::Error, "CheckInputType", "Invalid media subtype - only NV12 or P010 is accepted");
-    return E_FAIL;
+    return NOERROR;
 }
 
 // Checks whether an input media type is compatible with an output media type
@@ -402,50 +378,46 @@ HRESULT CHopperRender::CheckTransform(const CMediaType* mtIn, const CMediaType* 
 	CheckPointer(mtOut, E_POINTER)
 
 	// We can transform NV12 or P010 input to P010 output
-	if (IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) &&
-		(IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) || IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010)) && 
-	    IsEqualGUID(*mtOut->Subtype(), MEDIASUBTYPE_P010)) {
-		return NOERROR;
+	if (!IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) ||
+		(!IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) && !IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010)) || 
+	    !IsEqualGUID(*mtOut->Subtype(), MEDIASUBTYPE_P010)) {
+		Log(LogLevel::Error, "CheckTransform", "Incompatible media types for transformation");
+		return E_FAIL;
     }
 
-    Log(LogLevel::Error, "CheckTransform", "Incompatible media types for transformation");
-    return E_FAIL;
+    return NOERROR;
 }
 
 // Sets the output pin's buffer requirements
 HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERTIES* ppropInputRequest) {
-    // Is the input pin connected
+	CheckPointer(pAlloc, E_POINTER)
+	CheckPointer(ppropInputRequest, E_POINTER)
+
     if (m_pInput->IsConnected() == FALSE) {
 		Log(LogLevel::Error, "DecideBufferSize", "Input pin is not connected");
 		return E_UNEXPECTED;
     }
 
-	CheckPointer(pAlloc, E_POINTER)
-	CheckPointer(ppropInputRequest, E_POINTER)
-	HRESULT hr = NOERROR;
-
-    ppropInputRequest->cBuffers = 5;
+    ppropInputRequest->cBuffers = 15;
     ppropInputRequest->cbBuffer = m_pOutput->CurrentMediaType().GetSampleSize();
     ppropInputRequest->cbAlign = 1;
     ppropInputRequest->cbPrefix = 0;
+
     ASSERT(ppropInputRequest->cbBuffer);
 
     // Ask the allocator to reserve us some sample memory, NOTE the function
     // can succeed (that is return NOERROR) but still not have allocated the
     // memory that we requested, so we must check we got whatever we wanted
     ALLOCATOR_PROPERTIES Actual;
-    hr = pAlloc->SetProperties(ppropInputRequest, &Actual);
+    HRESULT hr = pAlloc->SetProperties(ppropInputRequest, &Actual);
     if (FAILED(hr)) {
 		Log(LogLevel::Error, "DecideBufferSize", "Failed to set allocator properties");
 		return hr;
     }
 
-    ASSERT(Actual.cBuffers == 5);
-
     if (ppropInputRequest->cBuffers > Actual.cBuffers ||
 		ppropInputRequest->cbBuffer > Actual.cbBuffer) {
-		Log(LogLevel::Error, "DecideBufferSize",
-		 "Allocator did not allocate requested buffer size");
+		Log(LogLevel::Error, "DecideBufferSize", "Allocator did not allocate requested buffer size");
 		return E_FAIL;
     }
     return NOERROR;
@@ -731,14 +703,14 @@ HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, d
 long CHopperRender::CalculateOutputStride(long bufferSize) {
 	long outputStride = m_iDimX; // Default to frame width
 
-	// Check if the downstream filter is madVR
+	// Check if the downstream filter is MPC-VR
 	IPin* pDownstreamPin = m_pOutput->GetConnected();
 	if (pDownstreamPin) {
 		IBaseFilter* pDownstreamFilter = GetFilterFromPin(pDownstreamPin);
 		if (pDownstreamFilter) {
 			CLSID filterCLSID;
 			if (SUCCEEDED(pDownstreamFilter->GetClassID(&filterCLSID))) {
-				if (filterCLSID == CLSID_madVR) {
+				if (filterCLSID != CLSID_MPC_VR) {
 					if (m_iDimY > 0 && bufferSize > 0) {
 						outputStride = bufferSize / (m_iDimY * 3);
 					}
