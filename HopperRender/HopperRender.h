@@ -25,11 +25,11 @@ typedef enum ActiveState {
 } ActiveState;
 
 typedef enum LogLevel { 
-    Info, 
+    Info,
     Error 
 } LogLevel;
 
-class CHopperRender : public CTransformFilter,
+class CHopperRender : public CVideoTransformFilter,
 		      public SettingsInterface,
 		      public ISpecifyPropertyPages {
   public:
@@ -87,12 +87,12 @@ class CHopperRender : public CTransformFilter,
     ~CHopperRender();
 
     HRESULT UpdateVideoInfoHeader(CMediaType* pMediaType);
+	HRESULT Receive(IMediaSample *pIn);
     HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut);
     void autoAdjustSettings();
 	HRESULT loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* maxCalcRes);
     void UpdateInterpolationStatus();
     void useDisplayRefreshRate();
-    long CalculateOutputStride(long bufferSize);
     void Log(LogLevel level, const char* functionName, const char* message);
 
     CCritSec m_csHopperRenderLock; // Private play critical section
@@ -104,7 +104,8 @@ class CHopperRender : public CTransformFilter,
     // Video info
     unsigned int m_iDimX; // The width of the frame
     unsigned int m_iDimY; // The height of the frame
-	unsigned int m_iInitialDimY; // The initial height of the frame when the buffer was created
+	unsigned int m_iInputStride; // The stride of the input frame
+	unsigned int m_iOutputStride; // The stride of the output frame
 	bool m_bFirstBufferAlloc; // Whether the first buffer allocation has been done
 
     // Timings
@@ -126,7 +127,6 @@ class CHopperRender : public CTransformFilter,
     double m_dTotalWarpDuration; // The total duration of the current frame warp
 	double m_dBlendingScalar; // Blends from frame 1 to frame 2 (0.0 shows 100% frame 1, 1.0 shows 100% frame 2)
 	bool m_bUseDisplayFPS; // Whether to use the display refresh rate as target FPS
-	bool m_bValidFrameTimes; // Whether valid frame times have been received
 	unsigned int m_iSceneChangeThreshold; // Threshold for scene change detection (total frame delta value)
 	
 	// Peak total frame delta tracking with sliding window
