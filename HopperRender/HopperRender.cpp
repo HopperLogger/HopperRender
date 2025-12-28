@@ -455,6 +455,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     long biWidth, biHeight;
     unsigned int dwX, dwY;
     REFERENCE_TIME avgTimePerFrame;
+	DWORD dwBitRate, dwBitErrorRate, dwCopyProtectFlags, dwInterlaceFlags, dwControlFlags, dwReserved1, dwReserved2;
     
     // Check if input is VIDEOINFOHEADER or VIDEOINFOHEADER2
     if (*mtIn->FormatType() == FORMAT_VideoInfo) {
@@ -462,15 +463,29 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
         biWidth = pvi->bmiHeader.biWidth;
         biHeight = abs(pvi->bmiHeader.biHeight);
         avgTimePerFrame = pvi->AvgTimePerFrame;
+		dwBitRate = pvi->dwBitRate;
+        dwBitErrorRate = pvi->dwBitErrorRate;
         dwX = biWidth;
         dwY = biHeight;
+		dwCopyProtectFlags = 0;
+        dwInterlaceFlags = 0;
+        dwControlFlags = 0;
+        dwReserved1 = 0;
+        dwReserved2 = 0;
     } else {
         auto pvi2 = (VIDEOINFOHEADER2*)mtIn->Format();
         biWidth = pvi2->bmiHeader.biWidth;
         biHeight = abs(pvi2->bmiHeader.biHeight);
         avgTimePerFrame = pvi2->AvgTimePerFrame;
+		dwBitRate = pvi2->dwBitRate;
+        dwBitErrorRate = pvi2->dwBitErrorRate;
         dwX = pvi2->dwPictAspectRatioX;
         dwY = pvi2->dwPictAspectRatioY;
+		dwCopyProtectFlags = pvi2->dwCopyProtectFlags;
+        dwInterlaceFlags = pvi2->dwInterlaceFlags;
+        dwControlFlags = pvi2->dwControlFlags;
+        dwReserved1 = pvi2->dwReserved1;
+        dwReserved2 = pvi2->dwReserved2;
     }
 
 	// Retrieve the input frame time and dimensions
@@ -497,6 +512,11 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
         pBIH = &pVih2->bmiHeader;
         pVih2->dwPictAspectRatioX = dwX;
         pVih2->dwPictAspectRatioY = dwY;
+		pVih2->dwCopyProtectFlags = dwCopyProtectFlags;
+		pVih2->dwInterlaceFlags = dwInterlaceFlags;
+		pVih2->dwControlFlags = dwControlFlags;
+		pVih2->dwReserved1 = dwReserved1;
+		pVih2->dwReserved2 = dwReserved2;
     } else {
         if (pMediaType->Format() == nullptr) {
             pMediaType->AllocFormatBuffer(sizeof(VIDEOINFOHEADER));
@@ -510,6 +530,8 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     pVih->rcSource = { 0, 0, biWidth, biHeight };
     pVih->rcTarget = pVih->rcSource;
     pVih->AvgTimePerFrame = m_rtTargetFrameTime;
+	pVih->dwBitRate = dwBitRate;
+	pVih->dwBitErrorRate = dwBitErrorRate;
 
     // Update the BitmapInfoHeader
     pBIH->biSize = sizeof(BITMAPINFOHEADER);
