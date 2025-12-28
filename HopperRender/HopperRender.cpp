@@ -136,14 +136,15 @@ void CHopperRender::Log(LogLevel level, const char* functionName, const char* me
 }
 
 // Constructor
-CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CTransformFilter(tszName, punk, CLSID_HopperRender),
+CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CVideoTransformFilter(tszName, punk, CLSID_HopperRender),
     // Settings
     m_iFrameOutput(BlendedFrame),
 
     // Video info
 	m_iDimX(1),
 	m_iDimY(1),
-	m_iInitialDimY(1),
+	m_iInputStride(1),
+	m_iOutputStride(1),
 	m_bFirstBufferAlloc(true),
 
     // Timings
@@ -164,7 +165,6 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CTr
 	m_dTotalWarpDuration(0.0),
 	m_dBlendingScalar(0.0),
     m_bUseDisplayFPS(true),
-	m_bValidFrameTimes(false),
 	m_iSceneChangeThreshold(DEFAULT_SCENE_CHANGE_THRESHOLD),
 	m_iPeakTotalFrameDelta(0),
 	m_iBufferFrames(DEFAULT_BUFFER_FRAMES)
@@ -362,14 +362,14 @@ HRESULT CHopperRender::CheckInputType(const CMediaType* mtIn) {
 	GUID formatType = *mtIn->FormatType();
 	if (formatType != FORMAT_VideoInfo && formatType != FORMAT_VideoInfo2) {
 		Log(LogLevel::Error, "CheckInputType", "Invalid format type - only VIDEOINFOHEADER and VIDEOINFOHEADER2 are accepted");
-		return E_INVALIDARG;
+		return VFW_E_TYPE_NOT_ACCEPTED;
 	}
 
     // We only accept NV12 or P010 input
     if (!IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) ||
 		(!IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) && !IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010))) {
 		Log(LogLevel::Error, "CheckInputType", "Invalid media subtype - only NV12 or P010 is accepted");
-		return E_FAIL;
+		return VFW_E_TYPE_NOT_ACCEPTED;
     }
 
     return NOERROR;
@@ -401,24 +401,7 @@ HRESULT CHopperRender::DecideBufferSize(IMemAllocator* pAlloc, ALLOCATOR_PROPERT
 		return E_UNEXPECTED;
     }
 
-	// Get the frame height at the moment of buffer allocation
-	if (m_bFirstBufferAlloc) {
-		m_bFirstBufferAlloc = false;
-		AM_MEDIA_TYPE* pmt = &m_pOutput->CurrentMediaType();
-		bool bFormatChanged = false;
-	
-		if (pmt != nullptr) {
-			if (pmt->formattype == FORMAT_VideoInfo) {
-				VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)pmt->pbFormat;
-				m_iInitialDimY = abs(pvi->bmiHeader.biHeight);
-			} else if (pmt->formattype == FORMAT_VideoInfo2) {
-				VIDEOINFOHEADER2* pvi2 = (VIDEOINFOHEADER2*)pmt->pbFormat;
-				m_iInitialDimY = abs(pvi2->bmiHeader.biHeight);
-			}
-		}
-	}
-
-    ppropInputRequest->cBuffers = 15;
+    ppropInputRequest->cBuffers = 5;
     ppropInputRequest->cbBuffer = m_pOutput->CurrentMediaType().GetSampleSize();
     ppropInputRequest->cbAlign = 1;
     ppropInputRequest->cbPrefix = 0;
@@ -472,7 +455,6 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     long biWidth, biHeight;
     unsigned int dwX, dwY;
     REFERENCE_TIME avgTimePerFrame;
-    DWORD dwBitRate, dwBitErrorRate, dwCopyProtectFlags, dwInterlaceFlags, dwControlFlags, dwReserved1, dwReserved2;
     
     // Check if input is VIDEOINFOHEADER or VIDEOINFOHEADER2
     if (*mtIn->FormatType() == FORMAT_VideoInfo) {
@@ -480,70 +462,69 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
         biWidth = pvi->bmiHeader.biWidth;
         biHeight = abs(pvi->bmiHeader.biHeight);
         avgTimePerFrame = pvi->AvgTimePerFrame;
-        dwBitRate = pvi->dwBitRate;
-        dwBitErrorRate = pvi->dwBitErrorRate;
         dwX = biWidth;
         dwY = biHeight;
-        dwCopyProtectFlags = 0;
-        dwInterlaceFlags = 0;
-        dwControlFlags = 0;
-        dwReserved1 = 0;
-        dwReserved2 = 0;
     } else {
         auto pvi2 = (VIDEOINFOHEADER2*)mtIn->Format();
         biWidth = pvi2->bmiHeader.biWidth;
         biHeight = abs(pvi2->bmiHeader.biHeight);
         avgTimePerFrame = pvi2->AvgTimePerFrame;
-        dwBitRate = pvi2->dwBitRate;
-        dwBitErrorRate = pvi2->dwBitErrorRate;
         dwX = pvi2->dwPictAspectRatioX;
         dwY = pvi2->dwPictAspectRatioY;
-        dwCopyProtectFlags = pvi2->dwCopyProtectFlags;
-        dwInterlaceFlags = pvi2->dwInterlaceFlags;
-        dwControlFlags = pvi2->dwControlFlags;
-        dwReserved1 = pvi2->dwReserved1;
-        dwReserved2 = pvi2->dwReserved2;
     }
 
 	// Retrieve the input frame time and dimensions
 	if (avgTimePerFrame > 0)
 		m_rtSourceFrameTime = avgTimePerFrame;
-		m_rtCurrPlaybackFrameTime = m_rtSourceFrameTime;
+    m_rtCurrPlaybackFrameTime = m_rtSourceFrameTime;
 	m_iDimX = biWidth;
 	m_iDimY = biHeight;
+	m_iInputStride = biWidth;
+	m_iOutputStride = biWidth;
     
     const GUID guid = MEDIASUBTYPE_P010;
+    BITMAPINFOHEADER* pBIH;
+    VIDEOINFOHEADER* pVih;
 
-    // Set the VideoInfoHeader2 information for the output media type
-	VIDEOINFOHEADER2* vih2 = (VIDEOINFOHEADER2*)pMediaType->ReallocFormatBuffer(sizeof(VIDEOINFOHEADER2));
-    memset(vih2, 0, sizeof(VIDEOINFOHEADER2));
-    vih2->rcSource.right = vih2->rcTarget.right = biWidth;
-    vih2->rcSource.bottom = vih2->rcTarget.bottom = biHeight;
-    vih2->AvgTimePerFrame = avgTimePerFrame;
-    vih2->dwPictAspectRatioX = dwX;
-    vih2->dwPictAspectRatioY = dwY;
-    vih2->dwBitRate = dwBitRate;
-    vih2->dwBitErrorRate = dwBitErrorRate;
-    vih2->dwCopyProtectFlags = dwCopyProtectFlags;
-    vih2->dwInterlaceFlags = dwInterlaceFlags;
-    vih2->dwControlFlags = dwControlFlags;
-    vih2->dwReserved1 = dwReserved1;
-    vih2->dwReserved2 = dwReserved2;
+    // Check if format buffer exists and what type we're working with
+    if (*pMediaType->FormatType() == FORMAT_VideoInfo2) {
+        if (pMediaType->Format() == nullptr) {
+            pMediaType->AllocFormatBuffer(sizeof(VIDEOINFOHEADER2));
+            memset(pMediaType->Format(), 0, sizeof(VIDEOINFOHEADER2));
+        }
+        VIDEOINFOHEADER2* pVih2 = (VIDEOINFOHEADER2*)pMediaType->Format();
+        pVih = (VIDEOINFOHEADER*)pVih2;
+        pBIH = &pVih2->bmiHeader;
+        pVih2->dwPictAspectRatioX = dwX;
+        pVih2->dwPictAspectRatioY = dwY;
+    } else {
+        if (pMediaType->Format() == nullptr) {
+            pMediaType->AllocFormatBuffer(sizeof(VIDEOINFOHEADER));
+            memset(pMediaType->Format(), 0, sizeof(VIDEOINFOHEADER));
+        }
+        pVih = (VIDEOINFOHEADER*)pMediaType->Format();
+        pBIH = &pVih->bmiHeader;
+    }
 
-    // Set the BitmapInfoHeader information
-    BITMAPINFOHEADER* pBIH = nullptr;
-    pBIH = &vih2->bmiHeader;
+    // Update common fields
+    pVih->rcSource = { 0, 0, biWidth, biHeight };
+    pVih->rcTarget = pVih->rcSource;
+    pVih->AvgTimePerFrame = m_rtTargetFrameTime;
+
+    // Update the BitmapInfoHeader
     pBIH->biSize = sizeof(BITMAPINFOHEADER);
     pBIH->biWidth = biWidth;
     pBIH->biHeight = biHeight;
     pBIH->biBitCount = 24;
-	pBIH->biPlanes = 1;                                      // VERIFY
-	pBIH->biSizeImage = (biWidth * biHeight * 24) >> 3;      // VERIFY
+    pBIH->biPlanes = 1;
+    pBIH->biSizeImage = (biWidth * biHeight * 24) >> 3;
     pBIH->biCompression = guid.Data1;
 
     // Set the media type information
-    pMediaType->SetSampleSize((biWidth * biHeight * 24) >> 3);
-    pMediaType->SetTemporalCompression(0);
+	pMediaType->SetSubtype(&MEDIASUBTYPE_P010);
+    pMediaType->SetSampleSize(pBIH->biSizeImage);
+    pMediaType->SetTemporalCompression(FALSE);
+    pMediaType->bFixedSizeSamples = TRUE;
 
     return NOERROR;
 }
@@ -561,10 +542,7 @@ IBaseFilter* GetFilterFromPin(IPin* pPin) {
 }
 
 // Called when a new sample (source frame) arrives
-HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
-	CheckPointer(pIn, E_POINTER)
-	CheckPointer(pOut, E_POINTER)
-
+HRESULT CHopperRender::Receive(IMediaSample *pIn) {
 	// Check for dynamic format changes
 	AM_MEDIA_TYPE* pmt = nullptr;
 	HRESULT hrMediaType = pIn->GetMediaType(&pmt);
@@ -574,6 +552,8 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 		// Input sample has a new media type - format change!
 		Log(LogLevel::Info, "Transform", "Dynamic format change detected on input sample");
 		
+		m_pInput->CurrentMediaType() = *pmt;
+
 		// Extract new dimensions
 		long newWidth = 0, newHeight = 0;
 		if (pmt->formattype == FORMAT_VideoInfo) {
@@ -594,6 +574,8 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 			
 			m_iDimX = newWidth;
 			m_iDimY = newHeight;
+			m_iInputStride = newWidth;
+			m_iOutputStride = newWidth;
 			bFormatChanged = true;
 			
 			// Reset optical flow calculator for new resolution
@@ -602,8 +584,6 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 				m_pofcOpticalFlowCalc = nullptr;
 			}
 		}
-		
-		DeleteMediaType(pmt);
 	} else {
 		// No format change in sample, but check if we need to initialize dimensions
 		CMediaType* mtIn = &m_pInput->CurrentMediaType();
@@ -627,6 +607,8 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 			
 			m_iDimX = currentWidth;
 			m_iDimY = currentHeight;
+			m_iInputStride = currentWidth;
+			m_iOutputStride = currentWidth;
 			bFormatChanged = true;
 			
 			// Reset optical flow calculator for new resolution
@@ -639,50 +621,37 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 
 	// Update the output media type when format changes or on first frame
 	if (bFormatChanged || m_iFrameCounter == 0) {
-		CMediaType mtOut;
-		mtOut.SetType(&MEDIATYPE_Video);
-		mtOut.SetFormatType(&FORMAT_VideoInfo2);
-		mtOut.SetSubtype(&MEDIASUBTYPE_P010);
-		
+		CMediaType mtOut(m_pOutput->CurrentMediaType());
 		UpdateVideoInfoHeader(&mtOut);
+
+		HRESULT hr = m_pOutput->GetConnected()->ReceiveConnection(m_pOutput, &mtOut);
 		
-		// Try to set the new format on the output pin
-		HRESULT hrAccept = m_pOutput->GetConnected()->QueryAccept(&mtOut);
-		if (hrAccept == S_OK) {
-			Log(LogLevel::Info, "Transform", "Downstream filter accepted new format");
+		if (SUCCEEDED(hr)) {
 			m_pOutput->SetMediaType(&mtOut);
-			
-			// Set the media type on the output sample to signal format change
-			AM_MEDIA_TYPE* pmtOut = CreateMediaType(&mtOut);
-			if (pmtOut) {
-				pOut->SetMediaType(pmtOut);
-				DeleteMediaType(pmtOut);
-			}
 		} else {
-			char logMsg[128];
-			sprintf_s(logMsg, "Downstream filter rejected format change (HRESULT: 0x%08X)", hrAccept);
-			Log(LogLevel::Error, "Transform", logMsg);
-			
-			// Try to reconnect
-			IFilterGraph* pGraph = nullptr;
-			if (SUCCEEDED(m_pGraph->QueryInterface(IID_IFilterGraph, (void**)&pGraph))) {
-				HRESULT hrReconnect = pGraph->Reconnect(m_pOutput);
-				if (SUCCEEDED(hrReconnect)) {
-					Log(LogLevel::Info, "Transform", "Successfully reconnected output pin with new format");
-				} else {
-					sprintf_s(logMsg, "Failed to reconnect output pin (HRESULT: 0x%08X)", hrReconnect);
-					Log(LogLevel::Error, "Transform", logMsg);
-				}
-				pGraph->Release();
-			}
+			char logMsg[256];
+			sprintf_s(logMsg, "ReceiveConnection failed with hr=0x%08X", hr);
+			Log(LogLevel::Info, "Transform", logMsg);
 		}
     }
+
+	if (pmt != nullptr) {
+		DeleteMediaType(pmt);
+	}
 
 	// Update the display refresh rate every 5 seconds if the option is enabled
 	if (m_bUseDisplayFPS && (m_iFrameCounter % (5 * 10000000 / m_rtTargetFrameTime) == 0)) {
 		useDisplayRefreshRate();
-	}
+    }
 
+	return CTransformFilter::Receive(pIn);
+}
+
+// Called when a new sample should be produced
+HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
+	CheckPointer(pIn, E_POINTER)
+	CheckPointer(pOut, E_POINTER)
+    
 	m_iFrameCounter++;
 
     HRESULT hr = DeliverToRenderer(pIn, pOut);
@@ -719,34 +688,22 @@ HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, d
     return __super::NewSegment(tStart, tStop, dRate);
 }
 
-// Calculates the stride expected by the renderer
-long CHopperRender::CalculateOutputStride(long bufferSize) {
-	long outputStride = m_iDimX; // Default to frame width
-
-	// Check if the downstream filter is MPC-VR
-	IPin* pDownstreamPin = m_pOutput->GetConnected();
-	if (pDownstreamPin) {
-		IBaseFilter* pDownstreamFilter = GetFilterFromPin(pDownstreamPin);
-		if (pDownstreamFilter) {
-			CLSID filterCLSID;
-			if (SUCCEEDED(pDownstreamFilter->GetClassID(&filterCLSID))) {
-				if (filterCLSID != CLSID_MPC_VR) {
-					if (m_iInitialDimY > 0 && bufferSize > 0) {
-						outputStride = bufferSize / (m_iInitialDimY * 3);
-					}
-				}
-			}
-			pDownstreamFilter->Release();
-		}
-	}
-
-	return outputStride;
-}
-
 // Delivers the new samples (interpolated frames) to the renderer
 HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) {
 	CheckPointer(pIn, E_POINTER)
 	CheckPointer(pOut, E_POINTER)
+
+	// Update the output pin's media type if the output sample has a new media type
+	AM_MEDIA_TYPE *pmtOut;
+    pOut->GetMediaType(&pmtOut);
+    if (pmtOut != nullptr && pmtOut->pbFormat != nullptr) {
+		VIDEOINFOHEADER2 *pvi2 = (VIDEOINFOHEADER2*)pmtOut->pbFormat;
+		m_iOutputStride = pvi2->bmiHeader.biWidth;
+		m_pOutput->SetMediaType(static_cast<CMediaType*>(pmtOut));
+	}
+	if (pmtOut != nullptr) {
+		DeleteMediaType(pmtOut);
+	}
 
 	// Get pointers to the sample buffer
 	unsigned char* pInBuffer;
@@ -789,9 +746,6 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 
     // Initialize the Optical Flow Calculator
     if (m_pofcOpticalFlowCalc == nullptr) {
-		const long inputStride = m_iDimX;
-		const long outputStride = CalculateOutputStride(lOutSize);
-		
 		int deltaScalar;
 		int neighborScalar;
 		float blackLevel;
@@ -800,13 +754,13 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &customResScalar);
 		char logMsg[256];
 		sprintf_s(logMsg, "Initializing Optical Flow Calculator with %dx%d (input stride: %d, output stride: %d)", 
-				m_iDimX, m_iDimY, inputStride, outputStride);
+				m_iDimX, m_iDimY, m_iInputStride, m_iOutputStride);
 		Log(LogLevel::Info, "DeliverToRenderer", logMsg);
 		if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, m_iDimX, inputStride, outputStride, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, m_iDimX, m_iInputStride, m_iOutputStride, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
 			Log(LogLevel::Info, "DeliverToRenderer", "Using HDR Optical Flow Calculator");
 		} else {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, m_iDimX, inputStride, outputStride, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
+			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, m_iDimX, m_iInputStride, m_iOutputStride, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
 			Log(LogLevel::Info, "DeliverToRenderer", "Using SDR Optical Flow Calculator");
 		}
     }
@@ -819,9 +773,6 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		Log(LogLevel::Info, "DeliverToRenderer", "Failed to get sample time, using defaults");
 		rtStartTime = 0;
 		rtEndTime = 0;
-		m_bValidFrameTimes = false;
-    } else {
-		m_bValidFrameTimes = true;
     }
 
 	// Reset our frame time if necessary and calculate the current number of intermediate frames needed
@@ -835,13 +786,6 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		m_iNumIntFrames = (int)max(ceil((1.0 - m_dBlendingScalar) / ((double)m_rtTargetFrameTime / (double)m_rtCurrPlaybackFrameTime)), 1.0);
 	} else {
 		m_iNumIntFrames = 1;
-	}
-
-	if (m_iFrameCounter == 1) {
-		char dbgLogMsg[256];
-		sprintf_s(dbgLogMsg, "Adding %d additional frames for LIVE content", m_iBufferFrames);
-		Log(LogLevel::Info, "DeliverToRenderer", dbgLogMsg);
-		m_iNumIntFrames += m_iBufferFrames;
 	}
 
     // Adjust the settings to process everything fast enough
@@ -940,12 +884,10 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		}
 
 		// Set the new times for the output sample
-		if (m_bValidFrameTimes) {
-			hr = pOutNew->SetTime(&rtStartTime, &rtEndTime);
-			if (FAILED(hr)) {
-				Log(LogLevel::Error, "DeliverToRenderer", "Failed to set sample time");
-				return hr;
-			}
+		hr = pOutNew->SetTime(&rtStartTime, &rtEndTime);
+		if (FAILED(hr)) {
+			Log(LogLevel::Error, "DeliverToRenderer", "Failed to set sample time");
+			return hr;
 		}
 
 		// Increment the frame time for the next sample
@@ -980,19 +922,12 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 			return E_UNEXPECTED;
 		}
 
-		// Copy the media type
-		AM_MEDIA_TYPE* pMediaType;
-		hr = pOut->GetMediaType(&pMediaType);
+		// Copy the media type from the output pin
+		hr = pOutNew->SetMediaType(&m_pOutput->CurrentMediaType());
 		if (FAILED(hr)) {
-			Log(LogLevel::Error, "DeliverToRenderer", "Failed to get media type");
+			Log(LogLevel::Error, "DeliverToRenderer", "Failed to set media type on output sample");
 			return hr;
 		}
-		hr = pOutNew->SetMediaType(pMediaType);
-		if (FAILED(hr)) {
-			Log(LogLevel::Error, "DeliverToRenderer", "Failed to set media type");
-			return hr;
-		}
-		DeleteMediaType(pMediaType);
 
 		// Copy the preroll property
 		hr = pIn->IsPreroll();

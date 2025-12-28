@@ -55,7 +55,7 @@ BEGIN
         CONTROL         "Off", IDC_OFF,"Button", BS_AUTORADIOBUTTON, 11, 40, 47, 10
 
     GROUPBOX        "Frame Output", IDS_STATIC, 4, 65, 115, 120
-        CONTROL         "BlendedFrame (Default)", IDC_BLENDEDFRAME, "Button", BS_AUTORADIOBUTTON | WS_GROUP, 11, 80, 80, 10
+        CONTROL         "BlendedFrame (Default)", IDC_BLENDEDFRAME, "Button", BS_AUTORADIOBUTTON | WS_GROUP, 11, 80, 90, 10
         CONTROL         "WarpedFrame 1 -> 2", IDC_WARPEDFRAME12, "Button", BS_AUTORADIOBUTTON, 11, 95, 80, 10
         CONTROL         "WarpedFrame 2 -> 1", IDC_WARPEDFRAME21, "Button", BS_AUTORADIOBUTTON, 11, 110, 80, 10
         CONTROL         "HSV Flow", IDC_HSVFLOW, "Button", BS_AUTORADIOBUTTON, 11, 125, 80, 10
