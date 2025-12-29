@@ -355,3 +355,12 @@
 ### Fixed
 - Fixed settings change causing frame drops
 - Fixed wrong stride being used with madVR when playing from a capture card
+
+## [Version 2.0.2.1] - 2025-12-29 - Fully functional
+### Added
+- Added NV12 output support for improved performance
+- Added optical flow search radius to settings interface (which was and still is automatically adjusted based on system performance but now can be watched as it affects interpolation quality)
+
+### Fixed
+- Significantly reworked media type negotiation and input/output stride calculation which specifically fixes dynamic resolution change issues with the Enhanced Video Renderer
+- Improved initial frame time calculation which has the same effect as the buffer frames solution but is cleaner

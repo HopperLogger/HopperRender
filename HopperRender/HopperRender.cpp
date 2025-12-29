@@ -820,7 +820,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 	// Reset our frame time if necessary and calculate the current number of intermediate frames needed
     if (m_rtCurrStartTime == -1) {
 		// We are at the start of a new segment
-		m_rtCurrStartTime = rtStartTime;
+		m_rtCurrStartTime = rtStartTime + m_iBufferFrames * m_rtTargetFrameTime;
     }
 
 	// Calculate the number of interpolated frames
