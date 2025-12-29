@@ -159,7 +159,7 @@ __kernel void warpFrameKernel(__global const unsigned char* sourceFrame12, __glo
 
     // GreyFlow
     if (frameOutputMode == 4) {
-        outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = cz ? 128 : min((abs(offsetX12) + abs(offsetY12)) << 10, 255u);
+        outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = cz ? 128 : min((abs(offsetX12) + abs(offsetY12)) << 2, 255u);
         return;
     }
 
