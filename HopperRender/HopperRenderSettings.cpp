@@ -43,6 +43,7 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 	m_iSceneChangeThreshold(DEFAULT_SCENE_CHANGE_THRESHOLD),
 	m_iBufferFrames(DEFAULT_BUFFER_FRAMES),
 	m_iTotalFrameDelta(0),
+	m_iSearchRadius(0),
 	m_iIntActiveState(Active),
 	m_dSourceFPS(0.0),
 	m_dTargetFPS(0.0),
@@ -110,7 +111,7 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			int activeState;
 			double currentFPS = m_dSourceFPS;
 			m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel, &m_iSceneChangeThreshold,
-									 &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta, &m_iBufferFrames);
+									 &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta, &m_iBufferFrames, &m_iSearchRadius);
 			m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 			m_iIntActiveState = static_cast<ActiveState>(activeState);
 
@@ -166,6 +167,10 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d x %d\0"), iLowDimX, iLowDimY);
 			SetDlgItemText(m_Dlg, IDC_CALCRES, sz);
 
+			// Update the search radius
+			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iSearchRadius);
+			SetDlgItemText(m_Dlg, IDC_SEARCHRADIUS, sz);
+
 			// Update the total frame delta
 			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%u\0"), m_iTotalFrameDelta);
 			SetDlgItemText(m_Dlg, IDC_TOTALFRAMEDELTA, sz);
@@ -194,7 +199,7 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 	int activeState;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
 	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel, &m_iSceneChangeThreshold,
-	                                         &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta, &m_iBufferFrames);
+	                                         &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta, &m_iBufferFrames, &m_iSearchRadius);
 	m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 	m_iIntActiveState = static_cast<ActiveState>(activeState);
 
@@ -346,9 +351,10 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 	int activeState;
 	unsigned int totalFrameDelta;
 	unsigned int bufferFrames;
+	int searchRadius;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
 	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
-	                                         &m_iSceneChangeThreshold, &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &totalFrameDelta, &bufferFrames);
+	                                         &m_iSceneChangeThreshold, &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &totalFrameDelta, &bufferFrames, &searchRadius);
 	TCHAR sz[60];
 	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f\0"), m_dTargetFPS);
 	SetDlgItemText(m_Dlg, IDC_TARGETFPS, sz);

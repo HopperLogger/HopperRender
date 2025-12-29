@@ -1101,7 +1101,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 											   int* piLowDimX,
 											   int* piLowDimY,
 											   unsigned int* piTotalFrameDelta,
-											   unsigned int* piBufferFrames) {
+											   unsigned int* piBufferFrames,
+											   int* piSearchRadius) {
     CAutoLock cAutolock(&m_csHopperRenderLock);
 	CheckPointer(pbActivated, E_POINTER)
 	CheckPointer(piFrameOutput, E_POINTER)
@@ -1124,6 +1125,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	CheckPointer(piLowDimY, E_POINTER)
 	CheckPointer(piTotalFrameDelta, E_POINTER)
 	CheckPointer(piBufferFrames, E_POINTER)
+	CheckPointer(piSearchRadius, E_POINTER)
 
 	// Optical Flow Calculator not initialized yet
 	if (m_pofcOpticalFlowCalc == nullptr) {
@@ -1156,6 +1158,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piLowDimY = 0;
 		*piTotalFrameDelta = 0;
 		*piBufferFrames = m_iBufferFrames;
+		*piSearchRadius = 0;
 	} else {
 		*pbActivated = m_iIntActiveState != 0;
 		*piFrameOutput = m_iFrameOutput;
@@ -1180,6 +1183,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piLowDimY = m_pofcOpticalFlowCalc->m_opticalFlowFrameHeight;
 		*piTotalFrameDelta = m_iPeakTotalFrameDelta;
 		*piBufferFrames = m_iBufferFrames;
+		*piSearchRadius = m_pofcOpticalFlowCalc->m_opticalFlowSearchRadius;
 	}
 	return NOERROR;
 }
