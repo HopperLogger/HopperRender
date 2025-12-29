@@ -82,7 +82,7 @@ BEGIN
         LTEXT           "(peak 3s)", IDS_STATIC, 270, 100, 30, 9
         CONTROL         "Use Display FPS", IDC_USEDISPLAYFPS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 245, 25, 65, 13
 
-    GROUPBOX        "Status", IDS_STATIC, 125, 140, 130, 130
+    GROUPBOX        "Status", IDS_STATIC, 125, 140, 130, 145
         LTEXT           "Int Active", IDS_STATIC, 132, 150, 60, 9
         LTEXT           "Source FPS", IDS_STATIC, 132, 165, 60, 9
         LTEXT           "OFC Calc Time", IDS_STATIC, 132, 180, 60, 9
@@ -91,6 +91,7 @@ BEGIN
         LTEXT           "Warp Calc Time", IDS_STATIC, 132, 225, 60, 9
         LTEXT           "Frame Resolution", IDS_STATIC, 132, 240, 60, 9
         LTEXT           "Calc Resolution", IDS_STATIC, 132, 255, 60, 9
+        LTEXT           "Search Radius", IDS_STATIC, 132, 270, 60, 9
         LTEXT           "n/a", IDC_INTACTIVE, 200, 150, 50, 9
         LTEXT           "n/a", IDC_SOURCEFPS, 200, 165, 50, 9
         LTEXT           "n/a", IDC_OFCCALCTIME, 200, 180, 50, 9
@@ -99,8 +100,9 @@ BEGIN
         LTEXT           "n/a", IDC_WARPCALCTIME, 200, 225, 50, 9
         LTEXT           "n/a", IDC_FRAMERES, 200, 240, 50, 9
         LTEXT           "n/a", IDC_CALCRES, 200, 255, 50, 9
-    LTEXT           VERSION_STRING_WITH_NAME, IDS_STATIC, 10, 205, 100, 9
-    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 260, 256, 50, 14
+        LTEXT           "n/a", IDC_SEARCHRADIUS, 200, 270, 50, 9
+    LTEXT           VERSION_STRING_WITH_NAME, IDS_STATIC, 10, 190, 100, 9
+    PUSHBUTTON      "Defaults", IDC_DEFAULTS, 260, 271, 50, 14
 END
 
 STRINGTABLE DISCARDABLE

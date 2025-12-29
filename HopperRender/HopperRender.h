@@ -72,7 +72,8 @@ class CHopperRender : public CVideoTransformFilter,
 		int* piLowDimX,
 		int* piLowDimY,
 		unsigned int* piTotalFrameDelta,
-		unsigned int* piBufferFrames) override;
+		unsigned int* piBufferFrames,
+		int* piSearchRadius) override;
 	STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS,
 							        int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel, int iSceneChangeThreshold, unsigned int iBufferFrames) override;
 

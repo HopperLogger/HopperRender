@@ -34,6 +34,7 @@
 #define IDC_PEAKOFCCALCTIME             1035
 #define IDC_TOTALFRAMEDELTA             1036
 #define IDC_BUFFERFRAMES                1037
+#define IDC_SEARCHRADIUS                1038
 
 // Next default values for new objects
 //

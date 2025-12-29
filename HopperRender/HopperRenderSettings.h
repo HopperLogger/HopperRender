@@ -30,6 +30,7 @@ private:
 	int m_iSceneChangeThreshold;
 	unsigned int m_iBufferFrames;
 	unsigned int m_iTotalFrameDelta;
+	int m_iSearchRadius;
 	ActiveState m_iIntActiveState; // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
 	double m_dSourceFPS; // The source frames per second
 	double m_dTargetFPS;
