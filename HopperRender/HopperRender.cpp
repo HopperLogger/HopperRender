@@ -452,6 +452,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     // Get the input media type information
     CMediaType* mtIn = &m_pInput->CurrentMediaType();
     
+	RECT rcSource, rcTarget;
     long biWidth, biHeight;
     unsigned int dwX, dwY;
     REFERENCE_TIME avgTimePerFrame;
@@ -460,13 +461,15 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     // Check if input is VIDEOINFOHEADER or VIDEOINFOHEADER2
     if (*mtIn->FormatType() == FORMAT_VideoInfo) {
         auto pvi = (VIDEOINFOHEADER*)mtIn->Format();
+		rcSource = pvi->rcSource;
+		rcTarget = pvi->rcTarget;
         biWidth = pvi->bmiHeader.biWidth;
-        biHeight = abs(pvi->bmiHeader.biHeight);
+        biHeight = pvi->bmiHeader.biHeight;
         avgTimePerFrame = pvi->AvgTimePerFrame;
 		dwBitRate = pvi->dwBitRate;
         dwBitErrorRate = pvi->dwBitErrorRate;
         dwX = biWidth;
-        dwY = biHeight;
+        dwY = abs(biHeight);
 		dwCopyProtectFlags = 0;
         dwInterlaceFlags = 0;
         dwControlFlags = 0;
@@ -474,8 +477,10 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
         dwReserved2 = 0;
     } else {
         auto pvi2 = (VIDEOINFOHEADER2*)mtIn->Format();
+		rcSource = pvi2->rcSource;
+		rcTarget = pvi2->rcTarget;
         biWidth = pvi2->bmiHeader.biWidth;
-        biHeight = abs(pvi2->bmiHeader.biHeight);
+        biHeight = pvi2->bmiHeader.biHeight;
         avgTimePerFrame = pvi2->AvgTimePerFrame;
 		dwBitRate = pvi2->dwBitRate;
         dwBitErrorRate = pvi2->dwBitErrorRate;
@@ -492,8 +497,8 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
 	if (avgTimePerFrame > 0)
 		m_rtSourceFrameTime = avgTimePerFrame;
     m_rtCurrPlaybackFrameTime = m_rtSourceFrameTime;
-	m_iDimX = biWidth;
-	m_iDimY = biHeight;
+	m_iDimX = rcSource.right;
+	m_iDimY = rcSource.bottom;
 	m_iInputStride = biWidth;
 	m_iOutputStride = biWidth;
     
@@ -527,8 +532,8 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     }
 
     // Update common fields
-    pVih->rcSource = { 0, 0, biWidth, biHeight };
-    pVih->rcTarget = pVih->rcSource;
+    pVih->rcSource = rcSource;
+    pVih->rcTarget = rcTarget;
     pVih->AvgTimePerFrame = m_rtTargetFrameTime;
 	pVih->dwBitRate = dwBitRate;
 	pVih->dwBitErrorRate = dwBitErrorRate;
@@ -539,7 +544,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     pBIH->biHeight = biHeight;
     pBIH->biBitCount = 24;
     pBIH->biPlanes = 1;
-    pBIH->biSizeImage = (biWidth * biHeight * 24) >> 3;
+    pBIH->biSizeImage = (biWidth * abs(biHeight) * 24) >> 3;
     pBIH->biCompression = guid.Data1;
 
     // Set the media type information
@@ -577,18 +582,20 @@ HRESULT CHopperRender::Receive(IMediaSample *pIn) {
 		m_pInput->CurrentMediaType() = *pmt;
 
 		// Extract new dimensions
-		long newWidth = 0, newHeight = 0;
+		long newWidth = 0, newHeight = 0, newInputStride = 0;
 		if (pmt->formattype == FORMAT_VideoInfo) {
 			VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)pmt->pbFormat;
-			newWidth = pvi->bmiHeader.biWidth;
-			newHeight = abs(pvi->bmiHeader.biHeight);
+			newWidth = pvi->rcSource.right;
+			newHeight = pvi->rcSource.bottom;
+			newInputStride = pvi->bmiHeader.biWidth;
 		} else if (pmt->formattype == FORMAT_VideoInfo2) {
 			VIDEOINFOHEADER2* pvi2 = (VIDEOINFOHEADER2*)pmt->pbFormat;
-			newWidth = pvi2->bmiHeader.biWidth;
-			newHeight = abs(pvi2->bmiHeader.biHeight);
+			newWidth = pvi2->rcSource.right;
+			newHeight = pvi2->rcSource.bottom;
+			newInputStride = pvi2->bmiHeader.biWidth;
 		}
 		
-		if (newWidth != m_iDimX || newHeight != m_iDimY) {
+		if (newWidth != m_iDimX || newHeight != m_iDimY || newInputStride != m_iInputStride) {
 			char logMsg[256];
 			sprintf_s(logMsg, "Resolution change detected: %dx%d -> %dx%d", 
 					m_iDimX, m_iDimY, newWidth, newHeight);
@@ -596,41 +603,8 @@ HRESULT CHopperRender::Receive(IMediaSample *pIn) {
 			
 			m_iDimX = newWidth;
 			m_iDimY = newHeight;
-			m_iInputStride = newWidth;
+			m_iInputStride = newInputStride;
 			m_iOutputStride = newWidth;
-			bFormatChanged = true;
-			
-			// Reset optical flow calculator for new resolution
-			if (m_pofcOpticalFlowCalc) {
-				delete m_pofcOpticalFlowCalc;
-				m_pofcOpticalFlowCalc = nullptr;
-			}
-		}
-	} else {
-		// No format change in sample, but check if we need to initialize dimensions
-		CMediaType* mtIn = &m_pInput->CurrentMediaType();
-		long currentWidth = 0, currentHeight = 0;
-		
-		if (*mtIn->FormatType() == FORMAT_VideoInfo) {
-			VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)mtIn->Format();
-			currentWidth = pvi->bmiHeader.biWidth;
-			currentHeight = abs(pvi->bmiHeader.biHeight);
-		} else if (*mtIn->FormatType() == FORMAT_VideoInfo2) {
-			VIDEOINFOHEADER2* pvi2 = (VIDEOINFOHEADER2*)mtIn->Format();
-			currentWidth = pvi2->bmiHeader.biWidth;
-			currentHeight = abs(pvi2->bmiHeader.biHeight);
-		}
-		
-		if (currentWidth != m_iDimX || currentHeight != m_iDimY) {
-			char logMsg[256];
-			sprintf_s(logMsg, "Resolution initialized/changed: %dx%d -> %dx%d", 
-					m_iDimX, m_iDimY, currentWidth, currentHeight);
-			Log(LogLevel::Info, "Transform", logMsg);
-			
-			m_iDimX = currentWidth;
-			m_iDimY = currentHeight;
-			m_iInputStride = currentWidth;
-			m_iOutputStride = currentWidth;
 			bFormatChanged = true;
 			
 			// Reset optical flow calculator for new resolution
@@ -720,6 +694,10 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     pOut->GetMediaType(&pmtOut);
     if (pmtOut != nullptr && pmtOut->pbFormat != nullptr) {
 		VIDEOINFOHEADER2 *pvi2 = (VIDEOINFOHEADER2*)pmtOut->pbFormat;
+		if (pvi2->bmiHeader.biWidth != m_iOutputStride && m_pofcOpticalFlowCalc) {
+			delete m_pofcOpticalFlowCalc;
+			m_pofcOpticalFlowCalc = nullptr;
+		}
 		m_iOutputStride = pvi2->bmiHeader.biWidth;
 		m_pOutput->SetMediaType(static_cast<CMediaType*>(pmtOut));
 	}
