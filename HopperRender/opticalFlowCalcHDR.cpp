@@ -141,6 +141,8 @@ void OpticalFlowCalcHDR::warpFrames(const float blendingScalar, const int frameO
     // Calculate the blend scalar
     const float frameScalar12 = blendingScalar;
     const float frameScalar21 = 1.0f - blendingScalar;
+    const float blackLevelShifted = m_outputBlackLevel * 256.0f;
+    const float whiteLevelShifted = m_outputWhiteLevel * 256.0f;
 
     // Warp Frames
     int cz = 0; // Y-Plane
@@ -149,8 +151,8 @@ void OpticalFlowCalcHDR::warpFrames(const float blendingScalar, const int frameO
     err |= clSetKernelArg(m_warpFrameKernel, 4, sizeof(float), &frameScalar12);
     err |= clSetKernelArg(m_warpFrameKernel, 5, sizeof(float), &frameScalar21);
     err |= clSetKernelArg(m_warpFrameKernel, 13, sizeof(int), &frameOutputMode);
-    err |= clSetKernelArg(m_warpFrameKernel, 14, sizeof(float), &m_outputBlackLevel);
-    err |= clSetKernelArg(m_warpFrameKernel, 15, sizeof(float), &m_outputWhiteLevel);
+    err |= clSetKernelArg(m_warpFrameKernel, 14, sizeof(float), &blackLevelShifted);
+    err |= clSetKernelArg(m_warpFrameKernel, 15, sizeof(float), &whiteLevelShifted);
     err |= clSetKernelArg(m_warpFrameKernel, 16, sizeof(int), &cz);
     CHECK_ERROR(err);
     CHECK_ERROR(clEnqueueNDRangeKernel(m_queue, m_warpFrameKernel, 2, NULL, m_grid16x16x1, m_threads16x16x1, 0, NULL, &m_warpStartedEvent));
@@ -160,11 +162,14 @@ void OpticalFlowCalcHDR::warpFrames(const float blendingScalar, const int frameO
 }
 
 void OpticalFlowCalcHDR::copyFrame() {
+    const float blackLevelShifted = m_outputBlackLevel * 256.0f;
+    const float whiteLevelShifted = m_outputWhiteLevel * 256.0f;
+
     // Copy Frame
     int cz = 0; // Y-Plane
     cl_int err = clSetKernelArg(m_copyFrameKernel, 0, sizeof(cl_mem), &m_inputFrameArray[1]);
-    err |= clSetKernelArg(m_copyFrameKernel, 6, sizeof(float), &m_outputBlackLevel);
-    err |= clSetKernelArg(m_copyFrameKernel, 7, sizeof(float), &m_outputWhiteLevel);
+    err |= clSetKernelArg(m_copyFrameKernel, 6, sizeof(float), &blackLevelShifted);
+    err |= clSetKernelArg(m_copyFrameKernel, 7, sizeof(float), &whiteLevelShifted);
     err |= clSetKernelArg(m_copyFrameKernel, 8, sizeof(int), &cz);
     CHECK_ERROR(err);
     CHECK_ERROR(clEnqueueNDRangeKernel(m_queue, m_copyFrameKernel, 2, NULL, m_grid16x16x1, m_threads16x16x1, 0, NULL, &m_warpStartedEvent));

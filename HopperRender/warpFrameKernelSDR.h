@@ -1,11 +1,11 @@
 #pragma once
 const char* warpFrameKernelSDR = R"CLC(
 unsigned short apply_levelsY(float value, float black_level, float white_level) {
-    return fmax(fmin((value - black_level) / (white_level - black_level) * 65535.0f, 65535.0f), 0.0f);
+    return fmax(fmin((value - black_level) / (white_level - black_level) * 255.0f, 255.0f), 0.0f);
 }
 
 unsigned short apply_levelsUV(float value, float white_level) {
-    return fmax(fmin((value - 32768.0f) / white_level * 65535.0f + 32768.0f, 65535.0f), 0.0f);
+    return fmax(fmin((value - 128.0f) / white_level * 255.0f + 128.0f, 255.0f), 0.0f);
 }
 
 // Helper function to mirror the coordinate if it is outside the bounds
@@ -114,7 +114,7 @@ unsigned char visualizeFlow(const short offsetX, const short offsetY, const unsi
 
 // Kernel that warps a frame according to the offset array
 __kernel void warpFrameKernel(__global const unsigned char* sourceFrame12, __global const unsigned char* sourceFrame21,
-                              __global const short* offsetArray, __global unsigned short* outputFrame, 
+                              __global const short* offsetArray, __global unsigned char* outputFrame, 
                               const float frameScalar12, const float frameScalar21, const int lowDimY, const int lowDimX, 
                               const int dimY, const int dimX, const int inputStride, const int outputStride, const int resolutionScalar, const int frameOutputMode, 
                               const float black_level, const float white_level, const int cz) {
@@ -131,20 +131,20 @@ __kernel void warpFrameKernel(__global const unsigned char* sourceFrame12, __glo
     
     // SideBySide1 (Left side)
     if (frameOutputMode == 5 && cx < (dimX >> 1)) {
-        outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = sourceFrame12[cz * dimY * inputStride + cy * inputStride + cx] << 8;
+        outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = sourceFrame12[cz * dimY * inputStride + cy * inputStride + cx];
         return;
     } else if (frameOutputMode == 6) { // SideBySide2
         const bool isInLeftSide = cy >= (verticalOffset >> cz) && cy < ((verticalOffset >> cz) + (dimY >> (1 + cz))) && cx < (dimX >> 1);
         const bool isInRightSide = cy >= (verticalOffset >> cz) && cy < ((verticalOffset >> cz) + (dimY >> (1 + cz))) && cx >= (dimX >> 1) && cx < dimX;
     
         if (isInLeftSide) { // Place the source frame in the left side of the output frame
-            outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = sourceFrame12[cz * dimY * inputStride + ((cy - (verticalOffset >> cz)) << 1) * inputStride + (cx << 1) + (cz ? (cx & 1) : 0)] << 8;
+            outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = sourceFrame12[cz * dimY * inputStride + ((cy - (verticalOffset >> cz)) << 1) * inputStride + (cx << 1) + (cz ? (cx & 1) : 0)];
             return;
         } else if (isInRightSide) { // Place the warped frame in the right side of the output frame
             adjCx = (cx - (dimX >> 1)) << 1;
             adjCy = (cy - (verticalOffset >> cz)) << 1;
         } else { // Fill the surrounding area with black
-            outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = cz ? 32768 : 0;
+            outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = cz ? 128 : 0;
             return;
         }
     }
@@ -159,7 +159,7 @@ __kernel void warpFrameKernel(__global const unsigned char* sourceFrame12, __glo
 
     // GreyFlow
     if (frameOutputMode == 4) {
-        outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = cz ? 32768 : min((abs(offsetX12) + abs(offsetY12)) << 10, 65535u);
+        outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = cz ? 128 : min((abs(offsetX12) + abs(offsetY12)) << 10, 255u);
         return;
     }
 
@@ -170,16 +170,15 @@ __kernel void warpFrameKernel(__global const unsigned char* sourceFrame12, __glo
     const int newCy21 = mirrorCoordinate(adjCy - (int)round((float)(offsetY21) * frameScalar21 * (cz ? 0.5f : 1.0f)), cz ? (dimY >> 1) : dimY);
 
     if (frameOutputMode == 0) { // WarpedFrame12
-        outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = sourceFrame12[cz * dimY * inputStride + newCy12 * inputStride + (newCx12 & (cz ? ~1 : ~0)) + (cx & (cz ? 1 : 0))] << 8;
+        outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = sourceFrame12[cz * dimY * inputStride + newCy12 * inputStride + (newCx12 & (cz ? ~1 : ~0)) + (cx & (cz ? 1 : 0))];
     } else if (frameOutputMode == 1) { // WarpedFrame21
-        outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = sourceFrame21[cz * dimY * inputStride + newCy21 * inputStride + (newCx21 & (cz ? ~1 : ~0)) + (cx & (cz ? 1 : 0))] << 8;
+        outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = sourceFrame21[cz * dimY * inputStride + newCy21 * inputStride + (newCx21 & (cz ? ~1 : ~0)) + (cx & (cz ? 1 : 0))];
     } else { // BlendedFrame
         unsigned short blendedValue = (float)sourceFrame12[cz * dimY * inputStride + newCy12 * inputStride + (newCx12 & (cz ? ~1 : ~0)) + (cx & (cz ? 1 : 0))] * frameScalar21 + 
                                       (float)sourceFrame21[cz * dimY * inputStride + newCy21 * inputStride + (newCx21 & (cz ? ~1 : ~0)) + (cx & (cz ? 1 : 0))] * frameScalar12;
         if (frameOutputMode == 3) { // HSVFlow
             blendedValue = visualizeFlow(-offsetX12, -offsetY12, blendedValue, cz + (cx & (cz ? 1 : 0)), resolutionScalar <= 2 ? 4 : 1);
         }
-        blendedValue = blendedValue << 8;
         outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = cz ? apply_levelsUV(blendedValue, white_level) : apply_levelsY(blendedValue, black_level, white_level);
     }
 }

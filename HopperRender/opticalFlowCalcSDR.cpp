@@ -27,7 +27,7 @@ void OpticalFlowCalcSDR::updateFrame(unsigned char* inputPlanes) {
 
 void OpticalFlowCalcSDR::downloadFrame(unsigned char* outputPlanes) {
     cl_event warpEndEvent;
-    CHECK_ERROR(clEnqueueReadBuffer(m_queue, m_outputFrameArray, CL_TRUE, 0, 2 * (m_frameHeight * m_outputStride + (m_frameHeight / 2) * m_outputStride), outputPlanes, 0, NULL, &warpEndEvent));
+    CHECK_ERROR(clEnqueueReadBuffer(m_queue, m_outputFrameArray, CL_TRUE, 0, m_frameHeight * m_outputStride + (m_frameHeight / 2) * m_outputStride, outputPlanes, 0, NULL, &warpEndEvent));
 
     // Evaluate how long the interpolation took
     CHECK_ERROR(clWaitForEvents(1, &m_warpStartedEvent));
@@ -259,7 +259,7 @@ OpticalFlowCalcSDR::OpticalFlowCalcSDR(const int frameHeight, const int frameWid
     // Allocate the buffers
     m_inputFrameArray[0] = clCreateBuffer(m_clContext, CL_MEM_READ_ONLY, 1.5 * m_frameHeight * m_inputStride, NULL, &err);
     m_inputFrameArray[1] = clCreateBuffer(m_clContext, CL_MEM_READ_ONLY, 1.5 * m_frameHeight * m_inputStride, NULL, &err);
-    m_outputFrameArray = clCreateBuffer(m_clContext, CL_MEM_WRITE_ONLY, 3 * m_frameHeight * m_outputStride, NULL, &err);
+    m_outputFrameArray = clCreateBuffer(m_clContext, CL_MEM_WRITE_ONLY, 1.5 * m_frameHeight * m_outputStride, NULL, &err);
     m_offsetArray = clCreateBuffer(m_clContext, CL_MEM_READ_WRITE, 2 * m_opticalFlowFrameHeight * m_opticalFlowFrameWidth * sizeof(short), NULL, &err);
     m_blurredOffsetArray = clCreateBuffer(m_clContext, CL_MEM_READ_WRITE, 2 * m_opticalFlowFrameHeight * m_opticalFlowFrameWidth * sizeof(short), NULL, &err);
     m_summedDeltaValuesArray = clCreateBuffer(m_clContext, CL_MEM_READ_WRITE, MAX_SEARCH_RADIUS * m_opticalFlowFrameHeight * m_opticalFlowFrameWidth * sizeof(unsigned int), NULL, &err);
