@@ -45,10 +45,16 @@ constexpr AMOVIESETUP_MEDIATYPE sudPinTypesIn[] =
 };
 
 // Output pin types
-constexpr AMOVIESETUP_MEDIATYPE sudPinTypesOut =
+constexpr AMOVIESETUP_MEDIATYPE sudPinTypesOut[] =
 {
-	&MEDIATYPE_Video, // Major type
-    &MEDIASUBTYPE_P010 // Minor type
+	{
+		&MEDIATYPE_Video, // Major type
+		&MEDIASUBTYPE_NV12 // Minor type
+	},
+	{
+		&MEDIATYPE_Video, // Major type
+		&MEDIASUBTYPE_P010 // Minor type
+	}
 };
 
 // Input/Output pin information
@@ -73,8 +79,8 @@ constexpr AMOVIESETUP_PIN sudpPins[] =
 		FALSE, // And allowed many
 		&CLSID_NULL, // Connects to filter
 		nullptr, // Connects to pin
-		1, // Number of types
-		&sudPinTypesOut // Pin information
+		2, // Number of types
+		sudPinTypesOut // Pin information
 	}
 };
 
@@ -380,15 +386,29 @@ HRESULT CHopperRender::CheckTransform(const CMediaType* mtIn, const CMediaType* 
 	CheckPointer(mtIn, E_POINTER)
 	CheckPointer(mtOut, E_POINTER)
 
-	// We can transform NV12 or P010 input to P010 output
 	if (!IsEqualGUID(*mtIn->Type(), MEDIATYPE_Video) ||
-		(!IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12) && !IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010)) || 
-	    !IsEqualGUID(*mtOut->Subtype(), MEDIASUBTYPE_P010)) {
+		!IsEqualGUID(*mtOut->Type(), MEDIATYPE_Video)) {
+		Log(LogLevel::Error, "CheckTransform", "Invalid media type - must be video");
+		return E_FAIL;
+	}
+
+	// We only allow same-format conversions: NV12 to NV12 or P010 to P010
+	if (IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_NV12)) {
+		if (!IsEqualGUID(*mtOut->Subtype(), MEDIASUBTYPE_NV12)) {
+			Log(LogLevel::Error, "CheckTransform", "NV12 input requires NV12 output");
+			return E_FAIL;
+		}
+	} else if (IsEqualGUID(*mtIn->Subtype(), MEDIASUBTYPE_P010)) {
+		if (!IsEqualGUID(*mtOut->Subtype(), MEDIASUBTYPE_P010)) {
+			Log(LogLevel::Error, "CheckTransform", "P010 input requires P010 output");
+			return E_FAIL;
+		}
+	} else {
 		Log(LogLevel::Error, "CheckTransform", "Incompatible media types for transformation");
 		return E_FAIL;
-    }
+	}
 
-    return NOERROR;
+	return NOERROR;
 }
 
 // Sets the output pin's buffer requirements
@@ -438,9 +458,18 @@ HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType) {
 
     CheckPointer(pMediaType, E_POINTER);
 
+    // Get the input media type to match the output subtype
+    CMediaType* mtIn = &m_pInput->CurrentMediaType();
+    const GUID* pSubtype = mtIn->Subtype();
+    if (pSubtype == nullptr || 
+        (!IsEqualGUID(*pSubtype, MEDIASUBTYPE_NV12) && !IsEqualGUID(*pSubtype, MEDIASUBTYPE_P010))) {
+        Log(LogLevel::Error, "GetMediaType", "Input format not available - cannot determine output format");
+        return VFW_S_NO_MORE_ITEMS;
+    }
+
     pMediaType->SetType(&MEDIATYPE_Video);
     pMediaType->SetFormatType(&FORMAT_VideoInfo2);
-    pMediaType->SetSubtype(&MEDIASUBTYPE_P010);
+    pMediaType->SetSubtype(pSubtype);
 
     UpdateVideoInfoHeader(pMediaType);
 
@@ -502,7 +531,6 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
 	m_iInputStride = biWidth;
 	m_iOutputStride = biWidth;
     
-    const GUID guid = MEDIASUBTYPE_P010;
     BITMAPINFOHEADER* pBIH;
     VIDEOINFOHEADER* pVih;
 
@@ -542,13 +570,27 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     pBIH->biSize = sizeof(BITMAPINFOHEADER);
     pBIH->biWidth = biWidth;
     pBIH->biHeight = biHeight;
-    pBIH->biBitCount = 24;
     pBIH->biPlanes = 1;
-    pBIH->biSizeImage = (biWidth * abs(biHeight) * 24) >> 3;
-    pBIH->biCompression = guid.Data1;
 
-    // Set the media type information
-	pMediaType->SetSubtype(&MEDIASUBTYPE_P010);
+    // Set bit count and size based on format: P010 = 24 bits, NV12 = 12 bits
+    const GUID* pSubtype = mtIn->Subtype();
+    if (pSubtype == nullptr || 
+        (!IsEqualGUID(*pSubtype, MEDIASUBTYPE_NV12) && !IsEqualGUID(*pSubtype, MEDIASUBTYPE_P010))) {
+        Log(LogLevel::Error, "UpdateVideoInfoHeader", "Invalid input format - cannot set output format");
+        return E_FAIL;
+    }
+
+    if (IsEqualGUID(*pSubtype, MEDIASUBTYPE_P010)) {
+        pBIH->biBitCount = 24;
+        pBIH->biSizeImage = (biWidth * abs(biHeight) * 24) >> 3;
+        pBIH->biCompression = MEDIASUBTYPE_P010.Data1;
+    } else {
+        pBIH->biBitCount = 12;
+        pBIH->biSizeImage = (biWidth * abs(biHeight) * 12) >> 3;
+        pBIH->biCompression = MEDIASUBTYPE_NV12.Data1;
+    }
+
+    pMediaType->SetSubtype(pSubtype);
     pMediaType->SetSampleSize(pBIH->biSizeImage);
     pMediaType->SetTemporalCompression(FALSE);
     pMediaType->bFixedSizeSamples = TRUE;
@@ -1099,8 +1141,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*pbUseDsiplayFPS = m_bUseDisplayFPS;
 		*piDeltaScalar = deltaScalar;
 		*piNeighborScalar = neighborScalar;
-		*piBlackLevel = blackLevel / 256.0f;
-		*piWhiteLevel = whiteLevel / 256.0f;
+		*piBlackLevel = (int)blackLevel;
+		*piWhiteLevel = (int)whiteLevel;
 		*piSceneChangeThreshold = m_iSceneChangeThreshold;
 		*piIntActiveState = Active;
 		*pdSourceFPS = 0.0;
@@ -1123,8 +1165,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*pbUseDsiplayFPS = m_bUseDisplayFPS;
 		*piDeltaScalar = m_pofcOpticalFlowCalc->m_deltaScalar;
 		*piNeighborScalar = m_pofcOpticalFlowCalc->m_neighborBiasScalar;
-		*piBlackLevel = (int)(m_pofcOpticalFlowCalc->m_outputBlackLevel) >> 8;
-		*piWhiteLevel = (int)(m_pofcOpticalFlowCalc->m_outputWhiteLevel) >> 8;
+		*piBlackLevel = (int)m_pofcOpticalFlowCalc->m_outputBlackLevel;
+		*piWhiteLevel = (int)m_pofcOpticalFlowCalc->m_outputWhiteLevel;
 		*piSceneChangeThreshold = m_iSceneChangeThreshold;
 		*piIntActiveState = m_iIntActiveState;
 		*pdSourceFPS = 10000000.0 / static_cast<double>(m_rtCurrPlaybackFrameTime);
@@ -1173,8 +1215,8 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated,
 	if (m_pofcOpticalFlowCalc != nullptr) {
 		m_pofcOpticalFlowCalc->m_deltaScalar = iDeltaScalar;
 		m_pofcOpticalFlowCalc->m_neighborBiasScalar = iNeighborScalar;
-		m_pofcOpticalFlowCalc->m_outputBlackLevel = (float)(iBlackLevel << 8);
-		m_pofcOpticalFlowCalc->m_outputWhiteLevel = (float)(iWhiteLevel << 8);
+		m_pofcOpticalFlowCalc->m_outputBlackLevel = (float)iBlackLevel;
+		m_pofcOpticalFlowCalc->m_outputWhiteLevel = (float)iWhiteLevel;
 	}
 
     return NOERROR;
@@ -1290,7 +1332,7 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
 					 reinterpret_cast<BYTE*>(&value), &dataSize);
 		if (result == 0 && value >= 0 && value <= 255) {
-			*blackLevel = (float)(value << 8);
+			*blackLevel = (float)value;
 		} else {
 			*blackLevel = (float)DEFAULT_BLACK_LEVEL;
 		}
@@ -1300,9 +1342,9 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
 					 reinterpret_cast<BYTE*>(&value), &dataSize);
 		if (result == 0 && value >= 0 && value <= 255) {
-			*whiteLevel = (float)(value << 8);
+			*whiteLevel = (float)value;
 		} else {
-			*whiteLevel = (float)(DEFAULT_WHITE_LEVEL << 8);
+			*whiteLevel = (float)DEFAULT_WHITE_LEVEL;
 		}
 
 		// Load the maximum calculation resolution
@@ -1344,8 +1386,8 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		useDisplayRefreshRate();
 		*deltaScalar = DEFAULT_DELTA_SCALAR;
 		*neighborScalar = DEFAULT_NEIGHBOR_SCALAR;
-		*blackLevel = DEFAULT_BLACK_LEVEL;
-		*whiteLevel = DEFAULT_WHITE_LEVEL << 8;
+		*blackLevel = (float)DEFAULT_BLACK_LEVEL;
+		*whiteLevel = (float)DEFAULT_WHITE_LEVEL;
 		*maxCalcRes = MAX_CALC_RES;
     }
     UpdateInterpolationStatus();
