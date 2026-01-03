@@ -49,7 +49,7 @@ public:
     void warpFrames(const float blendingScalar, const int frameOutputMode) override;
 
     /*
-     * Converts the NV12 input frame to the P010 output frame
+     * Copies the frame to the output buffer without warping
      */
     void copyFrame() override;
 };
