@@ -23,6 +23,8 @@ void OpticalFlowCalcSDR::updateFrame(unsigned char* inputPlanes) {
     cl_mem temp0 = m_inputFrameArray[0];
     m_inputFrameArray[0] = m_inputFrameArray[1];
     m_inputFrameArray[1] = temp0;
+
+	m_frameCount++;
 }
 
 void OpticalFlowCalcSDR::downloadFrame(unsigned char* outputPlanes) {
@@ -162,7 +164,8 @@ void OpticalFlowCalcSDR::warpFrames(const float blendingScalar, const int frameO
 void OpticalFlowCalcSDR::copyFrame() {
     // Copy Frame
     int cz = 0; // Y-Plane
-    cl_int err = clSetKernelArg(m_copyFrameKernel, 0, sizeof(cl_mem), &m_inputFrameArray[1]);
+	int frameIndex = m_frameCount >= 2 ? 0 : 1;
+    cl_int err = clSetKernelArg(m_copyFrameKernel, 0, sizeof(cl_mem), &m_inputFrameArray[frameIndex]);
     err |= clSetKernelArg(m_copyFrameKernel, 6, sizeof(float), &m_outputBlackLevel);
     err |= clSetKernelArg(m_copyFrameKernel, 7, sizeof(float), &m_outputWhiteLevel);
     err |= clSetKernelArg(m_copyFrameKernel, 8, sizeof(int), &cz);
@@ -198,8 +201,8 @@ OpticalFlowCalcSDR::OpticalFlowCalcSDR(const int frameHeight, const int frameWid
     // Set up variables
     m_frameWidth = frameWidth;
     m_frameHeight = frameHeight;
-    m_inputStride = inputStride;
-    m_outputStride = outputStride;
+    m_inputStride = inputStride > 0 ? inputStride : m_frameWidth;
+    m_outputStride = outputStride > 0 ? outputStride : m_frameWidth;
     m_outputBlackLevel = blackLevel;
     m_outputWhiteLevel = whiteLevel;
     m_opticalFlowSearchRadius = MIN_SEARCH_RADIUS;
@@ -218,6 +221,7 @@ OpticalFlowCalcSDR::OpticalFlowCalcSDR(const int frameHeight, const int frameWid
     m_deltaScalar = deltaScalar;
     m_neighborBiasScalar = neighborScalar;
 	m_totalFrameDelta = 0;
+	m_frameCount = 0;
 
     // Define the global and local work sizes
     m_lowGrid16x16x2[0] = ceil(m_opticalFlowFrameWidth / 16.0) * 16.0;

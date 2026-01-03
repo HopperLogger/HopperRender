@@ -119,7 +119,6 @@ class CHopperRender : public CVideoTransformFilter,
     OpticalFlowCalc* m_pofcOpticalFlowCalc; // Optical flow calculator
 
     // Frame output
-	unsigned int m_iFrameCounter; // Frame counter (relative! i.e. number of source frames received so far)
 	int m_iNumIntFrames; // Number of output samples (interpolated frames) for every input sample (source frame)
 
     // Performance and activation status
@@ -128,6 +127,7 @@ class CHopperRender : public CVideoTransformFilter,
     double m_dTotalWarpDuration; // The total duration of the current frame warp
 	double m_dBlendingScalar; // Blends from frame 1 to frame 2 (0.0 shows 100% frame 1, 1.0 shows 100% frame 2)
 	bool m_bUseDisplayFPS; // Whether to use the display refresh rate as target FPS
+	ULONGLONG m_ullLastRefreshRateUpdate; // Last time (in ms) the display refresh rate was updated
 	unsigned int m_iSceneChangeThreshold; // Threshold for scene change detection (total frame delta value)
 	
 	// Peak total frame delta tracking with sliding window

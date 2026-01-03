@@ -364,3 +364,10 @@
 ### Fixed
 - Significantly reworked media type negotiation and input/output stride calculation which specifically fixes dynamic resolution change issues with the Enhanced Video Renderer
 - Improved initial frame time calculation which has the same effect as the buffer frames solution but is cleaner
+
+## [Version 2.0.2.2] - 2026-01-03 - Fully functional
+### Added
+- Added source fps being passed to madVR depending on activation state of the filter
+
+### Fixed
+- Fixed playback speed changes not being handled correctly

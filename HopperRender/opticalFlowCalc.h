@@ -36,6 +36,7 @@ public:
     int m_deltaScalar;              // How many bits the pixel delta values are shifted to the left (affects the weight of the delta values)
     int m_neighborBiasScalar;       // How many bits the neighbor bias values are shifted to the left (affects the weight of the neighbor bias)
     unsigned int m_totalFrameDelta; // The total summed up delta value of the entire frame
+	unsigned int m_frameCount;      // The number of frames processed
     
     // OpenCL variables
     cl_device_id m_clDeviceId;
@@ -117,7 +118,7 @@ public:
     virtual void warpFrames(const float blendingScalar, const int frameOutputMode) = 0;
 
     /*
-     * Converts the NV12 input frame to the P010 output frame
+     * Copies the frame to the output buffer without warping
      */
     virtual void copyFrame() = 0;
 

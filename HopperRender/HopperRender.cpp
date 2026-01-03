@@ -147,23 +147,22 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CVi
     m_iFrameOutput(BlendedFrame),
 
     // Video info
-	m_iDimX(1),
-	m_iDimY(1),
-	m_iInputStride(1),
-	m_iOutputStride(1),
+	m_iDimX(0),
+	m_iDimY(0),
+	m_iInputStride(0),
+	m_iOutputStride(0),
 	m_bFirstBufferAlloc(true),
 
     // Timings
 	m_rtCurrStartTime(-1),
 	m_rtSourceFrameTime(417083),
 	m_rtTargetFrameTime(166667),
-	m_rtCurrPlaybackFrameTime(417083),
+	m_rtCurrPlaybackFrameTime(0),
 
     // Optical Flow calculation
     m_pofcOpticalFlowCalc(nullptr),
 
     // Frame output
-	m_iFrameCounter(0),
 	m_iNumIntFrames(1),
 
 	// Performance and activation status
@@ -171,6 +170,7 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CVi
 	m_dTotalWarpDuration(0.0),
 	m_dBlendingScalar(0.0),
     m_bUseDisplayFPS(true),
+	m_ullLastRefreshRateUpdate(0),
 	m_iSceneChangeThreshold(DEFAULT_SCENE_CHANGE_THRESHOLD),
 	m_iPeakTotalFrameDelta(0),
 	m_iBufferFrames(DEFAULT_BUFFER_FRAMES)
@@ -189,6 +189,15 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CVi
         m_logFile << "[" << std::put_time(&timeInfo, "%H:%M:%S") << "] " VERSION_STRING_WITH_NAME " - Filter instance created\n";
         m_logFile.flush();
     }
+
+	{
+		int deltaScalar;
+		int neighborScalar;
+		float blackLevel;
+		float whiteLevel;
+		int customResScalar;
+		loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &customResScalar);
+	}
 
     UpdateInterpolationStatus();
 
@@ -525,11 +534,10 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
 	// Retrieve the input frame time and dimensions
 	if (avgTimePerFrame > 0)
 		m_rtSourceFrameTime = avgTimePerFrame;
-    m_rtCurrPlaybackFrameTime = m_rtSourceFrameTime;
+    if (m_rtCurrPlaybackFrameTime == 0)
+		m_rtCurrPlaybackFrameTime = m_rtSourceFrameTime;
 	m_iDimX = rcSource.right;
 	m_iDimY = rcSource.bottom;
-	m_iInputStride = biWidth;
-	m_iOutputStride = biWidth;
     
     BITMAPINFOHEADER* pBIH;
     VIDEOINFOHEADER* pVih;
@@ -562,7 +570,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     // Update common fields
     pVih->rcSource = rcSource;
     pVih->rcTarget = rcTarget;
-    pVih->AvgTimePerFrame = m_rtTargetFrameTime;
+    pVih->AvgTimePerFrame = (m_iIntActiveState == Deactivated) ? m_rtSourceFrameTime : m_rtTargetFrameTime;
 	pVih->dwBitRate = dwBitRate;
 	pVih->dwBitErrorRate = dwBitErrorRate;
 
@@ -596,18 +604,6 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     pMediaType->bFixedSizeSamples = TRUE;
 
     return NOERROR;
-}
-
-// Retrieves a filter from a pin
-IBaseFilter* GetFilterFromPin(IPin* pPin) {
-    CheckPointer(pPin, nullptr);
-
-    PIN_INFO pi;
-	if (pPin && SUCCEEDED(pPin->QueryPinInfo(&pi))) {
-		return pi.pFilter;
-    }
-
-    return nullptr;
 }
 
 // Called when a new sample (source frame) arrives
@@ -646,7 +642,6 @@ HRESULT CHopperRender::Receive(IMediaSample *pIn) {
 			m_iDimX = newWidth;
 			m_iDimY = newHeight;
 			m_iInputStride = newInputStride;
-			m_iOutputStride = newWidth;
 			bFormatChanged = true;
 			
 			// Reset optical flow calculator for new resolution
@@ -658,7 +653,7 @@ HRESULT CHopperRender::Receive(IMediaSample *pIn) {
 	}
 
 	// Update the output media type when format changes or on first frame
-	if (bFormatChanged || m_iFrameCounter == 0) {
+	if (bFormatChanged) {
 		CMediaType mtOut(m_pOutput->CurrentMediaType());
 		UpdateVideoInfoHeader(&mtOut);
 
@@ -678,9 +673,13 @@ HRESULT CHopperRender::Receive(IMediaSample *pIn) {
 	}
 
 	// Update the display refresh rate every 5 seconds if the option is enabled
-	if (m_bUseDisplayFPS && (m_iFrameCounter % (5 * 10000000 / m_rtTargetFrameTime) == 0)) {
-		useDisplayRefreshRate();
-    }
+	if (m_bUseDisplayFPS) {
+		ULONGLONG ullCurrentTime = GetTickCount64();
+		if (ullCurrentTime - m_ullLastRefreshRateUpdate >= 5000) {
+			useDisplayRefreshRate();
+			m_ullLastRefreshRateUpdate = ullCurrentTime;
+		}
+	}
 
 	return CTransformFilter::Receive(pIn);
 }
@@ -689,8 +688,6 @@ HRESULT CHopperRender::Receive(IMediaSample *pIn) {
 HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 	CheckPointer(pIn, E_POINTER)
 	CheckPointer(pOut, E_POINTER)
-    
-	m_iFrameCounter++;
 
     HRESULT hr = DeliverToRenderer(pIn, pOut);
     if (FAILED(hr)) {
@@ -720,7 +717,7 @@ HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, d
 
     UpdateInterpolationStatus();
 
-	m_iFrameCounter = 0;
+	if (m_pofcOpticalFlowCalc) m_pofcOpticalFlowCalc->m_frameCount = 0;
 	m_rtCurrStartTime = -1; // Tells the DeliverToRenderer function that we are at the start of a new segment
 
     return __super::NewSegment(tStart, tStop, dRate);
@@ -835,7 +832,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 
     m_pofcOpticalFlowCalc->updateFrame(pInBuffer);
 
-    if (m_iIntActiveState == Active && m_iFrameCounter >= 2) {
+    if (m_iIntActiveState == Active && m_pofcOpticalFlowCalc->m_frameCount >= 2) {
 		// Calculate the optical flow (frame 1 to frame 2)
 		m_pofcOpticalFlowCalc->calculateOpticalFlow();
 
@@ -844,13 +841,13 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		
 		// Add current frame delta to history
 		FrameDeltaEntry entry;
-		entry.frameNumber = m_iFrameCounter;
+		entry.frameNumber = m_pofcOpticalFlowCalc->m_frameCount;
 		entry.totalDelta = m_pofcOpticalFlowCalc->m_totalFrameDelta;
 		m_frameDeltaHistory.push_back(entry);
 		
 		// Remove entries older than 3 seconds
 		while (!m_frameDeltaHistory.empty() && 
-		       (m_iFrameCounter - m_frameDeltaHistory.front().frameNumber) > framesIn3Seconds) {
+		       (m_pofcOpticalFlowCalc->m_frameCount - m_frameDeltaHistory.front().frameNumber) > framesIn3Seconds) {
 			m_frameDeltaHistory.pop_front();
 		}
 		
@@ -920,10 +917,8 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		}
 
 		// Set the new start and end times
-		if (m_iIntActiveState == Active) {
-			rtStartTime = m_rtCurrStartTime;
-			rtEndTime = rtStartTime + m_rtTargetFrameTime;
-		}
+		rtStartTime = m_rtCurrStartTime;
+		rtEndTime = rtStartTime + ((m_iIntActiveState == Deactivated) ? m_rtCurrPlaybackFrameTime : m_rtTargetFrameTime);
 
 		// Set the new times for the output sample
 		hr = pOutNew->SetTime(&rtStartTime, &rtEndTime);
@@ -933,7 +928,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		}
 
 		// Increment the frame time for the next sample
-		m_rtCurrStartTime += m_rtTargetFrameTime;
+		m_rtCurrStartTime += ((m_iIntActiveState == Deactivated) ? m_rtCurrPlaybackFrameTime : m_rtTargetFrameTime);
 
 		// Copy the media times
 		LONGLONG llMediaStart, llMediaEnd;
@@ -1017,7 +1012,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		}
 
 		// Interpolate the frame if necessary
-		if (m_iIntActiveState == Active && m_iFrameCounter >= 2 && m_pofcOpticalFlowCalc->m_totalFrameDelta < m_iSceneChangeThreshold) {
+		if (m_iIntActiveState == Active && m_pofcOpticalFlowCalc->m_frameCount >= 2 && m_pofcOpticalFlowCalc->m_totalFrameDelta < m_iSceneChangeThreshold) {
 			m_pofcOpticalFlowCalc->warpFrames(m_dBlendingScalar, m_iFrameOutput);
 		} else {
 			m_pofcOpticalFlowCalc->copyFrame();
@@ -1201,6 +1196,8 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated,
 											   unsigned int iBufferFrames) {
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 
+	int previousActiveState = m_iIntActiveState;
+
 	if (!bActivated) {
 		m_iIntActiveState = Deactivated;
 	} else if (!m_iIntActiveState) {
@@ -1221,6 +1218,45 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated,
 		m_pofcOpticalFlowCalc->m_neighborBiasScalar = iNeighborScalar;
 		m_pofcOpticalFlowCalc->m_outputBlackLevel = (float)iBlackLevel;
 		m_pofcOpticalFlowCalc->m_outputWhiteLevel = (float)iWhiteLevel;
+	}
+
+	// Renegotiate media type if interpolation state changed
+	bool wasDeactivated = (previousActiveState == Deactivated);
+	bool isDeactivated = (m_iIntActiveState == Deactivated);
+	if (wasDeactivated != isDeactivated && m_pOutput && m_pOutput->IsConnected()) {
+		
+		// Check if downstream filter is madVR
+		bool isMadVR = false;
+		IPin* pConnectedPin = m_pOutput->GetConnected();
+		if (pConnectedPin) {
+			PIN_INFO pinInfo;
+			if (SUCCEEDED(pConnectedPin->QueryPinInfo(&pinInfo))) {
+				if (pinInfo.pFilter) {
+					CLSID clsid;
+					if (SUCCEEDED(pinInfo.pFilter->GetClassID(&clsid))) {
+						isMadVR = IsEqualCLSID(clsid, CLSID_madVR);
+					}
+					pinInfo.pFilter->Release();
+				}
+			}
+		}
+		
+		if (isMadVR) {
+			CMediaType mtOut(m_pOutput->CurrentMediaType());
+			UpdateVideoInfoHeader(&mtOut);
+			
+			HRESULT hr = pConnectedPin->ReceiveConnection(m_pOutput, &mtOut);
+			if (SUCCEEDED(hr)) {
+				m_pOutput->SetMediaType(&mtOut);
+				Log(LogLevel::Info, "UpdateUserSettings", "Output media type renegotiated with madVR");
+			} else {
+				char logMsg[256];
+				sprintf_s(logMsg, "madVR ReceiveConnection failed with hr=0x%08X", hr);
+				Log(LogLevel::Error, "UpdateUserSettings", logMsg);
+			}
+		} else {
+			Log(LogLevel::Info, "UpdateUserSettings", "Non-madVR renderer detected, skipping media type renegotiation");
+		}
 	}
 
     return NOERROR;
