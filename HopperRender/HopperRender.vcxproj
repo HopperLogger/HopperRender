@@ -404,6 +404,7 @@
     <ClInclude Include="iez.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="CustomInputPin.h" />
+    <ClInclude Include="version.h" />
     <ClInclude Include="warpFrameKernelHDR.h" />
     <ClInclude Include="warpFrameKernelSDR.h" />
   </ItemGroup>

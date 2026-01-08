@@ -371,3 +371,7 @@
 
 ### Fixed
 - Fixed playback speed changes not being handled correctly
+
+## [Version 2.0.2.3] - 2026-01-08 - Fully functional
+### Changed
+- Changed the default scene change detection threshold to 500 to enable it for new users by default
