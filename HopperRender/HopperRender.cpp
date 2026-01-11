@@ -960,11 +960,11 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		}
 
 		// Copy the media type from the output pin
-		hr = pOutNew->SetMediaType(&m_pOutput->CurrentMediaType());
-		if (FAILED(hr)) {
-			Log(LogLevel::Error, "DeliverToRenderer", "Failed to set media type on output sample");
-			return hr;
-		}
+		//hr = pOutNew->SetMediaType(&m_pOutput->CurrentMediaType());
+		//if (FAILED(hr)) {
+		//	Log(LogLevel::Error, "DeliverToRenderer", "Failed to set media type on output sample");
+		//	return hr;
+		//}
 
 		// Copy the preroll property
 		hr = pIn->IsPreroll();
@@ -1197,6 +1197,7 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated,
 	CAutoLock cAutolock(&m_csHopperRenderLock);
 
 	int previousActiveState = m_iIntActiveState;
+	REFERENCE_TIME previousTargetFrameTime = m_rtTargetFrameTime;
 
 	if (!bActivated) {
 		m_iIntActiveState = Deactivated;
@@ -1220,10 +1221,13 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated,
 		m_pofcOpticalFlowCalc->m_outputWhiteLevel = (float)iWhiteLevel;
 	}
 
-	// Renegotiate media type if interpolation state changed
+	// Renegotiate media type if interpolation state changed or target frame time changed
 	bool wasDeactivated = (previousActiveState == Deactivated);
 	bool isDeactivated = (m_iIntActiveState == Deactivated);
-	if (wasDeactivated != isDeactivated && m_pOutput && m_pOutput->IsConnected()) {
+	bool stateChanged = (wasDeactivated != isDeactivated);
+	bool targetFrameTimeChanged = (previousTargetFrameTime != m_rtTargetFrameTime) && (m_iIntActiveState != Deactivated);
+	
+	if ((stateChanged || targetFrameTimeChanged) && m_pOutput && m_pOutput->IsConnected()) {
 		
 		// Check if downstream filter is madVR
 		bool isMadVR = false;

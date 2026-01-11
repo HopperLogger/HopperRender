@@ -375,3 +375,10 @@
 ## [Version 2.0.2.3] - 2026-01-08 - Fully functional
 ### Changed
 - Changed the default scene change detection threshold to 500 to enable it for new users by default
+
+## [Version 2.0.2.4] - 2026-01-11 - Fully functional
+### Added
+- Changing the target fps in the settings panel now also updates the movie fps in madVR
+
+### Fixed
+- Fixed issues with Enhanced Video Renderer that caused freeze frames or just a black screen
