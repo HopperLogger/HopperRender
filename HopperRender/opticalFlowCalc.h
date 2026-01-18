@@ -62,11 +62,11 @@ public:
 
     // GPU Arrays
     cl_mem m_offsetArray;             // Array containing x,y offsets for each pixel of frame1
-    cl_mem m_blurredOffsetArray;      // Array containing x,y offsets for each pixel of frame1
+    cl_mem m_blurredOffsetArray[2];   // Array containing x,y offsets for each pixel of frame1
     cl_mem m_summedDeltaValuesArray;  // Array containing the summed up delta values of each window
     cl_mem m_lowestLayerArray;        // Array containing the comparison results of the two normalized delta arrays (true if the new value decreased)
     cl_mem m_outputFrameArray;        // Array containing the output frame
-    cl_mem m_inputFrameArray[2];      // Array containing the last three frames
+    cl_mem m_inputFrameArray[3];      // Array containing the last three frames
 
     // Kernels
     cl_kernel m_calcDeltaSumsKernel;

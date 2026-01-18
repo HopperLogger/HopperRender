@@ -78,8 +78,8 @@ BEGIN
         LTEXT           "White Level", IDS_STATIC, 132, 85, 60, 9
         LTEXT           "Scene Change", IDS_STATIC, 132, 100, 60, 9
         LTEXT           "Buffer Frames", IDS_STATIC, 132, 115, 60, 9
-        LTEXT           "n/a", IDC_TOTALFRAMEDELTA, 245, 100, 20, 9
-        LTEXT           "(peak 3s)", IDS_STATIC, 270, 100, 30, 9
+        LTEXT           "n/a", IDC_TOTALFRAMEDELTA, 245, 100, 30, 9
+        LTEXT           "n/a", IDC_TOTALFRAMEDELTA2, 278, 100, 30, 9
         CONTROL         "Use Display FPS", IDC_USEDISPLAYFPS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 245, 25, 65, 13
 
     GROUPBOX        "Status", IDS_STATIC, 125, 140, 130, 145

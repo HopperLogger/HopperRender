@@ -6,6 +6,7 @@
 class CHopperRenderSettings : public CBasePropertyPage {
 public:
 	static CUnknown* WINAPI CreateInstance(LPUNKNOWN lpunk, HRESULT* phr);
+	~CHopperRenderSettings();
 
 private:
 	INT_PTR OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) override;
@@ -30,6 +31,7 @@ private:
 	int m_iSceneChangeThreshold;
 	unsigned int m_iBufferFrames;
 	unsigned int m_iTotalFrameDelta;
+	unsigned int m_iTotalFrameDelta2;
 	int m_iSearchRadius;
 	ActiveState m_iIntActiveState; // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
 	double m_dSourceFPS; // The source frames per second
@@ -41,4 +43,9 @@ private:
 	double m_dWarpCalcTime;
 	bool m_bIsInitialized; // Used to ignore startup messages
 	SettingsInterface* m_pSettingsInterface; // The custom interface on the filter
+
+	// Color brushes for scene change delta indicators
+	HBRUSH m_hBrushGreen;
+	HBRUSH m_hBrushOrange;
+	HBRUSH m_hBrushRed;
 };

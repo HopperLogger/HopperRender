@@ -172,7 +172,8 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CVi
     m_bUseDisplayFPS(true),
 	m_ullLastRefreshRateUpdate(0),
 	m_iSceneChangeThreshold(DEFAULT_SCENE_CHANGE_THRESHOLD),
-	m_iPeakTotalFrameDelta(0),
+	m_iPeakSceneChangeDelta(0),
+	m_iPeakSceneChangeDelta2(0),
 	m_iBufferFrames(DEFAULT_BUFFER_FRAMES)
 	{
     // Initialize logging
@@ -706,8 +707,10 @@ void CHopperRender::UpdateInterpolationStatus() {
 		m_iIntActiveState = NotNeeded;
     }
 
-	m_iPeakTotalFrameDelta = 0;
+	m_iPeakSceneChangeDelta = 0;
+	m_iPeakSceneChangeDelta2 = 0;
 	m_frameDeltaHistory.clear();
+	m_sceneChangeDeltaHistory.clear();
 }
 
 // Called when a new segment is started (by seeking or changing the playback speed)
@@ -817,7 +820,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 	// Reset our frame time if necessary and calculate the current number of intermediate frames needed
     if (m_rtCurrStartTime == -1) {
 		// We are at the start of a new segment
-		m_rtCurrStartTime = rtStartTime + m_iBufferFrames * m_rtTargetFrameTime;
+		m_rtCurrStartTime = rtStartTime + 2 * m_rtSourceFrameTime + m_iBufferFrames * m_rtTargetFrameTime;
     }
 
 	// Calculate the number of interpolated frames
@@ -832,11 +835,11 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 
     m_pofcOpticalFlowCalc->updateFrame(pInBuffer);
 
-    if (m_iIntActiveState == Active && m_pofcOpticalFlowCalc->m_frameCount >= 2) {
+    if (m_iIntActiveState == Active && m_pofcOpticalFlowCalc->m_frameCount >= 3) {
 		// Calculate the optical flow (frame 1 to frame 2)
 		m_pofcOpticalFlowCalc->calculateOpticalFlow();
 
-		// Track peak total frame delta using sliding window (3 seconds)
+		// Track frame delta history using sliding window (3 seconds)
 		int framesIn3Seconds = (int)(3.0 * 10000000.0 / m_rtSourceFrameTime);
 		
 		// Add current frame delta to history
@@ -849,14 +852,6 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		while (!m_frameDeltaHistory.empty() && 
 		       (m_pofcOpticalFlowCalc->m_frameCount - m_frameDeltaHistory.front().frameNumber) > framesIn3Seconds) {
 			m_frameDeltaHistory.pop_front();
-		}
-		
-		// Calculate peak from remaining entries
-		m_iPeakTotalFrameDelta = 0;
-		for (const auto& histEntry : m_frameDeltaHistory) {
-			if (histEntry.totalDelta > m_iPeakTotalFrameDelta) {
-				m_iPeakTotalFrameDelta = histEntry.totalDelta;
-			}
 		}
     }
 
@@ -1011,8 +1006,60 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 			return hr;
 		}
 
+		// Calculate the average frame delta of the last 10 frames and track peak scene change delta
+		int averageFrameDelta = 0;
+		bool sceneChangeDetected = false;
+		if (m_frameDeltaHistory.size() >= 3) {
+			size_t historySize = m_frameDeltaHistory.size();
+			size_t count = min(historySize - 2, static_cast<size_t>(10));
+			unsigned long long sum = 0;
+			
+			for (size_t i = 0; i < count; ++i) {
+				sum += m_frameDeltaHistory[historySize - 2 - i].totalDelta;
+			}
+			
+			averageFrameDelta = static_cast<int>(sum / count);
+			int nextFrameDelta = m_frameDeltaHistory[historySize - 1].totalDelta;
+			int currentFrameDelta = m_frameDeltaHistory[historySize - 2].totalDelta;
+			int sceneChangeDelta1 = currentFrameDelta - averageFrameDelta;
+			int sceneChangeDelta2 = currentFrameDelta - nextFrameDelta;
+
+			// Track scene change delta history using sliding window (1 seconds)
+			if (sceneChangeDelta1 > 0) {
+				int framesIn1Second = (int)(1.0 * 10000000.0 / m_rtSourceFrameTime);
+				
+				// Add current scene change delta to history
+				SceneChangeDeltaEntry scEntry;
+				scEntry.frameNumber = m_pofcOpticalFlowCalc->m_frameCount;
+				scEntry.sceneChangeDelta = static_cast<unsigned int>(sceneChangeDelta1);
+				scEntry.sceneChangeDelta2 = (sceneChangeDelta2 > 0) ? static_cast<unsigned int>(sceneChangeDelta2) : 0;
+				m_sceneChangeDeltaHistory.push_back(scEntry);
+				
+				// Remove entries older than 1 seconds
+				while (!m_sceneChangeDeltaHistory.empty() && 
+				       (m_pofcOpticalFlowCalc->m_frameCount - m_sceneChangeDeltaHistory.front().frameNumber) > framesIn1Second) {
+					m_sceneChangeDeltaHistory.pop_front();
+				}
+				
+				// Calculate peak from remaining entries
+				m_iPeakSceneChangeDelta = 0;
+				m_iPeakSceneChangeDelta2 = 0;
+				for (const auto& scHistEntry : m_sceneChangeDeltaHistory) {
+					if (scHistEntry.sceneChangeDelta > m_iPeakSceneChangeDelta) {
+						m_iPeakSceneChangeDelta = scHistEntry.sceneChangeDelta;
+						m_iPeakSceneChangeDelta2 = scHistEntry.sceneChangeDelta2;
+					}
+				}
+			}
+
+			if (static_cast<unsigned int>(sceneChangeDelta1) >= m_iSceneChangeThreshold && sceneChangeDelta1 > 0 && 
+			    static_cast<unsigned int>(sceneChangeDelta2) >= m_iSceneChangeThreshold && sceneChangeDelta2 > 0) {
+				sceneChangeDetected = true;
+			}
+		}
+
 		// Interpolate the frame if necessary
-		if (m_iIntActiveState == Active && m_pofcOpticalFlowCalc->m_frameCount >= 2 && m_pofcOpticalFlowCalc->m_totalFrameDelta < m_iSceneChangeThreshold) {
+		if (m_iIntActiveState == Active && m_pofcOpticalFlowCalc->m_frameCount >= 3 && !sceneChangeDetected) {
 			m_pofcOpticalFlowCalc->warpFrames(m_dBlendingScalar, m_iFrameOutput);
 		} else {
 			m_pofcOpticalFlowCalc->copyFrame();
@@ -1096,6 +1143,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 											   int* piLowDimX,
 											   int* piLowDimY,
 											   unsigned int* piTotalFrameDelta,
+											   unsigned int* piTotalFrameDelta2,
 											   unsigned int* piBufferFrames,
 											   int* piSearchRadius) {
     CAutoLock cAutolock(&m_csHopperRenderLock);
@@ -1119,6 +1167,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	CheckPointer(piLowDimX, E_POINTER)
 	CheckPointer(piLowDimY, E_POINTER)
 	CheckPointer(piTotalFrameDelta, E_POINTER)
+	CheckPointer(piTotalFrameDelta2, E_POINTER)
 	CheckPointer(piBufferFrames, E_POINTER)
 	CheckPointer(piSearchRadius, E_POINTER)
 
@@ -1152,6 +1201,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piLowDimX = 0;
 		*piLowDimY = 0;
 		*piTotalFrameDelta = 0;
+		*piTotalFrameDelta2 = 0;
 		*piBufferFrames = m_iBufferFrames;
 		*piSearchRadius = 0;
 	} else {
@@ -1176,7 +1226,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piDimY = m_iDimY;
 		*piLowDimX = m_pofcOpticalFlowCalc->m_opticalFlowFrameWidth;
 		*piLowDimY = m_pofcOpticalFlowCalc->m_opticalFlowFrameHeight;
-		*piTotalFrameDelta = m_iPeakTotalFrameDelta;
+		*piTotalFrameDelta = m_iPeakSceneChangeDelta;
+		*piTotalFrameDelta2 = m_iPeakSceneChangeDelta2;
 		*piBufferFrames = m_iBufferFrames;
 		*piSearchRadius = m_pofcOpticalFlowCalc->m_opticalFlowSearchRadius;
 	}
