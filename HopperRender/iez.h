@@ -30,7 +30,8 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int* piDimY, // The height of the frame
 		int* piLowDimX, // The width of the downscaled frame used in the optical flow calculation
 		int* piLowDimY, // The height of the downscaled frame used in the optical flow calculation
-		unsigned int* piTotalFrameDelta, // The total frame delta from optical flow calculation
+		unsigned int* piTotalFrameDelta, // The peak scene change delta1 from the last second
+		unsigned int* piTotalFrameDelta2, // The corresponding scene change delta2 at the peak
 		unsigned int* piBufferFrames, // Number of additional frames to buffer at the start
 		int* piSearchRadius // The optical flow search radius
 	) PURE;

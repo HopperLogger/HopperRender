@@ -382,3 +382,7 @@
 
 ### Fixed
 - Fixed issues with Enhanced Video Renderer that caused freeze frames or just a black screen
+
+## [Version 2.0.2.5] - 2026-01-18 - Fully functional
+### Changed
+- Extended the scene change detection alogorithm to consider the last 10 frame deltas as well as the following frame delta to better detect scene changes and reduce false positives

@@ -43,6 +43,7 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 	m_iSceneChangeThreshold(DEFAULT_SCENE_CHANGE_THRESHOLD),
 	m_iBufferFrames(DEFAULT_BUFFER_FRAMES),
 	m_iTotalFrameDelta(0),
+	m_iTotalFrameDelta2(0),
 	m_iSearchRadius(0),
 	m_iIntActiveState(Active),
 	m_dSourceFPS(0.0),
@@ -51,13 +52,51 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 	m_dOFCCalcTime(0.0),
 	m_dWarpCalcTime(0.0),
 	m_bIsInitialized(false),
-	m_pSettingsInterface(nullptr) {
+	m_pSettingsInterface(nullptr),
+	m_hBrushGreen(CreateSolidBrush(GetSysColor(COLOR_BTNFACE))),
+	m_hBrushOrange(CreateSolidBrush(GetSysColor(COLOR_BTNFACE))),
+	m_hBrushRed(CreateSolidBrush(GetSysColor(COLOR_BTNFACE))) {
 	ASSERT(phr);
+}
+
+// Destructor
+CHopperRenderSettings::~CHopperRenderSettings() {
+	if (m_hBrushGreen) DeleteObject(m_hBrushGreen);
+	if (m_hBrushOrange) DeleteObject(m_hBrushOrange);
+	if (m_hBrushRed) DeleteObject(m_hBrushRed);
 }
 
 // Handles the messages for our property window
 INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch (uMsg) {
+		case WM_CTLCOLORSTATIC: {
+			HDC hdcStatic = (HDC)wParam;
+			HWND hwndStatic = (HWND)lParam;
+			int ctrlId = GetDlgCtrlID(hwndStatic);
+
+			if (ctrlId == IDC_TOTALFRAMEDELTA || ctrlId == IDC_TOTALFRAMEDELTA2) {
+				bool delta1AboveThreshold = m_iTotalFrameDelta >= static_cast<unsigned int>(m_iSceneChangeThreshold);
+				bool delta2AboveThreshold = m_iTotalFrameDelta2 >= static_cast<unsigned int>(m_iSceneChangeThreshold);
+
+				COLORREF textColor;
+				if (delta1AboveThreshold && delta2AboveThreshold) {
+					// Both above threshold - Red
+					textColor = RGB(220, 50, 50);
+				} else if ((ctrlId == IDC_TOTALFRAMEDELTA && delta1AboveThreshold) ||
+				           (ctrlId == IDC_TOTALFRAMEDELTA2 && delta2AboveThreshold)) {
+					// Only this one above threshold - Orange
+					textColor = RGB(230, 150, 0);
+				} else {
+					// Below threshold - Green
+					textColor = RGB(50, 180, 50);
+				}
+
+				SetTextColor(hdcStatic, textColor);
+				SetBkMode(hdcStatic, TRANSPARENT);
+				return (INT_PTR)GetSysColorBrush(COLOR_BTNFACE);
+			}
+			break;
+		}
 		case WM_COMMAND: {
 			TCHAR sz[STR_MAX_LENGTH];
 			const int nID = LOWORD(wParam);
@@ -111,7 +150,7 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			int activeState;
 			double currentFPS = m_dSourceFPS;
 			m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel, &m_iSceneChangeThreshold,
-									 &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta, &m_iBufferFrames, &m_iSearchRadius);
+									 &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta, &m_iTotalFrameDelta2, &m_iBufferFrames, &m_iSearchRadius);
 			m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 			m_iIntActiveState = static_cast<ActiveState>(activeState);
 
@@ -171,9 +210,13 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iSearchRadius);
 			SetDlgItemText(m_Dlg, IDC_SEARCHRADIUS, sz);
 
-			// Update the total frame delta
+			// Update the total frame delta (peak scene change delta1)
 			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%u\0"), m_iTotalFrameDelta);
 			SetDlgItemText(m_Dlg, IDC_TOTALFRAMEDELTA, sz);
+
+			// Update the corresponding scene change delta2 at the peak
+			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%u\0"), m_iTotalFrameDelta2);
+			SetDlgItemText(m_Dlg, IDC_TOTALFRAMEDELTA2, sz);
 		}
 	}
 
@@ -199,7 +242,7 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 	int activeState;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
 	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel, &m_iSceneChangeThreshold,
-	                                         &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta, &m_iBufferFrames, &m_iSearchRadius);
+	                                         &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta, &m_iTotalFrameDelta2, &m_iBufferFrames, &m_iSearchRadius);
 	m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 	m_iIntActiveState = static_cast<ActiveState>(activeState);
 
@@ -350,11 +393,12 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 	int frameOutput;
 	int activeState;
 	unsigned int totalFrameDelta;
+	unsigned int totalFrameDelta2;
 	unsigned int bufferFrames;
 	int searchRadius;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
 	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
-	                                         &m_iSceneChangeThreshold, &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &totalFrameDelta, &bufferFrames, &searchRadius);
+	                                         &m_iSceneChangeThreshold, &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &totalFrameDelta, &totalFrameDelta2, &bufferFrames, &searchRadius);
 	TCHAR sz[60];
 	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f\0"), m_dTargetFPS);
 	SetDlgItemText(m_Dlg, IDC_TARGETFPS, sz);

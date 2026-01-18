@@ -72,6 +72,7 @@ class CHopperRender : public CVideoTransformFilter,
 		int* piLowDimX,
 		int* piLowDimY,
 		unsigned int* piTotalFrameDelta,
+		unsigned int* piTotalFrameDelta2,
 		unsigned int* piBufferFrames,
 		int* piSearchRadius) override;
 	STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS,
@@ -136,6 +137,15 @@ class CHopperRender : public CVideoTransformFilter,
 		unsigned int totalDelta;
 	};
 	std::deque<FrameDeltaEntry> m_frameDeltaHistory; // History of frame deltas for sliding window
-	unsigned int m_iPeakTotalFrameDelta; // Cached peak total frame delta in the last 3 seconds
+	
+	// Scene change delta tracking with sliding window (3 seconds)
+	struct SceneChangeDeltaEntry {
+		unsigned int frameNumber;
+		unsigned int sceneChangeDelta;
+		unsigned int sceneChangeDelta2;
+	};
+	std::deque<SceneChangeDeltaEntry> m_sceneChangeDeltaHistory; // History of scene change deltas
+	unsigned int m_iPeakSceneChangeDelta; // Peak scene change delta in the last second
+	unsigned int m_iPeakSceneChangeDelta2; // Corresponding delta2 at the peak
 	unsigned int m_iBufferFrames; // Number of additional frames to buffer at the start
 };

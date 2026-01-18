@@ -33,6 +33,7 @@
 #define IDC_AVGOFCCALCTIME              1034
 #define IDC_PEAKOFCCALCTIME             1035
 #define IDC_TOTALFRAMEDELTA             1036
+#define IDC_TOTALFRAMEDELTA2            1039
 #define IDC_BUFFERFRAMES                1037
 #define IDC_SEARCHRADIUS                1038
 
