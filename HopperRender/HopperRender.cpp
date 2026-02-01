@@ -85,13 +85,14 @@ constexpr AMOVIESETUP_PIN sudpPins[] =
 };
 
 // Filter information
-constexpr AMOVIESETUP_FILTER sudHopperRender =
+const AMOVIESETUP_FILTER sudHopperRender =
 {
     &CLSID_HopperRender, // Filter CLSID
 	L"HopperRender", // String name
-	MERIT_DO_NOT_USE, // Filter merit
+	MERIT_PREFERRED, // Filter merit
 	2, // Number of pins
-	sudpPins // Pin information
+	sudpPins, // Pin information
+	CLSID_LegacyAmFilterCategory // Filter category
 };
 
 // List of class IDs and creator functions for the class factory. This
