@@ -129,7 +129,7 @@
     <ResourceCompile Include="Version.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
-    <ResourceCompile Include="HopperRenderSettings.rc; Version.rc">
+    <ResourceCompile Include="Version.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
     <ResourceCompile Include="HopperRenderSettings.rc; Version.rc">
