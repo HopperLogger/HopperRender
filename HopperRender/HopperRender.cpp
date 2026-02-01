@@ -89,7 +89,7 @@ const AMOVIESETUP_FILTER sudHopperRender =
 {
     &CLSID_HopperRender, // Filter CLSID
 	L"HopperRender", // String name
-	MERIT_PREFERRED, // Filter merit
+	MERIT_DO_NOT_USE, // Filter merit
 	2, // Number of pins
 	sudpPins, // Pin information
 	CLSID_LegacyAmFilterCategory // Filter category
