@@ -160,6 +160,12 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CVi
 	m_rtTargetFrameTime(166667),
 	m_rtCurrPlaybackFrameTime(0),
 
+	// Frame interval measurement
+	m_rtPrevInputStartTime(-1),
+	m_iFrameIntervalCount(0),
+	m_rtMeasuredFrameTime(0),
+	m_rtReportedFrameTime(0),
+
     // Optical Flow calculation
     m_pofcOpticalFlowCalc(nullptr),
 
@@ -534,8 +540,13 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     }
 
 	// Retrieve the input frame time and dimensions
-	if (avgTimePerFrame > 0)
+	if (avgTimePerFrame > 0) {
 		m_rtSourceFrameTime = avgTimePerFrame;
+		if (m_rtReportedFrameTime == 0)
+			m_rtReportedFrameTime = avgTimePerFrame;
+		if (m_rtMeasuredFrameTime == 0)
+			m_rtMeasuredFrameTime = avgTimePerFrame;
+	}
     if (m_rtCurrPlaybackFrameTime == 0)
 		m_rtCurrPlaybackFrameTime = m_rtSourceFrameTime;
 	m_iDimX = rcSource.right;
@@ -723,6 +734,8 @@ HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, d
 
 	if (m_pofcOpticalFlowCalc) m_pofcOpticalFlowCalc->m_frameCount = 0;
 	m_rtCurrStartTime = -1; // Tells the DeliverToRenderer function that we are at the start of a new segment
+	m_rtPrevInputStartTime = -1; // Reset frame interval measurement across segment boundaries
+	m_iFrameIntervalCount = 0;
 
     return __super::NewSegment(tStart, tStop, dRate);
 }
@@ -817,6 +830,34 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		rtStartTime = 0;
 		rtEndTime = 0;
     }
+
+	// Measure actual frame delivery interval from input timestamps in cases where the reported frame time is not the actual frame time
+	if (m_iFrameIntervalCount < 120 && !FAILED(hr) && rtStartTime >= 0 && m_rtPrevInputStartTime >= 0) {
+		REFERENCE_TIME delta = rtStartTime - m_rtPrevInputStartTime;
+		if (delta > m_rtMeasuredFrameTime / 2 && delta < m_rtMeasuredFrameTime * 4) {
+			m_iFrameIntervalCount++;
+			m_rtMeasuredFrameTime += (delta - m_rtMeasuredFrameTime) / m_iFrameIntervalCount;
+
+			if (m_iFrameIntervalCount >= 5) {
+				double ratio = (double)m_rtMeasuredFrameTime / (double)m_rtReportedFrameTime;
+				if (ratio > 1.4 || ratio < 0.6) {
+					double speedRatio = (m_rtSourceFrameTime != 0)
+						? (double)m_rtCurrPlaybackFrameTime / (double)m_rtSourceFrameTime
+						: 1.0;
+					m_rtSourceFrameTime = m_rtMeasuredFrameTime;
+					m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(m_rtSourceFrameTime * speedRatio);
+					UpdateInterpolationStatus();
+					char logMsg[256];
+					snprintf(logMsg, 256, "Adjusted source frame time to %lld (measured: %lld, reported: %lld)\n", 
+							m_rtSourceFrameTime, m_rtMeasuredFrameTime, m_rtReportedFrameTime);
+					Log(LogLevel::Info, "DeliverToRenderer", logMsg);
+				}
+			}
+		}
+	}
+	if (!FAILED(hr) && rtStartTime >= 0) {
+		m_rtPrevInputStartTime = rtStartTime;
+	}
 
 	// Reset our frame time if necessary and calculate the current number of intermediate frames needed
     if (m_rtCurrStartTime == -1) {

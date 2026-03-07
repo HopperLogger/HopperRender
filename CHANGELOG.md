@@ -386,3 +386,7 @@
 ## [Version 2.0.2.5] - 2026-01-18 - Fully functional
 ### Changed
 - Extended the scene change detection algorithm to consider the last 10 frame deltas as well as the following frame delta to better detect scene changes and reduce false positives
+
+## [Version 2.0.2.6] - 2026-03-07 - Fully functional
+### Fixed
+- Fixed incorrect source frame rate detection for videos where the encoded frame rate differs from the actual delivery rate
