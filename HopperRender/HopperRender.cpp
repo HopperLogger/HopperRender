@@ -728,7 +728,7 @@ void CHopperRender::UpdateInterpolationStatus() {
 // Called when a new segment is started (by seeking or changing the playback speed)
 HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate) {
     // Calculate the current source playback frame time
-	m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(static_cast<double>(m_rtSourceFrameTime) * (1.0 / dRate));
+    m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(static_cast<double>(m_rtSourceFrameTime) * (1.0 / dRate));
 
     UpdateInterpolationStatus();
 
@@ -834,9 +834,14 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 	// Measure actual frame delivery interval from input timestamps in cases where the reported frame time is not the actual frame time
 	if (m_iFrameIntervalCount < 120 && !FAILED(hr) && rtStartTime >= 0 && m_rtPrevInputStartTime >= 0) {
 		REFERENCE_TIME delta = rtStartTime - m_rtPrevInputStartTime;
-		if (delta > m_rtMeasuredFrameTime / 2 && delta < m_rtMeasuredFrameTime * 4) {
+		// Normalize delta to 1.0x speed so playback rate changes don't skew the measurement
+		double playbackRate = (m_rtCurrPlaybackFrameTime > 0 && m_rtSourceFrameTime > 0)
+			? (double)m_rtSourceFrameTime / (double)m_rtCurrPlaybackFrameTime
+			: 1.0;
+		REFERENCE_TIME normalizedDelta = static_cast<REFERENCE_TIME>(delta * playbackRate);
+		if (normalizedDelta > m_rtMeasuredFrameTime / 2 && normalizedDelta < m_rtMeasuredFrameTime * 4) {
 			m_iFrameIntervalCount++;
-			m_rtMeasuredFrameTime += (delta - m_rtMeasuredFrameTime) / m_iFrameIntervalCount;
+			m_rtMeasuredFrameTime += (normalizedDelta - m_rtMeasuredFrameTime) / m_iFrameIntervalCount;
 
 			if (m_iFrameIntervalCount >= 5) {
 				double ratio = (double)m_rtMeasuredFrameTime / (double)m_rtReportedFrameTime;
