@@ -31,6 +31,9 @@
 #include <vector>
 #include <cwchar>
 
+#include "MediaInfoDLL.h"
+using namespace MediaInfoDLL;
+
 // Input pin types
 constexpr AMOVIESETUP_MEDIATYPE sudPinTypesIn[] = 
 {
@@ -160,11 +163,7 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CVi
 	m_rtTargetFrameTime(166667),
 	m_rtCurrPlaybackFrameTime(0),
 
-	// Frame interval measurement
-	m_rtPrevInputStartTime(-1),
-	m_iFrameIntervalCount(0),
-	m_rtMeasuredFrameTime(0),
-	m_rtReportedFrameTime(0),
+	m_bMediaInfoQueried(false),
 
     // Optical Flow calculation
     m_pofcOpticalFlowCalc(nullptr),
@@ -343,6 +342,104 @@ void CHopperRender::useDisplayRefreshRate() {
 	// Get the display refresh rate of the monitor the window is on
     double refreshRate = GetDisplayRefreshRateForWindow(hwnd);
 	m_rtTargetFrameTime = (1.0 / (double)refreshRate) * 1e7;
+}
+
+// Queries the actual frame rate from the source file using MediaInfo library
+void CHopperRender::QueryMediaInfoFrameRate() {
+	if (m_bMediaInfoQueried || !m_pGraph) return;
+	m_bMediaInfoQueried = true;
+
+	// Traverse the filter graph to find the source filter with IFileSourceFilter
+	CComPtr<IEnumFilters> pEnum;
+	if (FAILED(m_pGraph->EnumFilters(&pEnum))) {
+		Log(LogLevel::Info, "QueryMediaInfoFrameRate", "Failed to enumerate filters");
+		return;
+	}
+
+	std::wstring filename;
+	IBaseFilter* pFilter = nullptr;
+	while (pEnum->Next(1, &pFilter, nullptr) == S_OK) {
+		CComQIPtr<IFileSourceFilter> pFSF(pFilter);
+		if (pFSF) {
+			LPOLESTR pFN = nullptr;
+			if (SUCCEEDED(pFSF->GetCurFile(&pFN, nullptr)) && pFN) {
+				filename = pFN;
+				CoTaskMemFree(pFN);
+			}
+		}
+		pFilter->Release();
+		if (!filename.empty()) break;
+	}
+
+	if (filename.empty()) {
+		Log(LogLevel::Info, "QueryMediaInfoFrameRate", "No source file found in filter graph");
+		return;
+	}
+
+	// Log the filename found
+	char logMsg[512];
+	snprintf(logMsg, sizeof(logMsg), "Source file: %ls", filename.c_str());
+	Log(LogLevel::Info, "QueryMediaInfoFrameRate", logMsg);
+
+	// Use MediaInfo to query the actual frame rate
+	MediaInfo MI;
+	if (!MI.IsReady()) {
+		Log(LogLevel::Info, "QueryMediaInfoFrameRate", "MediaInfo.dll not available, using AvgTimePerFrame");
+		return;
+	}
+
+	MI.Option(L"ParseSpeed", L"0");
+	if (MI.Open(filename) == 0) {
+		Log(LogLevel::Info, "QueryMediaInfoFrameRate", "MediaInfo failed to open file");
+		return;
+	}
+
+	// Get the actual frame rate
+	std::wstring frameRateStr = MI.Get(Stream_Video, 0, L"FrameRate");
+	std::wstring frameRateOrigStr = MI.Get(Stream_Video, 0, L"FrameRate_Original");
+	std::wstring frameRateModeStr = MI.Get(Stream_Video, 0, L"FrameRate_Mode");
+	MI.Close();
+
+	snprintf(logMsg, sizeof(logMsg), "MediaInfo: FrameRate=%ls, FrameRate_Original=%ls, FrameRate_Mode=%ls",
+		frameRateStr.c_str(), frameRateOrigStr.c_str(), frameRateModeStr.c_str());
+	Log(LogLevel::Info, "QueryMediaInfoFrameRate", logMsg);
+
+	if (frameRateStr.empty()) {
+		Log(LogLevel::Info, "QueryMediaInfoFrameRate", "MediaInfo returned no frame rate");
+		return;
+	}
+
+	double mediaInfoFPS = _wtof(frameRateStr.c_str());
+	if (mediaInfoFPS <= 0.0) {
+		Log(LogLevel::Info, "QueryMediaInfoFrameRate", "MediaInfo returned invalid frame rate");
+		return;
+	}
+
+	REFERENCE_TIME mediaInfoFrameTime = static_cast<REFERENCE_TIME>(1e7 / mediaInfoFPS);
+	double currentFPS = (m_rtSourceFrameTime > 0) ? 1e7 / (double)m_rtSourceFrameTime : 0.0;
+
+	snprintf(logMsg, sizeof(logMsg), "MediaInfo FPS: %.3f (frame time: %lld), AvgTimePerFrame FPS: %.3f (frame time: %lld)",
+		mediaInfoFPS, mediaInfoFrameTime, currentFPS, m_rtSourceFrameTime);
+	Log(LogLevel::Info, "QueryMediaInfoFrameRate", logMsg);
+
+	// Use the MediaInfo frame rate if it differs significantly from the AvgTimePerFrame
+	if (m_rtSourceFrameTime > 0) {
+		double ratio = (double)mediaInfoFrameTime / (double)m_rtSourceFrameTime;
+		if (ratio > 1.2 || ratio < 0.8) {
+			double speedRatio = (m_rtSourceFrameTime != 0)
+				? (double)m_rtCurrPlaybackFrameTime / (double)m_rtSourceFrameTime
+				: 1.0;
+			m_rtSourceFrameTime = mediaInfoFrameTime;
+			m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(m_rtSourceFrameTime * speedRatio);
+			UpdateInterpolationStatus();
+
+			snprintf(logMsg, sizeof(logMsg), "Overriding source frame time with MediaInfo value: %lld (%.3f fps)",
+				m_rtSourceFrameTime, mediaInfoFPS);
+			Log(LogLevel::Info, "QueryMediaInfoFrameRate", logMsg);
+		} else {
+			Log(LogLevel::Info, "QueryMediaInfoFrameRate", "MediaInfo frame rate matches reported, no override needed");
+		}
+	}
 }
 
 template <class T> void SafeRelease(T** ppT) {
@@ -540,15 +637,15 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     }
 
 	// Retrieve the input frame time and dimensions
-	if (avgTimePerFrame > 0) {
+	if (avgTimePerFrame > 0 && !m_bMediaInfoQueried) {
 		m_rtSourceFrameTime = avgTimePerFrame;
-		if (m_rtReportedFrameTime == 0)
-			m_rtReportedFrameTime = avgTimePerFrame;
-		if (m_rtMeasuredFrameTime == 0)
-			m_rtMeasuredFrameTime = avgTimePerFrame;
 	}
     if (m_rtCurrPlaybackFrameTime == 0)
 		m_rtCurrPlaybackFrameTime = m_rtSourceFrameTime;
+
+	// Query MediaInfo for the actual frame rate of the file in case the source filter's AvgTimePerFrame is inaccurate
+	QueryMediaInfoFrameRate();
+
 	m_iDimX = rcSource.right;
 	m_iDimY = rcSource.bottom;
     
@@ -734,8 +831,6 @@ HRESULT CHopperRender::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, d
 
 	if (m_pofcOpticalFlowCalc) m_pofcOpticalFlowCalc->m_frameCount = 0;
 	m_rtCurrStartTime = -1; // Tells the DeliverToRenderer function that we are at the start of a new segment
-	m_rtPrevInputStartTime = -1; // Reset frame interval measurement across segment boundaries
-	m_iFrameIntervalCount = 0;
 
     return __super::NewSegment(tStart, tStop, dRate);
 }
@@ -830,39 +925,6 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		rtStartTime = 0;
 		rtEndTime = 0;
     }
-
-	// Measure actual frame delivery interval from input timestamps in cases where the reported frame time is not the actual frame time
-	if (m_iFrameIntervalCount < 120 && !FAILED(hr) && rtStartTime >= 0 && m_rtPrevInputStartTime >= 0) {
-		REFERENCE_TIME delta = rtStartTime - m_rtPrevInputStartTime;
-		// Normalize delta to 1.0x speed so playback rate changes don't skew the measurement
-		double playbackRate = (m_rtCurrPlaybackFrameTime > 0 && m_rtSourceFrameTime > 0)
-			? (double)m_rtSourceFrameTime / (double)m_rtCurrPlaybackFrameTime
-			: 1.0;
-		REFERENCE_TIME normalizedDelta = static_cast<REFERENCE_TIME>(delta * playbackRate);
-		if (normalizedDelta > m_rtMeasuredFrameTime / 2 && normalizedDelta < m_rtMeasuredFrameTime * 4) {
-			m_iFrameIntervalCount++;
-			m_rtMeasuredFrameTime += (normalizedDelta - m_rtMeasuredFrameTime) / m_iFrameIntervalCount;
-
-			if (m_iFrameIntervalCount >= 5) {
-				double ratio = (double)m_rtMeasuredFrameTime / (double)m_rtReportedFrameTime;
-				if (ratio > 1.4 || ratio < 0.6) {
-					double speedRatio = (m_rtSourceFrameTime != 0)
-						? (double)m_rtCurrPlaybackFrameTime / (double)m_rtSourceFrameTime
-						: 1.0;
-					m_rtSourceFrameTime = m_rtMeasuredFrameTime;
-					m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(m_rtSourceFrameTime * speedRatio);
-					UpdateInterpolationStatus();
-					char logMsg[256];
-					snprintf(logMsg, 256, "Adjusted source frame time to %lld (measured: %lld, reported: %lld)\n", 
-							m_rtSourceFrameTime, m_rtMeasuredFrameTime, m_rtReportedFrameTime);
-					Log(LogLevel::Info, "DeliverToRenderer", logMsg);
-				}
-			}
-		}
-	}
-	if (!FAILED(hr) && rtStartTime >= 0) {
-		m_rtPrevInputStartTime = rtStartTime;
-	}
 
 	// Reset our frame time if necessary and calculate the current number of intermediate frames needed
     if (m_rtCurrStartTime == -1) {

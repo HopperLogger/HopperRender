@@ -419,6 +419,7 @@
     <ClInclude Include="HopperRenderSettings.h" />
     <ClInclude Include="HopperRender.h" />
     <ClInclude Include="IMediaSideData.h" />
+    <ClInclude Include="MediaInfoDLL.h" />
     <ClInclude Include="MediaSampleSideData.h" />
     <ClInclude Include="opticalFlowCalc.h" />
     <ClInclude Include="opticalFlowCalcHDR.h" />

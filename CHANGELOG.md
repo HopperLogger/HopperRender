@@ -390,3 +390,7 @@
 ## [Version 2.0.2.6] - 2026-03-07 - Fully functional
 ### Fixed
 - Fixed incorrect source frame rate detection for videos where the encoded frame rate differs from the actual delivery rate
+
+## [Version 2.0.2.7] - 2026-03-21 - Fully functional
+### Added
+- Added support for videos with variable frame rate
