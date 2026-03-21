@@ -95,6 +95,7 @@ class CHopperRender : public CVideoTransformFilter,
 	HRESULT loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* maxCalcRes);
     void UpdateInterpolationStatus();
     void useDisplayRefreshRate();
+    void QueryMediaInfoFrameRate();
     void Log(LogLevel level, const char* functionName, const char* message);
 
     CCritSec m_csHopperRenderLock; // Private play critical section
@@ -149,9 +150,5 @@ class CHopperRender : public CVideoTransformFilter,
 	unsigned int m_iPeakSceneChangeDelta2; // Corresponding delta2 at the peak
 	unsigned int m_iBufferFrames; // Number of additional frames to buffer at the start
 
-	// Frame interval measurement
-	REFERENCE_TIME m_rtPrevInputStartTime; // Previous input sample start time
-	int m_iFrameIntervalCount; // Number of frame intervals measured
-	REFERENCE_TIME m_rtMeasuredFrameTime; // Measured average frame interval
-	REFERENCE_TIME m_rtReportedFrameTime; // Originally reported frame time from media type
+	bool m_bMediaInfoQueried; // Whether MediaInfo has been queried for the frame rate already
 };
