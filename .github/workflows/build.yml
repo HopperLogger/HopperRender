@@ -1,0 +1,84 @@
+#Based on template from: https://github.com/ThreeDeeJay/GitHub-Actions-build-templates/blob/main/Windows-MSBuild.yml
+name: Build
+
+env:
+  GH_TOKEN: ${{github.token}}
+  Branch: ${{github.ref_name}}
+  Artifacts: build/x64/Release
+  Title: ${{github.event.repository.name}}
+  Solution: ${{github.event.repository.name}}.sln # .
+  Executable: ${{github.event.repository.name}}.exe # *
+  CUDA_VERSION_MAJOR: 13
+  CUDA_VERSION_MINOR: 1
+  CUDA_VERSION_PATCH: 1
+
+on:
+  push:
+    Branches: $Branch
+  pull_request:
+    Branches: $Branch
+  workflow_dispatch:
+
+jobs:
+  Build:
+    name: ${{matrix.Settings.Name}}-${{matrix.Configuration}}
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        Configuration: [Release] #[Release, Debug]
+        Settings:
+#        - {
+#            Name: "Win32",
+#            Platform: "Win32",
+#            Architecture: "x86",
+#            Triplet: "x86-windows"
+#          }
+        - {
+            Name: "Win64",
+            Platform: "x64",
+            Architecture: "x64",
+            Triplet: "x64-windows"
+          }
+          
+    steps:
+
+    - name: Clone repo and submodules
+      run: >
+        git
+        clone https://${{github.repository_owner}}:${{github.token}}@github.com/${{github.repository}}.git
+        "${{github.workspace}}"
+        --branch ${{env.Branch}}
+        --recurse-submodules
+        --depth 1
+
+    - name: Cache CUDA
+      id: cache-cuda
+      uses: actions/cache@v5
+      with:
+        path: "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}"
+        key: CUDA_V${{env.CUDA_VERSION_MAJOR}}_${{env.CUDA_VERSION_MINOR}}
+    - name: Download CUDA
+      if: steps.cache-cuda.outputs.cache-hit != 'true'
+      run: |
+        curl --ssl-revoke-best-effort --fail -L "https://developer.download.nvidia.com/compute/cuda/${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}.${{env.CUDA_VERSION_PATCH}}/local_installers/cuda_${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}.${{env.CUDA_VERSION_PATCH}}_${{env.CUDA_DRIVER_VERSION}}_windows.exe" -o "CUDA.exe" || true
+        curl --ssl-revoke-best-effort --fail -L "https://developer.download.nvidia.com/compute/cuda/${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}.${{env.CUDA_VERSION_PATCH}}/local_installers/cuda_${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}.${{env.CUDA_VERSION_PATCH}}_windows.exe" -o "CUDA.exe" || true
+    - name: Install CUDA
+      if: steps.cache-cuda.outputs.cache-hit != 'true'
+      run: |
+        Start-Process -Wait "CUDA.exe" -ArgumentList "-s"
+    - name: Set CUDA path
+      run: |
+        echo "CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}" >> $env:GITHUB_ENV
+        echo "CUDA_PATH_V${{env.CUDA_VERSION_MAJOR}}_${{env.CUDA_VERSION_MINOR}}=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}" >> $env:GITHUB_ENV
+        echo "CUDA_HOME=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}" >> $env:GITHUB_ENV
+        echo "PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}\bin;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}\bin\x64;$Env:Path" >> $env:GITHUB_ENV
+    - name: CUDA Visual Studio integration
+      if: steps.cache-cuda.outputs.cache-hit != 'false'
+      run: |
+        copy "${{env.CUDA_PATH}}\extras\visual_studio_integration\MSBuildExtensions\*" "${{env.VS_PATH}}\MSBuild\Microsoft\VC\v160\BuildCustomizations"
+        copy "${{env.CUDA_PATH}}\extras\visual_studio_integration\MSBuildExtensions\*" "${{env.VS_PATH}}\MSBuild\Microsoft\VC\v170\BuildCustomizations"
+    - name: List CUDA Visual Studio integration files
+      run: |
+        ls -R "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}\extras\visual_studio_integration\MSBuildExtensions"
+        ls -R "${{env.VS_PATH}}\MSBuild\Microsoft\VC\v160\BuildCustomizations"
+        ls -R "${{env.VS_PATH}}\MSBuild\Microsoft\VC\v170\BuildCustomizations"
