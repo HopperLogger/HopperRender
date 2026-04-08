@@ -60,7 +60,6 @@ jobs:
     - name: Download CUDA
       if: steps.cache-cuda.outputs.cache-hit != 'true'
       run: |
-        curl --ssl-revoke-best-effort --fail -L "https://developer.download.nvidia.com/compute/cuda/${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}.${{env.CUDA_VERSION_PATCH}}/local_installers/cuda_${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}.${{env.CUDA_VERSION_PATCH}}_${{env.CUDA_DRIVER_VERSION}}_windows.exe" -o "CUDA.exe" || true
         curl --ssl-revoke-best-effort --fail -L "https://developer.download.nvidia.com/compute/cuda/${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}.${{env.CUDA_VERSION_PATCH}}/local_installers/cuda_${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}.${{env.CUDA_VERSION_PATCH}}_windows.exe" -o "CUDA.exe" || true
     - name: Install CUDA
       if: steps.cache-cuda.outputs.cache-hit != 'true'
@@ -82,3 +81,133 @@ jobs:
         ls -R "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{env.CUDA_VERSION_MAJOR}}.${{env.CUDA_VERSION_MINOR}}\extras\visual_studio_integration\MSBuildExtensions"
         ls -R "${{env.VS_PATH}}\MSBuild\Microsoft\VC\v160\BuildCustomizations"
         ls -R "${{env.VS_PATH}}\MSBuild\Microsoft\VC\v170\BuildCustomizations"
+
+#    - name: Download Dependencies
+#      run: |
+#        curl --ssl-revoke-best-effort --create-dirs -L "https://raw.githubusercontent.com/OWNER/REPO/refs/heads/BRANCH/PATH/TO/FILE.EXTENSION" -o "PATH/TO/FILE.EXTENSION"
+
+#    - name: Cache vcpkg
+#      uses: actions/cache@v5
+#      id: cache_vcpkg
+#      with:
+#        path: C:/vcpkg/installed
+#        key: vcpkg
+#    - name: vcpkg
+#      if: steps.cache_vcpkg.outputs.cache-hit != 'true'
+#      run: |
+#        vcpkg install ADD_SPACE_SEPARATED_VCPKG_PACKAGE_NAMES_HERE --triplet ${{matrix.Settings.Triplet}}
+#    - name: List vcpkg files
+#      run: Get-ChildItem -Path "C:\vcpkg" -File -Recurse | Select-Object FullName
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.0.2
+
+    - name: Restore
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: nuget restore "${{env.Solution}}"
+
+    - name: Build
+      run: >
+        msbuild
+        /m "${{env.Solution}}"
+        /p:Configuration="${{matrix.Configuration}}"
+        /p:PlatformToolset=v143
+        /p:IncludePath="C:\vcpkg\installed\${{matrix.Settings.Triplet}}\include"
+#/p:Platform="${{matrix.Settings.Platform}}"
+#/p:AdditionalIncludePaths="C:\Path\to\external\include"
+#/p:LibPath="C:\Path\to\Lib"
+#/p:AdditionalLibraryDirectories="C:\Path\to\external\lib"
+#/p:AdditionalDependencies=file.lib
+#/p:LanguageStandard="stdcpp17"
+#/p:OutputPath="${{env.Artifacts}}"
+
+#    - name: Publish
+#      run: > 
+#        dotnet
+#        publish "${{github.event.repository.name}}.App/${{github.event.repository.name}}.App.csproj"
+#        -c "${{matrix.Configuration}}"
+
+#    - name: Meson Build
+#      uses: BSFishy/meson-build@v1.0.3
+#      with:
+#        action: build
+      
+    - name: List files
+      run: ls -R
+
+#    - name: Deploy
+#      shell: cmd
+#      run: |
+#        windeployqt.exe "${{github.workspace}}/${{env.Artifacts}}/${{env.Executable}}"
+#        If exist "vcpkg\installed\${{matrix.Settings.Triplet}}\bin\*.dll"       (copy "vcpkg\installed\${{matrix.Settings.Triplet}}\bin\*.dll"       "${{env.Artifacts}}")
+#        If exist "vcpkg_installed\${{matrix.Settings.Triplet}}\bin\*.dll"       (copy "vcpkg_installed\${{matrix.Settings.Triplet}}\bin\*.dll"       "${{env.Artifacts}}")
+#        If exist "vcpkg\installed\${{matrix.Settings.Triplet}}\debug\bin\*.dll" (copy "vcpkg\installed\${{matrix.Settings.Triplet}}\debug\bin\*.dll" "${{env.Artifacts}}")
+#        If exist "vcpkg_installed\${{matrix.Settings.Triplet}}\debug\bin\*.dll" (copy "vcpkg_installed\${{matrix.Settings.Triplet}}\debug\bin\*.dll" "${{env.Artifacts}}")
+#        move "assets" "${{env.Artifacts}}"
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{env.Title}}-${{matrix.Settings.Name}}-${{matrix.Configuration}}
+        path: "${{github.workspace}}/${{env.Artifacts}}/"
+
+  Release:
+    name: Release
+    runs-on: windows-latest
+    needs: Build
+    steps:
+
+      - name: Clone repo and submodules
+        run: git clone https://${{github.repository_owner}}:${{github.token}}@github.com/${{github.repository}}.git "${{github.workspace}}" --branch ${{env.Branch}} --recurse-submodules
+
+      - name: Get current date, commit hash and count
+        run: |
+          echo "FirstCommitHash=$(git rev-list --max-parents=0 HEAD --first-parent)" >> $env:GITHUB_ENV
+          echo "CommitHash=$(git rev-parse HEAD)" >> $env:GITHUB_ENV
+          echo "CommitHashShort=$(git rev-parse --short=7 HEAD)" >> $env:GITHUB_ENV
+          echo "CommitCount=$(git rev-list --count HEAD)" >> $env:GITHUB_ENV
+          echo "CommitDate=$(git show -s --date=format:'%Y-%m-%d' --format=%cd)" >> $env:GITHUB_ENV
+
+#      - name: Download Artifacts - Win32
+#        uses: actions/download-artifact@v4
+#        with:
+#          name: ${{env.Title}}-Win32-Release
+#          path: Release/Win32/
+
+      - name: Download Artifacts - Win64
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{env.Title}}-Win64-Release
+          path: Release/Win64/
+
+      - name: Deploy
+        run: |
+          cp "README.md" "Release/ReadMe.txt"
+          cp "LICENSE" "Release/License.txt"
+  
+      - name: Compress artifacts
+        if: github.event_name == 'push'
+        run: |
+          7z a "Release/${{env.Title}}.zip" "${{github.workspace}}/Release/*" -mx=9
+          cp "Release/${{env.Title}}.zip" "Release/${{env.Title}}_r${{env.CommitCount}}@${{env.CommitHashShort}}.zip"
+  
+      - name: Purge tag - latest-${{env.Branch}}
+        if: github.event_name == 'push'
+        run: |
+          gh release delete latest-${{env.Branch}} --repo ${{github.repository}} --cleanup-tag --yes || true
+  
+      - name: Release - archive-${{env.Branch}}
+        if: github.event_name == 'push'
+        run: |
+          gh release create archive-${{env.Branch}} --repo ${{github.repository}} --target ${{env.FirstCommitHash}} --latest=false --prerelease --title "${{env.Title}} ${{env.Branch}} build archive" --notes "Latest build: https://github.com/${{github.repository}}/releases/latest-${{env.Branch}}
+          Build logs: https://github.com/${{github.repository}}/actions" || true
+          gh release edit archive-${{env.Branch}} --repo ${{github.repository}} --target ${{env.FirstCommitHash}} --latest=false --prerelease --title "${{env.Title}} ${{env.Branch}} build archive" --notes "Latest build: https://github.com/${{github.repository}}/releases/latest-${{env.Branch}}
+          Build logs: https://github.com/${{github.repository}}/actions" || true
+          gh release upload archive-${{env.Branch}} --repo ${{github.repository}} --clobber "Release/${{env.Title}}_r${{env.CommitCount}}@${{env.CommitHashShort}}.zip"
+  
+      - name: Release - latest-${{env.Branch}}
+        if: github.event_name == 'push'
+        run: |
+          gh release create latest-${{env.Branch}} --repo ${{github.repository}} --target ${{env.CommitHash}} --generate-notes --latest=true --title "${{env.Title}} r${{env.CommitCount}}@${{env.CommitHashShort}}" --notes "Build archive: https://github.com/${{github.repository}}/releases/tag/archive-${{env.Branch}}
+          Build log: https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}"
+          gh release upload latest-${{env.Branch}} --repo ${{github.repository}} --clobber "Release/${{env.Title}}.zip"
