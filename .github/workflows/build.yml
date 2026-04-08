@@ -4,10 +4,8 @@ name: Build
 env:
   GH_TOKEN: ${{github.token}}
   Branch: ${{github.ref_name}}
-  Artifacts: build/x64/Release
   Title: ${{github.event.repository.name}}
-  Solution: ${{github.event.repository.name}}.sln # .
-  Executable: ${{github.event.repository.name}}.exe # *
+  Solution: ${{github.event.repository.name}}.sln
   CUDA_VERSION_MAJOR: 13
   CUDA_VERSION_MINOR: 1
   CUDA_VERSION_PATCH: 1
@@ -25,7 +23,7 @@ jobs:
     runs-on: windows-2022
     strategy:
       matrix:
-        Configuration: [Release] #[Release, Debug]
+        Configuration: [Release]
         Settings:
         - {
             Name: "Win32",
@@ -86,23 +84,6 @@ jobs:
         ls -R "${{env.VS_PATH}}\MSBuild\Microsoft\VC\v160\BuildCustomizations"
         ls -R "${{env.VS_PATH}}\MSBuild\Microsoft\VC\v170\BuildCustomizations"
 
-#    - name: Download Dependencies
-#      run: |
-#        curl --ssl-revoke-best-effort --create-dirs -L "https://raw.githubusercontent.com/OWNER/REPO/refs/heads/BRANCH/PATH/TO/FILE.EXTENSION" -o "PATH/TO/FILE.EXTENSION"
-
-#    - name: Cache vcpkg
-#      uses: actions/cache@v5
-#      id: cache_vcpkg
-#      with:
-#        path: C:/vcpkg/installed
-#        key: vcpkg
-#    - name: vcpkg
-#      if: steps.cache_vcpkg.outputs.cache-hit != 'true'
-#      run: |
-#        vcpkg install ADD_SPACE_SEPARATED_VCPKG_PACKAGE_NAMES_HERE --triplet ${{matrix.Settings.Triplet}}
-#    - name: List vcpkg files
-#      run: Get-ChildItem -Path "C:\vcpkg" -File -Recurse | Select-Object FullName
-
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v1.0.2
 
@@ -117,43 +98,15 @@ jobs:
         /p:Configuration="${{matrix.Configuration}}"
         /p:PlatformToolset=v143
         /p:Platform="${{matrix.Settings.Platform}}"
-#/p:IncludePath="C:\vcpkg\installed\${{matrix.Settings.Triplet}}\include"
-#/p:AdditionalIncludePaths="C:\Path\to\external\include"
-#/p:LibPath="C:\Path\to\Lib"
-#/p:AdditionalLibraryDirectories="C:\Path\to\external\lib"
-#/p:AdditionalDependencies=file.lib
-#/p:LanguageStandard="stdcpp17"
-#/p:OutputPath="${{matrix.Settings.Platform}}/${{matrix.Configuration}}"
-
-#    - name: Publish
-#      run: > 
-#        dotnet
-#        publish "${{github.event.repository.name}}.App/${{github.event.repository.name}}.App.csproj"
-#        -c "${{matrix.Configuration}}"
-
-#    - name: Meson Build
-#      uses: BSFishy/meson-build@v1.0.3
-#      with:
-#        action: build
       
     - name: List files
-      run: ls -R
-
-#    - name: Deploy
-#      shell: cmd
-#      run: |
-#        windeployqt.exe "${{github.workspace}}/${{matrix.Settings.Platform}}/${{matrix.Configuration}}/${{env.Executable}}"
-#        If exist "vcpkg\installed\${{matrix.Settings.Triplet}}\bin\*.dll"       (copy "vcpkg\installed\${{matrix.Settings.Triplet}}\bin\*.dll"       "${{matrix.Settings.Platform}}/${{matrix.Configuration}}")
-#        If exist "vcpkg_installed\${{matrix.Settings.Triplet}}\bin\*.dll"       (copy "vcpkg_installed\${{matrix.Settings.Triplet}}\bin\*.dll"       "${{matrix.Settings.Platform}}/${{matrix.Configuration}}")
-#        If exist "vcpkg\installed\${{matrix.Settings.Triplet}}\debug\bin\*.dll" (copy "vcpkg\installed\${{matrix.Settings.Triplet}}\debug\bin\*.dll" "${{matrix.Settings.Platform}}/${{matrix.Configuration}}")
-#        If exist "vcpkg_installed\${{matrix.Settings.Triplet}}\debug\bin\*.dll" (copy "vcpkg_installed\${{matrix.Settings.Triplet}}\debug\bin\*.dll" "${{matrix.Settings.Platform}}/${{matrix.Configuration}}")
-#        move "assets" "${{matrix.Settings.Platform}}/${{matrix.Configuration}}"
+      run: Get-ChildItem -File -Recurse | Select-Object FullName
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ${{env.Title}}-${{matrix.Settings.Name}}-${{matrix.Configuration}}
-        path: "${{github.workspace}}/${{matrix.Settings.Platform}}/${{matrix.Configuration}}/"
+        path: "${{github.workspace}}/${{matrix.Settings.Platform}}/${{matrix.Configuration}}/HopperRender.dll"
 
   Release:
     name: Release
@@ -212,6 +165,6 @@ jobs:
       - name: Release - latest-${{env.Branch}}
         if: github.event_name == 'push'
         run: |
-          gh release create latest-${{env.Branch}} --repo ${{github.repository}} --target ${{env.CommitHash}} --generate-notes --latest=true --title "${{env.Title}} r${{env.CommitCount}}@${{env.CommitHashShort}}" --notes "Build archive: https://github.com/${{github.repository}}/releases/tag/archive-${{env.Branch}}
+          gh release create latest-${{env.Branch}} --repo ${{github.repository}} --target ${{env.CommitHash}} --generate-notes --latest=false --prerelease --title "${{env.Title}} r${{env.CommitCount}}@${{env.CommitHashShort}}" --notes "Build archive: https://github.com/${{github.repository}}/releases/tag/archive-${{env.Branch}}
           Build log: https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}"
           gh release upload latest-${{env.Branch}} --repo ${{github.repository}} --clobber "Release/${{env.Title}}.zip"
