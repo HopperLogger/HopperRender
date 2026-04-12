@@ -394,3 +394,7 @@
 ## [Version 2.0.2.7] - 2026-03-21 - Fully functional
 ### Added
 - Added support for videos with variable frame rate
+
+## [Version 2.0.2.8] - 2026-04-12 - Fully functional
+### Fixed
+- Fixed additional frames being output with interlaced flag, causing incorrect frame rate stats in MPC-VR

@@ -664,7 +664,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
         pVih2->dwPictAspectRatioX = dwX;
         pVih2->dwPictAspectRatioY = dwY;
 		pVih2->dwCopyProtectFlags = dwCopyProtectFlags;
-		pVih2->dwInterlaceFlags = dwInterlaceFlags;
+		pVih2->dwInterlaceFlags = 0;
 		pVih2->dwControlFlags = dwControlFlags;
 		pVih2->dwReserved1 = dwReserved1;
 		pVih2->dwReserved2 = dwReserved2;
