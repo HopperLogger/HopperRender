@@ -3,13 +3,22 @@
 #define CL_TARGET_OPENCL_VERSION 300
 #include <CL/cl.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "config.h"
+
+// Forward-declare OutputDebugStringA so we can route OpenCL errors to the
+// debugger output as well as stderr without pulling in windows.h here.
+extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char*);
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define CHECK_ERROR(err)                                                                                  \
     if (err) {                                                                                            \
-        throw std::runtime_error(std::string("[HopperRender] OpenCL error occurred in function: ") + __func__ + "\n"); \
+        char _hr_buf[256];                                                                                \
+        snprintf(_hr_buf, sizeof(_hr_buf), "[HopperRender] OpenCL error %d in %s at %s:%d\n", (int)(err), __func__, __FILE__, __LINE__); \
+        OutputDebugStringA(_hr_buf);                                                                       \
+        fputs(_hr_buf, stderr);                                                                            \
+        throw std::runtime_error(_hr_buf);                                                                 \
     }
 
 class OpticalFlowCalc {
