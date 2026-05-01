@@ -398,3 +398,7 @@
 ## [Version 2.0.2.8] - 2026-04-12 - Fully functional
 ### Fixed
 - Fixed additional frames being output with interlaced flag, causing incorrect frame rate stats in MPC-VR
+
+## [Version 2.0.2.9] - 2026-05-01 - Fully functional
+### Added
+- Added experimental support for 3D MVC Blu-ray playback in PotPlayer (with Full resolution enabled and MVC 3D Transfer Mode set to Synthesized View at full resolution)

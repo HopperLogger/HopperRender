@@ -725,21 +725,25 @@ HRESULT CHopperRender::Receive(IMediaSample *pIn) {
 	
 	if (hrMediaType == S_OK && pmt != nullptr) {
 		// Input sample has a new media type - format change!
-		Log(LogLevel::Info, "Transform", "Dynamic format change detected on input sample");
-		
+		Log(LogLevel::Info, "Receive", "Dynamic format change detected on input sample");
+
 		m_pInput->CurrentMediaType() = *pmt;
 
 		// Extract new dimensions
 		long newWidth = 0, newHeight = 0, newInputStride = 0;
 		if (pmt->formattype == FORMAT_VideoInfo) {
 			VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)pmt->pbFormat;
-			newWidth = pvi->rcSource.right;
-			newHeight = pvi->rcSource.bottom;
+			newWidth = pvi->rcSource.right - pvi->rcSource.left;
+			newHeight = pvi->rcSource.bottom - pvi->rcSource.top;
+			if (newWidth <= 0) newWidth = pvi->bmiHeader.biWidth;
+			if (newHeight <= 0) newHeight = abs(pvi->bmiHeader.biHeight);
 			newInputStride = pvi->bmiHeader.biWidth;
 		} else if (pmt->formattype == FORMAT_VideoInfo2) {
 			VIDEOINFOHEADER2* pvi2 = (VIDEOINFOHEADER2*)pmt->pbFormat;
-			newWidth = pvi2->rcSource.right;
-			newHeight = pvi2->rcSource.bottom;
+			newWidth = pvi2->rcSource.right - pvi2->rcSource.left;
+			newHeight = pvi2->rcSource.bottom - pvi2->rcSource.top;
+			if (newWidth <= 0) newWidth = pvi2->bmiHeader.biWidth;
+			if (newHeight <= 0) newHeight = abs(pvi2->bmiHeader.biHeight);
 			newInputStride = pvi2->bmiHeader.biWidth;
 		}
 		
@@ -767,14 +771,18 @@ HRESULT CHopperRender::Receive(IMediaSample *pIn) {
 		CMediaType mtOut(m_pOutput->CurrentMediaType());
 		UpdateVideoInfoHeader(&mtOut);
 
-		HRESULT hr = m_pOutput->GetConnected()->ReceiveConnection(m_pOutput, &mtOut);
-		
-		if (SUCCEEDED(hr)) {
-			m_pOutput->SetMediaType(&mtOut);
+		IPin* pConnected = m_pOutput->GetConnected();
+		if (!pConnected) {
+			Log(LogLevel::Error, "Receive", "Output pin not connected during format change");
 		} else {
-			char logMsg[256];
-			sprintf_s(logMsg, "ReceiveConnection failed with hr=0x%08X", hr);
-			Log(LogLevel::Info, "Transform", logMsg);
+			HRESULT hr = pConnected->ReceiveConnection(m_pOutput, &mtOut);
+			if (SUCCEEDED(hr)) {
+				m_pOutput->SetMediaType(&mtOut);
+			} else {
+				char logMsg[128];
+				sprintf_s(logMsg, "Output ReceiveConnection failed hr=0x%08X", hr);
+				Log(LogLevel::Error, "Receive", logMsg);
+			}
 		}
     }
 
@@ -907,11 +915,11 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		sprintf_s(logMsg, "Initializing Optical Flow Calculator with %dx%d (input stride: %d, output stride: %d)", 
 				m_iDimX, m_iDimY, m_iInputStride, m_iOutputStride);
 		Log(LogLevel::Info, "DeliverToRenderer", logMsg);
-		if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, m_iDimX, m_iInputStride, m_iOutputStride, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
+			if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
+				m_pofcOpticalFlowCalc = new OpticalFlowCalcHDR(m_iDimY, m_iDimX, m_iInputStride, m_iOutputStride, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
 			Log(LogLevel::Info, "DeliverToRenderer", "Using HDR Optical Flow Calculator");
-		} else {
-			m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, m_iDimX, m_iInputStride, m_iOutputStride, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
+			} else {
+				m_pofcOpticalFlowCalc = new OpticalFlowCalcSDR(m_iDimY, m_iDimX, m_iInputStride, m_iOutputStride, deltaScalar, neighborScalar, blackLevel, whiteLevel, customResScalar);
 			Log(LogLevel::Info, "DeliverToRenderer", "Using SDR Optical Flow Calculator");
 		}
     }
@@ -942,11 +950,11 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     // Adjust the settings to process everything fast enough
     autoAdjustSettings();
 
-    m_pofcOpticalFlowCalc->updateFrame(pInBuffer);
+        m_pofcOpticalFlowCalc->updateFrame(pInBuffer);
 
-    if (m_iIntActiveState == Active && m_pofcOpticalFlowCalc->m_frameCount >= 3) {
-		// Calculate the optical flow (frame 1 to frame 2)
-		m_pofcOpticalFlowCalc->calculateOpticalFlow();
+        if (m_iIntActiveState == Active && m_pofcOpticalFlowCalc->m_frameCount >= 3) {
+            // Calculate the optical flow (frame 1 to frame 2)
+            m_pofcOpticalFlowCalc->calculateOpticalFlow();
 
 		// Track frame delta history using sliding window (3 seconds)
 		int framesIn3Seconds = (int)(3.0 * 10000000.0 / m_rtSourceFrameTime);
@@ -1168,14 +1176,14 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		}
 
 		// Interpolate the frame if necessary
-		if (m_iIntActiveState == Active && m_pofcOpticalFlowCalc->m_frameCount >= 3 && !sceneChangeDetected) {
-			m_pofcOpticalFlowCalc->warpFrames(m_dBlendingScalar, m_iFrameOutput);
-		} else {
-			m_pofcOpticalFlowCalc->copyFrame();
-		}
+			if (m_iIntActiveState == Active && m_pofcOpticalFlowCalc->m_frameCount >= 3 && !sceneChangeDetected) {
+				m_pofcOpticalFlowCalc->warpFrames(m_dBlendingScalar, m_iFrameOutput);
+			} else {
+				m_pofcOpticalFlowCalc->copyFrame();
+			}
 
-		// Download the result to the output buffer
-		m_pofcOpticalFlowCalc->downloadFrame(pOutNewBuffer);
+			// Download the result to the output buffer
+			m_pofcOpticalFlowCalc->downloadFrame(pOutNewBuffer);
 
 		// Retrieve how long the warp calculation took
 		m_dTotalWarpDuration += m_pofcOpticalFlowCalc->m_warpCalcTime;
