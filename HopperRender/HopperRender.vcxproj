@@ -397,6 +397,7 @@
     <ClCompile Include="opticalFlowCalcSDR.cpp" />
     <ClCompile Include="opticalFlowCalcHDR.cpp" />
     <ClCompile Include="CustomInputPin.cpp" />
+    <ClCompile Include="TrayIcon.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\common\baseclasses\baseclasses.vcxproj">
@@ -431,6 +432,7 @@
     <ClInclude Include="version.h" />
     <ClInclude Include="warpFrameKernelHDR.h" />
     <ClInclude Include="warpFrameKernelSDR.h" />
+    <ClInclude Include="TrayIcon.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="HopperRender.def" />

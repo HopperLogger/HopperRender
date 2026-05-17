@@ -110,6 +110,13 @@ BEGIN
     IDS_TITLE,      "Interpolation"
 END
 
+/////////////////////////////////////////////////////////////////////////////
+//
+// Tray icon PNG resources
+//
+IDR_TRAY_ICON_ACTIVE    RCDATA  "active_icon.png"
+IDR_TRAY_ICON_INACTIVE  RCDATA  "inactive_icon.png"
+
 //
 // Version
 //

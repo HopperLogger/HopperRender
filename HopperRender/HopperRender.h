@@ -7,6 +7,8 @@
 
 #include "opticalFlowCalc.h"
 
+class CTrayIcon;
+
 typedef enum FrameOutput {
     WarpedFrame12,
     WarpedFrame21,
@@ -151,4 +153,6 @@ class CHopperRender : public CVideoTransformFilter,
 	unsigned int m_iBufferFrames; // Number of additional frames to buffer at the start
 
 	bool m_bMediaInfoQueried; // Whether MediaInfo has been queried for the frame rate already
+
+	CTrayIcon* m_pTrayIcon; // System tray icon
 };
