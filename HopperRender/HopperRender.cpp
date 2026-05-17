@@ -27,6 +27,7 @@
 #include "version.h"
 #include "CustomInputPin.h"
 #include "IMediaSideData.h"
+#include "TrayIcon.h"
 #include <atlcomcli.h>
 #include <vector>
 #include <cwchar>
@@ -180,7 +181,8 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CVi
 	m_iSceneChangeThreshold(DEFAULT_SCENE_CHANGE_THRESHOLD),
 	m_iPeakSceneChangeDelta(0),
 	m_iPeakSceneChangeDelta2(0),
-	m_iBufferFrames(DEFAULT_BUFFER_FRAMES)
+	m_iBufferFrames(DEFAULT_BUFFER_FRAMES),
+	m_pTrayIcon(nullptr)
 	{
     // Initialize logging
     char tempPath[MAX_PATH];
@@ -212,12 +214,18 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CVi
     delete m_pOutput;
     m_pInput = new CCustomInputPin(phr, L"XForm In", this);
 	m_pOutput = new CTransformOutputPin(NAME("Transform output pin"), this, phr, L"XForm Out");
+	m_pTrayIcon = new CTrayIcon(this);
 }
 
 // Destructor
 CHopperRender::~CHopperRender() {
 	Log(LogLevel::Info, "~CHopperRender", "Cleaning up filter instance");
-	
+
+	if (m_pTrayIcon) {
+		delete m_pTrayIcon;
+		m_pTrayIcon = nullptr;
+	}
+
 	if (m_pofcOpticalFlowCalc) {
 		delete m_pofcOpticalFlowCalc;
 		m_pofcOpticalFlowCalc = nullptr;

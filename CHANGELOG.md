@@ -402,3 +402,7 @@
 ## [Version 2.0.2.9] - 2026-05-01 - Fully functional
 ### Added
 - Added experimental support for 3D MVC Blu-ray playback in PotPlayer (with Full resolution enabled and MVC 3D Transfer Mode set to Synthesized View at full resolution)
+
+## [Version 2.0.3.0] - 2026-05-17 - Fully functional
+### Added
+- Added system tray icon with quick access for enabling/disabling the filter, frame output options, and the filter statistics

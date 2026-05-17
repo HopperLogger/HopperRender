@@ -37,6 +37,10 @@
 #define IDC_BUFFERFRAMES                1037
 #define IDC_SEARCHRADIUS                1038
 
+// Tray icon PNG resources (RCDATA)
+#define IDR_TRAY_ICON_ACTIVE            2001
+#define IDR_TRAY_ICON_INACTIVE          2002
+
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED
