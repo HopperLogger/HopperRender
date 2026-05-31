@@ -176,7 +176,8 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CVi
 	m_iIntActiveState(Active),
 	m_dTotalWarpDuration(0.0),
 	m_dBlendingScalar(0.0),
-    m_bUseDisplayFPS(true),
+    m_iFrameRateMode(FRDisplayRate),
+	m_dCustomTargetFPS(0.0),
 	m_ullLastRefreshRateUpdate(0),
 	m_iSceneChangeThreshold(DEFAULT_SCENE_CHANGE_THRESHOLD),
 	m_iPeakSceneChangeDelta(0),
@@ -352,6 +353,27 @@ void CHopperRender::useDisplayRefreshRate() {
 	m_rtTargetFrameTime = (1.0 / (double)refreshRate) * 1e7;
 }
 
+// Computes the target (output) frame time based on the selected frame rate mode
+void CHopperRender::UpdateTargetFrameTime() {
+	if (m_iFrameRateMode == FRCustom) {
+		if (m_dCustomTargetFPS > 0.0) {
+			m_rtTargetFrameTime = static_cast<REFERENCE_TIME>((1.0 / m_dCustomTargetFPS) * 1e7);
+		} else {
+			useDisplayRefreshRate();
+		}
+	} else if (m_iFrameRateMode >= 2) {
+		// Integer multiplier of the source frame rate (2x, 3x, 4x, ...)
+		if (m_rtSourceFrameTime > 0) {
+			m_rtTargetFrameTime = m_rtSourceFrameTime / m_iFrameRateMode;
+		} else {
+			useDisplayRefreshRate();
+		}
+	} else {
+		// FRDisplayRate (and any unexpected value)
+		useDisplayRefreshRate();
+	}
+}
+
 // Queries the actual frame rate from the source file using MediaInfo library
 void CHopperRender::QueryMediaInfoFrameRate() {
 	if (m_bMediaInfoQueried || !m_pGraph) return;
@@ -439,6 +461,7 @@ void CHopperRender::QueryMediaInfoFrameRate() {
 				: 1.0;
 			m_rtSourceFrameTime = mediaInfoFrameTime;
 			m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(m_rtSourceFrameTime * speedRatio);
+			UpdateTargetFrameTime();
 			UpdateInterpolationStatus();
 
 			snprintf(logMsg, sizeof(logMsg), "Overriding source frame time with MediaInfo value: %lld (%.3f fps)",
@@ -654,6 +677,9 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
 	// Query MediaInfo for the actual frame rate of the file in case the source filter's AvgTimePerFrame is inaccurate
 	QueryMediaInfoFrameRate();
 
+	// Recompute the target frame time so multiplier-based modes track the current source frame rate
+	UpdateTargetFrameTime();
+
 	m_iDimX = rcSource.right;
 	m_iDimY = rcSource.bottom;
     
@@ -799,7 +825,7 @@ HRESULT CHopperRender::Receive(IMediaSample *pIn) {
 	}
 
 	// Update the display refresh rate every 5 seconds if the option is enabled
-	if (m_bUseDisplayFPS) {
+	if (m_iFrameRateMode == FRDisplayRate) {
 		ULONGLONG ullCurrentTime = GetTickCount64();
 		if (ullCurrentTime - m_ullLastRefreshRateUpdate >= 5000) {
 			useDisplayRefreshRate();
@@ -1251,7 +1277,7 @@ STDMETHODIMP CHopperRender::GetPages(CAUUID* pPages) {
 STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 											   int* piFrameOutput,
 											   double* pdTargetFPS,
-											   bool* pbUseDsiplayFPS,
+											   int* piFrameRateMode,
 											   int* piDeltaScalar,
 											   int* piNeighborScalar,
 											   int* piBlackLevel,
@@ -1275,7 +1301,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	CheckPointer(pbActivated, E_POINTER)
 	CheckPointer(piFrameOutput, E_POINTER)
 	CheckPointer(pdTargetFPS, E_POINTER)
-	CheckPointer(pbUseDsiplayFPS, E_POINTER)
+	CheckPointer(piFrameRateMode, E_POINTER)
 	CheckPointer(piDeltaScalar, E_POINTER)
 	CheckPointer(piNeighborScalar, E_POINTER)
 	CheckPointer(piBlackLevel, E_POINTER)
@@ -1306,10 +1332,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	    loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &customResScalar);
 		*pbActivated = m_iIntActiveState != 0;
 		*piFrameOutput = m_iFrameOutput;
-		if (*pdTargetFPS == 0.0 || m_bUseDisplayFPS) {
-			*pdTargetFPS = 10000000.0 / static_cast<double>(m_rtTargetFrameTime);
-		}
-		*pbUseDsiplayFPS = m_bUseDisplayFPS;
+		*pdTargetFPS = (m_rtTargetFrameTime > 0) ? 10000000.0 / static_cast<double>(m_rtTargetFrameTime) : 0.0;
+		*piFrameRateMode = m_iFrameRateMode;
 		*piDeltaScalar = deltaScalar;
 		*piNeighborScalar = neighborScalar;
 		*piBlackLevel = (int)blackLevel;
@@ -1332,10 +1356,8 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 	} else {
 		*pbActivated = m_iIntActiveState != 0;
 		*piFrameOutput = m_iFrameOutput;
-		if (*pdTargetFPS == 0.0 || m_bUseDisplayFPS) {
-			*pdTargetFPS = 10000000.0 / static_cast<double>(m_rtTargetFrameTime);
-		}
-		*pbUseDsiplayFPS = m_bUseDisplayFPS;
+		*pdTargetFPS = (m_rtTargetFrameTime > 0) ? 10000000.0 / static_cast<double>(m_rtTargetFrameTime) : 0.0;
+		*piFrameRateMode = m_iFrameRateMode;
 		*piDeltaScalar = m_pofcOpticalFlowCalc->m_deltaScalar;
 		*piNeighborScalar = m_pofcOpticalFlowCalc->m_neighborBiasScalar;
 		*piBlackLevel = (int)m_pofcOpticalFlowCalc->m_outputBlackLevel;
@@ -1363,7 +1385,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated,
 											   int iFrameOutput,
 											   double dTargetFPS,
-											   bool bUseDisplayFPS,
+											   int iFrameRateMode,
 											   int iDeltaScalar,
 											   int iNeighborScalar,
 											   int iBlackLevel,
@@ -1381,12 +1403,11 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated,
 		m_iIntActiveState = Active;
 	}
 	m_iFrameOutput = static_cast<FrameOutput>(iFrameOutput);
-	if (dTargetFPS > 0.0 && !bUseDisplayFPS) {
-	    m_rtTargetFrameTime = (1.0 / (double)dTargetFPS) * 1e7;
-	} else {
-	    useDisplayRefreshRate();
+	if (iFrameRateMode == FRCustom && dTargetFPS > 0.0) {
+		m_dCustomTargetFPS = dTargetFPS;
 	}
-	m_bUseDisplayFPS = bUseDisplayFPS;
+	m_iFrameRateMode = iFrameRateMode;
+	UpdateTargetFrameTime();
 	m_iSceneChangeThreshold = iSceneChangeThreshold;
 	m_iBufferFrames = iBufferFrames;
 	UpdateInterpolationStatus();
@@ -1482,7 +1503,6 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
     DWORD dataSize2 = sizeof(double);
     LPCWSTR valueName;
     LONG result = 1;
-    LONG result2 = 1;
 
     // Open the registry key
     result = RegOpenKeyEx(HKEY_CURRENT_USER, subKey, 0, KEY_READ, &hKey);
@@ -1511,21 +1531,33 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 			m_iFrameOutput = BlendedFrame;
 		}
 
-		// Load the target fps
+		// Load the custom target fps
 		valueName = L"TargetFPS";
 		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
 						reinterpret_cast<BYTE*>(&value2), &dataSize2);
+		m_dCustomTargetFPS = (result == 0 && value2 > 0) ? value2 : 0.0;
 
-		valueName = L"Use Display FPS";
-		result2 = RegQueryValueEx(hKey, valueName, NULL, NULL,
-					reinterpret_cast<BYTE*>(&value), &dataSize);
-		if (result == 0 && value2 > 0 && (!value || result2 != 0)) {
-			m_rtTargetFrameTime = (1.0 / (double)value2) * 1e7;
-			m_bUseDisplayFPS = false;
+		// Load the frame rate mode (0: Display refresh rate, 1: Custom target FPS, >=2: source FPS multiplier)
+		valueName = L"FrameRateMode";
+		DWORD modeValue = 0;
+		DWORD modeSize = sizeof(DWORD);
+		result = RegQueryValueEx(hKey, valueName, NULL, NULL,
+					reinterpret_cast<BYTE*>(&modeValue), &modeSize);
+		if (result == 0) {
+			m_iFrameRateMode = static_cast<int>(modeValue);
 		} else {
-			useDisplayRefreshRate();
-			m_bUseDisplayFPS = true;
+			// Backward compatibility with the legacy "Use Display FPS" setting
+			DWORD legacyUseDisplay = 1;
+			DWORD legacySize = sizeof(DWORD);
+			LONG legacyResult = RegQueryValueEx(hKey, L"Use Display FPS", NULL, NULL,
+						reinterpret_cast<BYTE*>(&legacyUseDisplay), &legacySize);
+			if (legacyResult == 0 && legacyUseDisplay == 0 && m_dCustomTargetFPS > 0.0) {
+				m_iFrameRateMode = FRCustom;
+			} else {
+				m_iFrameRateMode = FRDisplayRate;
+			}
 		}
+		UpdateTargetFrameTime();
 
 		// Load the delta scalar
 		valueName = L"DeltaScalar";
@@ -1603,6 +1635,8 @@ HRESULT CHopperRender::loadSettings(int* deltaScalar, int* neighborScalar,
 		// Load the default values
 		m_iIntActiveState = Active;
 		m_iFrameOutput = BlendedFrame;
+		m_iFrameRateMode = FRDisplayRate;
+		m_dCustomTargetFPS = 0.0;
 		useDisplayRefreshRate();
 		*deltaScalar = DEFAULT_DELTA_SCALAR;
 		*neighborScalar = DEFAULT_NEIGHBOR_SCALAR;

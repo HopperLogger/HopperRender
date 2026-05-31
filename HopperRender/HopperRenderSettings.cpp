@@ -48,7 +48,7 @@ CHopperRenderSettings::CHopperRenderSettings(LPUNKNOWN pUnk, HRESULT* phr) :
 	m_iIntActiveState(Active),
 	m_dSourceFPS(0.0),
 	m_dTargetFPS(0.0),
-    m_bUseDisplayFPS(true),
+    m_iFrameRateMode(FRDisplayRate),
 	m_dOFCCalcTime(0.0),
 	m_dWarpCalcTime(0.0),
 	m_bIsInitialized(false),
@@ -110,7 +110,8 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 				if (action == BN_CLICKED && nID == IDC_DEFAULTS) {
 					m_bActivated = true;
 					m_iFrameOutput = BlendedFrame;
-					m_dTargetFPS = 0.0; // Uses the display fps
+					m_iFrameRateMode = FRDisplayRate; // Uses the display refresh rate
+					m_dTargetFPS = 0.0;
 					m_iDeltaScalar = DEFAULT_DELTA_SCALAR;
 					m_iNeighborScalar = DEFAULT_NEIGHBOR_SCALAR;
 					m_iBlackLevel = DEFAULT_BLACK_LEVEL;
@@ -134,7 +135,12 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%u\0"), m_iBufferFrames);
 					Edit_SetText(GetDlgItem(m_Dlg, IDC_BUFFERFRAMES), sz);
 					CheckDlgButton(m_Dlg, IDC_DEFAULTS, BST_UNCHECKED);
-					CheckDlgButton(m_Dlg, IDC_USEDISPLAYFPS, BST_CHECKED);
+					SelectFrameRateMode(m_iFrameRateMode);
+					UpdateTargetFPSFieldState();
+				}
+				// Keep the Target FPS field enabled state in sync with the frame rate mode
+				if (action == CBN_SELCHANGE && nID == IDC_FRAMERATEMODE) {
+					UpdateTargetFPSFieldState();
 				}
 			}
 			break;
@@ -149,7 +155,7 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			int frameOutput;
 			int activeState;
 			double currentFPS = m_dSourceFPS;
-			m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel, &m_iSceneChangeThreshold,
+			m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_iFrameRateMode, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel, &m_iSceneChangeThreshold,
 									 &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta, &m_iTotalFrameDelta2, &m_iBufferFrames, &m_iSearchRadius);
 			m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 			m_iIntActiveState = static_cast<ActiveState>(activeState);
@@ -217,6 +223,17 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			// Update the corresponding scene change delta2 at the peak
 			(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%u\0"), m_iTotalFrameDelta2);
 			SetDlgItemText(m_Dlg, IDC_TOTALFRAMEDELTA2, sz);
+
+			// Refresh the Target FPS field with the effective rate, except in Custom mode where the user edits it
+			if (m_bIsInitialized) {
+				HWND hCombo = GetDlgItem(m_Dlg, IDC_FRAMERATEMODE);
+				int sel = ComboBox_GetCurSel(hCombo);
+				int selectedMode = (sel != CB_ERR) ? static_cast<int>(ComboBox_GetItemData(hCombo, sel)) : FRDisplayRate;
+				if (selectedMode != FRCustom) {
+					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f\0"), m_dTargetFPS);
+					SetDlgItemText(m_Dlg, IDC_TARGETFPS, sz);
+				}
+			}
 		}
 	}
 
@@ -241,7 +258,7 @@ HRESULT CHopperRenderSettings::OnConnect(IUnknown* pUnknown) {
 	int frameOutput;
 	int activeState;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
-	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel, &m_iSceneChangeThreshold,
+	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_iFrameRateMode, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel, &m_iSceneChangeThreshold,
 	                                         &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &m_iTotalFrameDelta, &m_iTotalFrameDelta2, &m_iBufferFrames, &m_iSearchRadius);
 	m_iFrameOutput = static_cast<FrameOutput>(frameOutput);
 	m_iIntActiveState = static_cast<ActiveState>(activeState);
@@ -296,12 +313,10 @@ HRESULT CHopperRenderSettings::OnActivate() {
 			break;
 	}
 
-	// Set the initial Use Display FPS checkbox
-	if (m_bUseDisplayFPS) {
-		CheckDlgButton(m_Dlg, IDC_USEDISPLAYFPS, BST_CHECKED);
-	} else {
-		CheckDlgButton(m_Dlg, IDC_USEDISPLAYFPS, BST_UNCHECKED);
-	}
+	// Set up the frame rate mode combo box
+	PopulateFrameRateModeCombo();
+	SelectFrameRateMode(m_iFrameRateMode);
+	UpdateTargetFPSFieldState();
 
 	// Set the initial Target FPS
 	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f\0"), m_dTargetFPS);
@@ -378,7 +393,7 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 	m_iBufferFrames = static_cast<unsigned int>(bufferFramesInt);
 
 	// Tell the filter about the new settings
-	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_dTargetFPS, m_bUseDisplayFPS, m_iDeltaScalar, m_iNeighborScalar, m_iBlackLevel, m_iWhiteLevel, m_iSceneChangeThreshold, m_iBufferFrames);
+	m_pSettingsInterface->UpdateUserSettings(m_bActivated, m_iFrameOutput, m_dTargetFPS, m_iFrameRateMode, m_iDeltaScalar, m_iNeighborScalar, m_iBlackLevel, m_iWhiteLevel, m_iSceneChangeThreshold, m_iBufferFrames);
 
 	// Save the settings to the registry
 	if (saveSettings() != S_OK) {
@@ -397,7 +412,7 @@ HRESULT CHopperRenderSettings::OnApplyChanges() {
 	unsigned int bufferFrames;
 	int searchRadius;
 	CheckPointer(m_pSettingsInterface, E_FAIL);
-	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_bUseDisplayFPS, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
+	m_pSettingsInterface->GetCurrentSettings(&m_bActivated, &frameOutput, &m_dTargetFPS, &m_iFrameRateMode, &m_iDeltaScalar, &m_iNeighborScalar, &m_iBlackLevel, &m_iWhiteLevel,
 	                                         &m_iSceneChangeThreshold, &activeState, &m_dSourceFPS, &m_dOFCCalcTime, &m_dAVGOFCCalcTime, &m_dPeakOFCCalcTime, &m_dWarpCalcTime, &iDimX, &iDimY, &iLowDimX, &iLowDimY, &totalFrameDelta, &totalFrameDelta2, &bufferFrames, &searchRadius);
 	TCHAR sz[60];
 	(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f\0"), m_dTargetFPS);
@@ -432,8 +447,12 @@ void CHopperRenderSettings::GetControlValues() {
 		m_iFrameOutput = SideBySide2;
 	}
 
-	// Check if the use display fps checkbox is checked
-	m_bUseDisplayFPS = IsDlgButtonChecked(m_Dlg, IDC_USEDISPLAYFPS);
+	// Get the selected frame rate mode from the combo box
+	HWND hCombo = GetDlgItem(m_Dlg, IDC_FRAMERATEMODE);
+	int sel = ComboBox_GetCurSel(hCombo);
+	if (sel != CB_ERR) {
+		m_iFrameRateMode = static_cast<int>(ComboBox_GetItemData(hCombo, sel));
+	}
 
 	// Get the target fps
 	Edit_GetText(GetDlgItem(m_Dlg, IDC_TARGETFPS), sz, STR_MAX_LENGTH);
@@ -523,6 +542,70 @@ void CHopperRenderSettings::GetControlValues() {
 	m_iBufferFrames = tmp7;
 }
 
+// Populates the frame rate mode combo box with the available target frame rate options
+void CHopperRenderSettings::PopulateFrameRateModeCombo() {
+	HWND hCombo = GetDlgItem(m_Dlg, IDC_FRAMERATEMODE);
+	if (!hCombo) {
+		return;
+	}
+	ComboBox_ResetContent(hCombo);
+
+	int idx = ComboBox_AddString(hCombo, TEXT("Display Rate"));
+	ComboBox_SetItemData(hCombo, idx, FRDisplayRate);
+	idx = ComboBox_AddString(hCombo, TEXT("Custom"));
+	ComboBox_SetItemData(hCombo, idx, FRCustom);
+
+	const int multipliers[] = { 2, 3, 4, 5, 6, 8 };
+	for (int multiplier : multipliers) {
+		TCHAR sz[16];
+		(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%dx Source"), multiplier);
+		idx = ComboBox_AddString(hCombo, sz);
+		ComboBox_SetItemData(hCombo, idx, multiplier);
+	}
+}
+
+// Selects the combo box entry that matches the given frame rate mode
+void CHopperRenderSettings::SelectFrameRateMode(int mode) {
+	HWND hCombo = GetDlgItem(m_Dlg, IDC_FRAMERATEMODE);
+	if (!hCombo) {
+		return;
+	}
+
+	int count = ComboBox_GetCount(hCombo);
+	for (int i = 0; i < count; i++) {
+		if (static_cast<int>(ComboBox_GetItemData(hCombo, i)) == mode) {
+			ComboBox_SetCurSel(hCombo, i);
+			return;
+		}
+	}
+
+	// Unknown multiplier not in the predefined list: add and select it
+	if (mode >= 2) {
+		TCHAR sz[16];
+		(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%dx Source"), mode);
+		int idx = ComboBox_AddString(hCombo, sz);
+		ComboBox_SetItemData(hCombo, idx, mode);
+		ComboBox_SetCurSel(hCombo, idx);
+		return;
+	}
+
+	// Fall back to the first entry (Display Rate)
+	ComboBox_SetCurSel(hCombo, 0);
+}
+
+// Enables the Target FPS edit field only when the Custom frame rate mode is selected
+void CHopperRenderSettings::UpdateTargetFPSFieldState() {
+	HWND hCombo = GetDlgItem(m_Dlg, IDC_FRAMERATEMODE);
+	int mode = FRDisplayRate;
+	if (hCombo) {
+		int sel = ComboBox_GetCurSel(hCombo);
+		if (sel != CB_ERR) {
+			mode = static_cast<int>(ComboBox_GetItemData(hCombo, sel));
+		}
+	}
+	EnableWindow(GetDlgItem(m_Dlg, IDC_TARGETFPS), mode == FRCustom);
+}
+
 // Saves the settings to the registry
 HRESULT CHopperRenderSettings::saveSettings() {
 	HKEY hKey;
@@ -542,9 +625,9 @@ HRESULT CHopperRenderSettings::saveSettings() {
 		// Save the target fps
 		LONG result3 = RegSetValueEx(hKey, L"TargetFPS", 0, REG_BINARY, reinterpret_cast<const BYTE*>(&m_dTargetFPS), sizeof(double));
 
-		// Save the use display fps flag
-		DWORD useDisplayFPS = m_bUseDisplayFPS ? 1 : 0;
-		LONG result4 = RegSetValueEx(hKey, L"Use Display FPS", 0, REG_DWORD, reinterpret_cast<BYTE*>(&useDisplayFPS), sizeof(DWORD));
+		// Save the frame rate mode
+		DWORD frameRateMode = static_cast<DWORD>(m_iFrameRateMode);
+		LONG result4 = RegSetValueEx(hKey, L"FrameRateMode", 0, REG_DWORD, reinterpret_cast<BYTE*>(&frameRateMode), sizeof(DWORD));
 
 		// Save the delta scalar
 		LONG result5 = RegSetValueEx(hKey, L"DeltaScalar", 0, REG_DWORD, reinterpret_cast<BYTE*>(&m_iDeltaScalar), sizeof(DWORD));

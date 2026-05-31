@@ -406,3 +406,7 @@
 ## [Version 2.0.3.0] - 2026-05-17 - Fully functional
 ### Added
 - Added system tray icon with quick access for enabling/disabling the filter, frame output options, and the filter statistics
+
+## [Version 2.0.3.1] - 2026-05-31 - Fully functional
+### Added
+- Added integer multiples of the source frame rate as options for the target frame rate (e.g. 48fps for 24fps content, 120fps for 60fps content, etc.) to improve compatibility with VRR monitors

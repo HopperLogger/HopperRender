@@ -199,13 +199,13 @@ LRESULT CTrayIcon::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         const UINT id = LOWORD(wParam);
         if (id == ID_TRAY_TOGGLE) {
             // Read current settings, flip activated, push back
-            bool bActivated; int iFrameOutput; double dTargetFPS; bool bUseDisplayFPS;
+            bool bActivated; int iFrameOutput; double dTargetFPS; int iFrameRateMode;
             int iDeltaScalar; int iNeighborScalar; int iBlackLevel; int iWhiteLevel;
             int iSceneChangeThreshold; int iIntActiveState;
             double dSourceFPS, dOFCCalcTime, dAVGOFCCalcTime, dPeakOFCCalcTime, dWarpCalcTime;
             int iDimX, iDimY, iLowDimX, iLowDimY, iSearchRadius;
             unsigned int iTotalFrameDelta, iTotalFrameDelta2, iBufferFrames;
-            m_pFilter->GetCurrentSettings(&bActivated, &iFrameOutput, &dTargetFPS, &bUseDisplayFPS,
+            m_pFilter->GetCurrentSettings(&bActivated, &iFrameOutput, &dTargetFPS, &iFrameRateMode,
                 &iDeltaScalar, &iNeighborScalar, &iBlackLevel, &iWhiteLevel,
                 &iSceneChangeThreshold, &iIntActiveState,
                 &dSourceFPS, &dOFCCalcTime, &dAVGOFCCalcTime, &dPeakOFCCalcTime, &dWarpCalcTime,
@@ -213,27 +213,27 @@ LRESULT CTrayIcon::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
                 &iTotalFrameDelta, &iTotalFrameDelta2, &iBufferFrames, &iSearchRadius);
 
             bActivated = !bActivated;
-            m_pFilter->UpdateUserSettings(bActivated, iFrameOutput, dTargetFPS, bUseDisplayFPS,
+            m_pFilter->UpdateUserSettings(bActivated, iFrameOutput, dTargetFPS, iFrameRateMode,
                 iDeltaScalar, iNeighborScalar, iBlackLevel, iWhiteLevel,
                 iSceneChangeThreshold, iBufferFrames);
             SaveDwordToRegistry(L"Activated", bActivated ? 1u : 0u);
             UpdateIconState(true);
         } else if (id >= ID_TRAY_FRAMEOUT_BASE && id < ID_TRAY_FRAMEOUT_BASE + kFrameOutputCount) {
             const int newFrameOutput = static_cast<int>(id - ID_TRAY_FRAMEOUT_BASE);
-            bool bActivated; int iFrameOutput; double dTargetFPS; bool bUseDisplayFPS;
+            bool bActivated; int iFrameOutput; double dTargetFPS; int iFrameRateMode;
             int iDeltaScalar; int iNeighborScalar; int iBlackLevel; int iWhiteLevel;
             int iSceneChangeThreshold; int iIntActiveState;
             double dSourceFPS, dOFCCalcTime, dAVGOFCCalcTime, dPeakOFCCalcTime, dWarpCalcTime;
             int iDimX, iDimY, iLowDimX, iLowDimY, iSearchRadius;
             unsigned int iTotalFrameDelta, iTotalFrameDelta2, iBufferFrames;
-            m_pFilter->GetCurrentSettings(&bActivated, &iFrameOutput, &dTargetFPS, &bUseDisplayFPS,
+            m_pFilter->GetCurrentSettings(&bActivated, &iFrameOutput, &dTargetFPS, &iFrameRateMode,
                 &iDeltaScalar, &iNeighborScalar, &iBlackLevel, &iWhiteLevel,
                 &iSceneChangeThreshold, &iIntActiveState,
                 &dSourceFPS, &dOFCCalcTime, &dAVGOFCCalcTime, &dPeakOFCCalcTime, &dWarpCalcTime,
                 &iDimX, &iDimY, &iLowDimX, &iLowDimY,
                 &iTotalFrameDelta, &iTotalFrameDelta2, &iBufferFrames, &iSearchRadius);
 
-            m_pFilter->UpdateUserSettings(bActivated, newFrameOutput, dTargetFPS, bUseDisplayFPS,
+            m_pFilter->UpdateUserSettings(bActivated, newFrameOutput, dTargetFPS, iFrameRateMode,
                 iDeltaScalar, iNeighborScalar, iBlackLevel, iWhiteLevel,
                 iSceneChangeThreshold, iBufferFrames);
             SaveDwordToRegistry(L"FrameOutput", static_cast<DWORD>(newFrameOutput));
@@ -303,15 +303,15 @@ void CTrayIcon::ShowContextMenu(HWND hWnd) {
 void CTrayIcon::RefreshMenuItems() {
     if (!m_hMenu || !m_pFilter) return;
 
-    bool bActivated; int iFrameOutput; bool bUseDisplayFPS;
-    // Init to 0.0 so the filter unconditionally overwrites (its code only does so when input==0.0 || bUseDisplayFPS)
+    bool bActivated; int iFrameOutput; int iFrameRateMode;
+    // Init to 0.0 so the filter reports the effective target FPS
     double dTargetFPS = 0.0;
     int iDeltaScalar; int iNeighborScalar; int iBlackLevel; int iWhiteLevel;
     int iSceneChangeThreshold; int iIntActiveState;
     double dSourceFPS, dOFCCalcTime, dAVGOFCCalcTime, dPeakOFCCalcTime, dWarpCalcTime;
     int iDimX, iDimY, iLowDimX, iLowDimY, iSearchRadius;
     unsigned int iTotalFrameDelta, iTotalFrameDelta2, iBufferFrames;
-    m_pFilter->GetCurrentSettings(&bActivated, &iFrameOutput, &dTargetFPS, &bUseDisplayFPS,
+    m_pFilter->GetCurrentSettings(&bActivated, &iFrameOutput, &dTargetFPS, &iFrameRateMode,
         &iDeltaScalar, &iNeighborScalar, &iBlackLevel, &iWhiteLevel,
         &iSceneChangeThreshold, &iIntActiveState,
         &dSourceFPS, &dOFCCalcTime, &dAVGOFCCalcTime, &dPeakOFCCalcTime, &dWarpCalcTime,
@@ -358,7 +358,10 @@ void CTrayIcon::RefreshMenuItems() {
         m_dLastTargetFPS = dTargetFPS;
     }
     const double displayTargetFPS = (m_dLastTargetFPS >= 1.0) ? m_dLastTargetFPS : dTargetFPS;
-    StringCchPrintfW(buf, ARRAYSIZE(buf), L"Target FPS: %.3f%s", displayTargetFPS, bUseDisplayFPS ? L" (display)" : L"");
+    const wchar_t* fpsModeSuffix = (iFrameRateMode == FRDisplayRate) ? L" (display)"
+                                 : (iFrameRateMode == FRCustom) ? L" (custom)"
+                                 : L" (multiplier)";
+    StringCchPrintfW(buf, ARRAYSIZE(buf), L"Target FPS: %.3f%s", displayTargetFPS, fpsModeSuffix);
     setStat(STAT_TARGET_FPS, buf);
     StringCchPrintfW(buf, ARRAYSIZE(buf), L"OFC Calc Time: %.2f ms", dOFCCalcTime);
     setStat(STAT_OFC_TIME, buf);
@@ -379,13 +382,13 @@ void CTrayIcon::RefreshMenuItems() {
 void CTrayIcon::UpdateIconState(bool force) {
     if (!m_pFilter || !m_hWnd) return;
 
-    bool bActivated; int iFrameOutput; double dTargetFPS; bool bUseDisplayFPS;
+    bool bActivated; int iFrameOutput; double dTargetFPS; int iFrameRateMode;
     int iDeltaScalar; int iNeighborScalar; int iBlackLevel; int iWhiteLevel;
     int iSceneChangeThreshold; int iIntActiveState;
     double dSourceFPS, dOFCCalcTime, dAVGOFCCalcTime, dPeakOFCCalcTime, dWarpCalcTime;
     int iDimX, iDimY, iLowDimX, iLowDimY, iSearchRadius;
     unsigned int iTotalFrameDelta, iTotalFrameDelta2, iBufferFrames;
-    m_pFilter->GetCurrentSettings(&bActivated, &iFrameOutput, &dTargetFPS, &bUseDisplayFPS,
+    m_pFilter->GetCurrentSettings(&bActivated, &iFrameOutput, &dTargetFPS, &iFrameRateMode,
         &iDeltaScalar, &iNeighborScalar, &iBlackLevel, &iWhiteLevel,
         &iSceneChangeThreshold, &iIntActiveState,
         &dSourceFPS, &dOFCCalcTime, &dAVGOFCCalcTime, &dPeakOFCCalcTime, &dWarpCalcTime,
