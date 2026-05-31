@@ -4,9 +4,9 @@
 #define VERSION_MAJOR 2
 #define VERSION_MINOR 0
 #define VERSION_PATCH 3
-#define VERSION_BUILD 0
+#define VERSION_BUILD 1
 
-#define VERSION_STRING_WITH_NAME "HopperRender V2.0.3.0"
+#define VERSION_STRING_WITH_NAME "HopperRender V2.0.3.1"
 
 // Macro to stringify for use in code
 #define STRINGIFY(x) #x

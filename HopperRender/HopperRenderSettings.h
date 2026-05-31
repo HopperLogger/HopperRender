@@ -19,6 +19,9 @@ private:
 	HRESULT saveSettings();
 
 	void GetControlValues();
+	void PopulateFrameRateModeCombo();
+	void SelectFrameRateMode(int mode);
+	void UpdateTargetFPSFieldState();
 
 	CHopperRenderSettings(LPUNKNOWN lpunk, HRESULT* phr);
 
@@ -36,7 +39,7 @@ private:
 	ActiveState m_iIntActiveState; // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
 	double m_dSourceFPS; // The source frames per second
 	double m_dTargetFPS;
-	bool m_bUseDisplayFPS;
+	int m_iFrameRateMode; // How the target FPS is determined (0: Display refresh rate, 1: Custom target FPS, >=2: integer multiplier of the source FPS)
 	double m_dOFCCalcTime;
 	double m_dAVGOFCCalcTime;
 	double m_dPeakOFCCalcTime;

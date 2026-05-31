@@ -26,6 +26,15 @@ typedef enum ActiveState {
     TooSlow
 } ActiveState;
 
+// How the target (output) frame rate is determined:
+//   FRDisplayRate (0): match the display refresh rate
+//   FRCustom      (1): use the user-specified target FPS value
+//   2, 3, 4, ...     : integer multiplier of the source frame rate
+typedef enum FrameRateMode {
+    FRDisplayRate = 0,
+    FRCustom = 1
+} FrameRateMode;
+
 typedef enum LogLevel { 
     Info,
     Error 
@@ -57,7 +66,7 @@ class CHopperRender : public CVideoTransformFilter,
 	STDMETHODIMP GetCurrentSettings(bool* pbActivated,
 		int* piFrameOutput,
 		double* pdTargetFPS,
-		bool* pbUseDisplayFPS,
+		int* piFrameRateMode,
 		int* piDeltaScalar,
 		int* piNeighborScalar,
 		int* piBlackLevel,
@@ -77,7 +86,7 @@ class CHopperRender : public CVideoTransformFilter,
 		unsigned int* piTotalFrameDelta2,
 		unsigned int* piBufferFrames,
 		int* piSearchRadius) override;
-	STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, bool bUseDisplayFPS,
+STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTargetFPS, int iFrameRateMode,
 							        int iDeltaScalar, int iNeighborScalar, int iBlackLevel, int iWhiteLevel, int iSceneChangeThreshold, unsigned int iBufferFrames) override;
 
     // ISpecifyPropertyPages interface
@@ -97,6 +106,7 @@ class CHopperRender : public CVideoTransformFilter,
 	HRESULT loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* maxCalcRes);
     void UpdateInterpolationStatus();
     void useDisplayRefreshRate();
+    void UpdateTargetFrameTime();
     void QueryMediaInfoFrameRate();
     void Log(LogLevel level, const char* functionName, const char* message);
 
@@ -130,7 +140,8 @@ class CHopperRender : public CVideoTransformFilter,
 
     double m_dTotalWarpDuration; // The total duration of the current frame warp
 	double m_dBlendingScalar; // Blends from frame 1 to frame 2 (0.0 shows 100% frame 1, 1.0 shows 100% frame 2)
-	bool m_bUseDisplayFPS; // Whether to use the display refresh rate as target FPS
+	int m_iFrameRateMode; // How the target FPS is determined (0: Display refresh rate, 1: Custom target FPS, >=2: integer multiplier of the source FPS)
+	double m_dCustomTargetFPS; // The custom target FPS used when m_iFrameRateMode is FRCustom
 	ULONGLONG m_ullLastRefreshRateUpdate; // Last time (in ms) the display refresh rate was updated
 	unsigned int m_iSceneChangeThreshold; // Threshold for scene change detection (total frame delta value)
 	
