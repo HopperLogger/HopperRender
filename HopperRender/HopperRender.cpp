@@ -915,6 +915,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     const BYTE* sideDataBytes6;
     const BYTE* sideDataBytes7;
     const BYTE* sideDataBytes8;
+    const BYTE* sideDataBytes9;
     size_t sideDataSize1 = 0;
     size_t sideDataSize2 = 0;
     size_t sideDataSize3 = 0;
@@ -923,6 +924,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     size_t sideDataSize6 = 0;
     size_t sideDataSize7 = 0;
     size_t sideDataSize8 = 0;
+    size_t sideDataSize9 = 0;
     if (CComQIPtr<IMediaSideData> sideDataIn = pIn) {
 		hr = sideDataIn->GetSideData(IID_MediaSideDataDOVIMetadata, &sideDataBytes1, &sideDataSize1);
 		hr = sideDataIn->GetSideData(IID_MediaSideDataDOVIRPU, &sideDataBytes2, &sideDataSize2);
@@ -932,6 +934,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		hr = sideDataIn->GetSideData(IID_MediaSideDataHDRContentLightLevel, &sideDataBytes6, &sideDataSize6);
 		hr = sideDataIn->GetSideData(IID_MediaSideDataEIA608CC, &sideDataBytes7, &sideDataSize7);
 		hr = sideDataIn->GetSideData(IID_MediaSideData3DOffset, &sideDataBytes8, &sideDataSize8);
+		hr = sideDataIn->GetSideData(IID_MediaSideDataDOVIMetadataV2, &sideDataBytes9, &sideDataSize9);
     }
 
     // Get the size of the output sample
@@ -1050,6 +1053,9 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 			}
 			if (sideDataSize8 > 0) {
 				hr = sideDataOut->SetSideData(IID_MediaSideData3DOffset, sideDataBytes8, sideDataSize8);
+			}
+			if (sideDataSize9 > 0) {
+				hr = sideDataOut->SetSideData(IID_MediaSideDataDOVIMetadataV2, sideDataBytes9, sideDataSize9);
 			}
 
 			SafeRelease(&sideDataOut);

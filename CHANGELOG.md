@@ -410,3 +410,7 @@
 ## [Version 2.0.3.1] - 2026-05-31 - Fully functional
 ### Added
 - Added integer multiples of the source frame rate as options for the target frame rate (e.g. 48fps for 24fps content, 120fps for 60fps content, etc.)
+
+## [Version 2.0.3.2] - 2026-06-28 - Fully functional
+### Added
+- Added support for the new "IID_MediaSideDataDOVIMetadataV2" interface now used by MPC-BE and MPC-VR for Dolby Vision metadata passthrough
