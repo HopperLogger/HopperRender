@@ -27,10 +27,12 @@ typedef enum ActiveState {
 } ActiveState;
 
 // How the target (output) frame rate is determined:
+//   FRHalfDisplayRate (-1): half of the display refresh rate
 //   FRDisplayRate (0): match the display refresh rate
 //   FRCustom      (1): use the user-specified target FPS value
 //   2, 3, 4, ...     : integer multiplier of the source frame rate
 typedef enum FrameRateMode {
+    FRHalfDisplayRate = -1,
     FRDisplayRate = 0,
     FRCustom = 1
 } FrameRateMode;

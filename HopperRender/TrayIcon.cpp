@@ -359,6 +359,7 @@ void CTrayIcon::RefreshMenuItems() {
     }
     const double displayTargetFPS = (m_dLastTargetFPS >= 1.0) ? m_dLastTargetFPS : dTargetFPS;
     const wchar_t* fpsModeSuffix = (iFrameRateMode == FRDisplayRate) ? L" (display)"
+                                 : (iFrameRateMode == FRHalfDisplayRate) ? L" (1/2x display)"
                                  : (iFrameRateMode == FRCustom) ? L" (custom)"
                                  : L" (multiplier)";
     StringCchPrintfW(buf, ARRAYSIZE(buf), L"Target FPS: %.3f%s", displayTargetFPS, fpsModeSuffix);

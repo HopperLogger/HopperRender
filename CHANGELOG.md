@@ -414,3 +414,7 @@
 ## [Version 2.0.3.2] - 2026-06-28 - Fully functional
 ### Added
 - Added support for the new "IID_MediaSideDataDOVIMetadataV2" interface now used by MPC-BE and MPC-VR for Dolby Vision metadata passthrough
+
+## [Version 2.0.3.3] - 2026-07-25 - Fully functional
+### Added
+- Added a "1/2x Display Rate" target frame rate option that interpolates to half of the display refresh rate
