@@ -350,6 +350,9 @@ void CHopperRender::useDisplayRefreshRate() {
 
 	// Get the display refresh rate of the monitor the window is on
     double refreshRate = GetDisplayRefreshRateForWindow(hwnd);
+	if (m_iFrameRateMode == FRHalfDisplayRate) {
+		refreshRate *= 0.5;
+	}
 	m_rtTargetFrameTime = (1.0 / (double)refreshRate) * 1e7;
 }
 
@@ -369,7 +372,7 @@ void CHopperRender::UpdateTargetFrameTime() {
 			useDisplayRefreshRate();
 		}
 	} else {
-		// FRDisplayRate (and any unexpected value)
+		// FRDisplayRate, FRHalfDisplayRate (and any unexpected value)
 		useDisplayRefreshRate();
 	}
 }
@@ -825,7 +828,7 @@ HRESULT CHopperRender::Receive(IMediaSample *pIn) {
 	}
 
 	// Update the display refresh rate every 5 seconds if the option is enabled
-	if (m_iFrameRateMode == FRDisplayRate) {
+	if (m_iFrameRateMode == FRDisplayRate || m_iFrameRateMode == FRHalfDisplayRate) {
 		ULONGLONG ullCurrentTime = GetTickCount64();
 		if (ullCurrentTime - m_ullLastRefreshRateUpdate >= 5000) {
 			useDisplayRefreshRate();

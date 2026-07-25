@@ -552,6 +552,8 @@ void CHopperRenderSettings::PopulateFrameRateModeCombo() {
 
 	int idx = ComboBox_AddString(hCombo, TEXT("Display Rate"));
 	ComboBox_SetItemData(hCombo, idx, FRDisplayRate);
+	idx = ComboBox_AddString(hCombo, TEXT("1/2x Display Rate"));
+	ComboBox_SetItemData(hCombo, idx, FRHalfDisplayRate);
 	idx = ComboBox_AddString(hCombo, TEXT("Custom"));
 	ComboBox_SetItemData(hCombo, idx, FRCustom);
 
