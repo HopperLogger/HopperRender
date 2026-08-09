@@ -165,6 +165,7 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CVi
 	m_rtCurrPlaybackFrameTime(0),
 
 	m_bMediaInfoQueried(false),
+	m_bMediaInfoOverrodeFrameTime(false),
 
     // Optical Flow calculation
     m_pofcOpticalFlowCalc(nullptr),
@@ -380,7 +381,6 @@ void CHopperRender::UpdateTargetFrameTime() {
 // Queries the actual frame rate from the source file using MediaInfo library
 void CHopperRender::QueryMediaInfoFrameRate() {
 	if (m_bMediaInfoQueried || !m_pGraph) return;
-	m_bMediaInfoQueried = true;
 
 	// Traverse the filter graph to find the source filter with IFileSourceFilter
 	CComPtr<IEnumFilters> pEnum;
@@ -405,9 +405,12 @@ void CHopperRender::QueryMediaInfoFrameRate() {
 	}
 
 	if (filename.empty()) {
-		Log(LogLevel::Info, "QueryMediaInfoFrameRate", "No source file found in filter graph");
+		Log(LogLevel::Info, "QueryMediaInfoFrameRate", "No source file found in filter graph, using AvgTimePerFrame");
 		return;
 	}
+
+	// Only query the file once
+	m_bMediaInfoQueried = true;
 
 	// Log the filename found
 	char logMsg[512];
@@ -464,6 +467,7 @@ void CHopperRender::QueryMediaInfoFrameRate() {
 				: 1.0;
 			m_rtSourceFrameTime = mediaInfoFrameTime;
 			m_rtCurrPlaybackFrameTime = static_cast<REFERENCE_TIME>(m_rtSourceFrameTime * speedRatio);
+			m_bMediaInfoOverrodeFrameTime = true;
 			UpdateTargetFrameTime();
 			UpdateInterpolationStatus();
 
@@ -619,16 +623,68 @@ HRESULT CHopperRender::GetMediaType(int iPosition, CMediaType* pMediaType) {
     pMediaType->SetFormatType(&FORMAT_VideoInfo2);
     pMediaType->SetSubtype(pSubtype);
 
-    UpdateVideoInfoHeader(pMediaType);
+    if (FAILED(UpdateVideoInfoHeader(pMediaType))) {
+        Log(LogLevel::Error, "GetMediaType", "Could not build the output media type from the input format");
+        return VFW_S_NO_MORE_ITEMS;
+    }
 
     return NOERROR;
+}
+
+// Extracts the frame dimensions and stride from a video media type
+static bool GetFrameDimensionsFromMediaType(const CMediaType* pmt, long* pWidth, long* pHeight, long* pStride) noexcept {
+    if (pmt == nullptr || pmt->Format() == nullptr || pmt->FormatType() == nullptr) {
+        return false;
+    }
+
+    RECT rcSource = {0, 0, 0, 0};
+    long biWidth = 0;
+    long biHeight = 0;
+
+    if (*pmt->FormatType() == FORMAT_VideoInfo && pmt->FormatLength() >= sizeof(VIDEOINFOHEADER)) {
+        auto pvi = (VIDEOINFOHEADER*)pmt->Format();
+        rcSource = pvi->rcSource;
+        biWidth = pvi->bmiHeader.biWidth;
+        biHeight = pvi->bmiHeader.biHeight;
+    } else if (*pmt->FormatType() == FORMAT_VideoInfo2 && pmt->FormatLength() >= sizeof(VIDEOINFOHEADER2)) {
+        auto pvi2 = (VIDEOINFOHEADER2*)pmt->Format();
+        rcSource = pvi2->rcSource;
+        biWidth = pvi2->bmiHeader.biWidth;
+        biHeight = pvi2->bmiHeader.biHeight;
+    } else {
+        return false;
+    }
+
+    long width = rcSource.right - rcSource.left;
+    long height = rcSource.bottom - rcSource.top;
+    if (biWidth > 0 && (width <= 0 || width > biWidth)) {
+        width = biWidth;
+    }
+    if (biHeight != 0 && (height <= 0 || height > abs(biHeight))) {
+        height = abs(biHeight);
+    }
+
+    if (width <= 0 || height <= 0) {
+        return false;
+    }
+
+    if (pWidth) *pWidth = width;
+    if (pHeight) *pHeight = height;
+    if (pStride) *pStride = (biWidth > 0) ? biWidth : width;
+    return true;
 }
 
 // Updates the video info header with the information for the output pin
 HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     // Get the input media type information
     CMediaType* mtIn = &m_pInput->CurrentMediaType();
-    
+
+    if (mtIn->Format() == nullptr || mtIn->FormatType() == nullptr ||
+        (*mtIn->FormatType() != FORMAT_VideoInfo && *mtIn->FormatType() != FORMAT_VideoInfo2)) {
+        Log(LogLevel::Error, "UpdateVideoInfoHeader", "Input media type has no usable video format");
+        return E_FAIL;
+    }
+
 	RECT rcSource, rcTarget;
     long biWidth, biHeight;
     unsigned int dwX, dwY;
@@ -671,7 +727,7 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
     }
 
 	// Retrieve the input frame time and dimensions
-	if (avgTimePerFrame > 0 && !m_bMediaInfoQueried) {
+	if (avgTimePerFrame > 0 && !m_bMediaInfoOverrodeFrameTime) {
 		m_rtSourceFrameTime = avgTimePerFrame;
 	}
     if (m_rtCurrPlaybackFrameTime == 0)
@@ -683,8 +739,18 @@ HRESULT CHopperRender::UpdateVideoInfoHeader(CMediaType* pMediaType) {
 	// Recompute the target frame time so multiplier-based modes track the current source frame rate
 	UpdateTargetFrameTime();
 
-	m_iDimX = rcSource.right;
-	m_iDimY = rcSource.bottom;
+	// Determine the frame dimensions
+	long frameWidth = 0;
+	long frameHeight = 0;
+	long frameStride = 0;
+	if (!GetFrameDimensionsFromMediaType(mtIn, &frameWidth, &frameHeight, &frameStride)) {
+		Log(LogLevel::Error, "UpdateVideoInfoHeader", "Input media type does not provide valid frame dimensions");
+		return E_FAIL;
+	}
+
+	m_iDimX = static_cast<unsigned int>(frameWidth);
+	m_iDimY = static_cast<unsigned int>(frameHeight);
+	m_iInputStride = static_cast<unsigned int>(frameStride);
     
     BITMAPINFOHEADER* pBIH;
     VIDEOINFOHEADER* pVih;
@@ -768,31 +834,19 @@ HRESULT CHopperRender::Receive(IMediaSample *pIn) {
 
 		// Extract new dimensions
 		long newWidth = 0, newHeight = 0, newInputStride = 0;
-		if (pmt->formattype == FORMAT_VideoInfo) {
-			VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)pmt->pbFormat;
-			newWidth = pvi->rcSource.right - pvi->rcSource.left;
-			newHeight = pvi->rcSource.bottom - pvi->rcSource.top;
-			if (newWidth <= 0) newWidth = pvi->bmiHeader.biWidth;
-			if (newHeight <= 0) newHeight = abs(pvi->bmiHeader.biHeight);
-			newInputStride = pvi->bmiHeader.biWidth;
-		} else if (pmt->formattype == FORMAT_VideoInfo2) {
-			VIDEOINFOHEADER2* pvi2 = (VIDEOINFOHEADER2*)pmt->pbFormat;
-			newWidth = pvi2->rcSource.right - pvi2->rcSource.left;
-			newHeight = pvi2->rcSource.bottom - pvi2->rcSource.top;
-			if (newWidth <= 0) newWidth = pvi2->bmiHeader.biWidth;
-			if (newHeight <= 0) newHeight = abs(pvi2->bmiHeader.biHeight);
-			newInputStride = pvi2->bmiHeader.biWidth;
-		}
-		
-		if (newWidth != m_iDimX || newHeight != m_iDimY || newInputStride != m_iInputStride) {
+		if (!GetFrameDimensionsFromMediaType(&m_pInput->CurrentMediaType(), &newWidth, &newHeight, &newInputStride)) {
+			Log(LogLevel::Error, "Receive", "New input media type does not provide valid frame dimensions, keeping previous ones");
+		} else if (static_cast<unsigned int>(newWidth) != m_iDimX ||
+				   static_cast<unsigned int>(newHeight) != m_iDimY ||
+				   static_cast<unsigned int>(newInputStride) != m_iInputStride) {
 			char logMsg[256];
-			sprintf_s(logMsg, "Resolution change detected: %dx%d -> %dx%d", 
-					m_iDimX, m_iDimY, newWidth, newHeight);
+			sprintf_s(logMsg, "Resolution change detected: %ux%u -> %ldx%ld, stride: %u -> %ld", 
+					m_iDimX, m_iDimY, newWidth, newHeight, m_iInputStride, newInputStride);
 			Log(LogLevel::Info, "Transform", logMsg);
 			
-			m_iDimX = newWidth;
-			m_iDimY = newHeight;
-			m_iInputStride = newInputStride;
+			m_iDimX = static_cast<unsigned int>(newWidth);
+			m_iDimY = static_cast<unsigned int>(newHeight);
+			m_iInputStride = static_cast<unsigned int>(newInputStride);
 			bFormatChanged = true;
 			
 			// Reset optical flow calculator for new resolution
@@ -806,10 +860,12 @@ HRESULT CHopperRender::Receive(IMediaSample *pIn) {
 	// Update the output media type when format changes or on first frame
 	if (bFormatChanged) {
 		CMediaType mtOut(m_pOutput->CurrentMediaType());
-		UpdateVideoInfoHeader(&mtOut);
+		HRESULT hrUpdate = UpdateVideoInfoHeader(&mtOut);
 
 		IPin* pConnected = m_pOutput->GetConnected();
-		if (!pConnected) {
+		if (FAILED(hrUpdate)) {
+			Log(LogLevel::Error, "Receive", "Failed to build the new output media type, keeping the current one");
+		} else if (!pConnected) {
 			Log(LogLevel::Error, "Receive", "Output pin not connected during format change");
 		} else {
 			HRESULT hr = pConnected->ReceiveConnection(m_pOutput, &mtOut);
@@ -888,13 +944,16 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 	// Update the output pin's media type if the output sample has a new media type
 	AM_MEDIA_TYPE *pmtOut;
     pOut->GetMediaType(&pmtOut);
-    if (pmtOut != nullptr && pmtOut->pbFormat != nullptr) {
+    if (pmtOut != nullptr && pmtOut->pbFormat != nullptr &&
+		pmtOut->formattype == FORMAT_VideoInfo2 && pmtOut->cbFormat >= sizeof(VIDEOINFOHEADER2)) {
 		VIDEOINFOHEADER2 *pvi2 = (VIDEOINFOHEADER2*)pmtOut->pbFormat;
-		if (pvi2->bmiHeader.biWidth != m_iOutputStride && m_pofcOpticalFlowCalc) {
-			delete m_pofcOpticalFlowCalc;
-			m_pofcOpticalFlowCalc = nullptr;
+		if (pvi2->bmiHeader.biWidth > 0) {
+			if (static_cast<unsigned int>(pvi2->bmiHeader.biWidth) != m_iOutputStride && m_pofcOpticalFlowCalc) {
+				delete m_pofcOpticalFlowCalc;
+				m_pofcOpticalFlowCalc = nullptr;
+			}
+			m_iOutputStride = static_cast<unsigned int>(pvi2->bmiHeader.biWidth);
 		}
-		m_iOutputStride = pvi2->bmiHeader.biWidth;
 		m_pOutput->SetMediaType(static_cast<CMediaType*>(pmtOut));
 	}
 	if (pmtOut != nullptr) {
@@ -945,6 +1004,31 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 
     // Initialize the Optical Flow Calculator
     if (m_pofcOpticalFlowCalc == nullptr) {
+		// Check if we have valid input dimensions, otherwise try to recover them from the input media type
+		if (m_iDimX == 0 || m_iDimY == 0 || m_iInputStride == 0) {
+			long inWidth = 0, inHeight = 0, inStride = 0;
+			if (GetFrameDimensionsFromMediaType(&m_pInput->CurrentMediaType(), &inWidth, &inHeight, &inStride)) {
+				m_iDimX = static_cast<unsigned int>(inWidth);
+				m_iDimY = static_cast<unsigned int>(inHeight);
+				m_iInputStride = static_cast<unsigned int>(inStride);
+				Log(LogLevel::Info, "DeliverToRenderer", "Recovered frame dimensions from the input media type");
+			} else {
+				Log(LogLevel::Error, "DeliverToRenderer", "Unable to determine the frame dimensions from the input media type");
+				return E_FAIL;
+			}
+		}
+
+		// The renderer may not have supplied an output media type yet, so fall back to the
+		// output pin's current media type and finally to the input dimensions.
+		if (m_iOutputStride == 0) {
+			long outWidth = 0, outHeight = 0, outStride = 0;
+			if (GetFrameDimensionsFromMediaType(&m_pOutput->CurrentMediaType(), &outWidth, &outHeight, &outStride)) {
+				m_iOutputStride = static_cast<unsigned int>(outStride);
+			} else {
+				m_iOutputStride = m_iInputStride;
+			}
+		}
+
 		int deltaScalar;
 		int neighborScalar;
 		float blackLevel;
@@ -952,7 +1036,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		int customResScalar;
 		loadSettings(&deltaScalar, &neighborScalar, &blackLevel, &whiteLevel, &customResScalar);
 		char logMsg[256];
-		sprintf_s(logMsg, "Initializing Optical Flow Calculator with %dx%d (input stride: %d, output stride: %d)", 
+		sprintf_s(logMsg, "Initializing Optical Flow Calculator with %ux%u (input stride: %u, output stride: %u)", 
 				m_iDimX, m_iDimY, m_iInputStride, m_iOutputStride);
 		Log(LogLevel::Info, "DeliverToRenderer", logMsg);
 			if (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) {
@@ -1453,7 +1537,10 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated,
 		
 		if (isMadVR) {
 			CMediaType mtOut(m_pOutput->CurrentMediaType());
-			UpdateVideoInfoHeader(&mtOut);
+			if (FAILED(UpdateVideoInfoHeader(&mtOut))) {
+				Log(LogLevel::Error, "UpdateUserSettings", "Could not build the new output media type, skipping renegotiation");
+				return NOERROR;
+			}
 			
 			HRESULT hr = pConnectedPin->ReceiveConnection(m_pOutput, &mtOut);
 			if (SUCCEEDED(hr)) {

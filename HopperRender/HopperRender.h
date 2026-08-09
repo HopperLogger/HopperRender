@@ -166,6 +166,7 @@ STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTarge
 	unsigned int m_iBufferFrames; // Number of additional frames to buffer at the start
 
 	bool m_bMediaInfoQueried; // Whether MediaInfo has been queried for the frame rate already
+	bool m_bMediaInfoOverrodeFrameTime; // Whether MediaInfo provided a frame rate that overrides AvgTimePerFrame
 
 	CTrayIcon* m_pTrayIcon; // System tray icon
 };
