@@ -418,3 +418,7 @@
 ## [Version 2.0.3.3] - 2026-07-25 - Fully functional
 ### Added
 - Added a "1/2x Display Rate" target frame rate option that interpolates to half of the display refresh rate
+
+## [Version 2.0.3.4] - 2026-08-09 - Fully functional
+### Fixed
+- Fixed live sources like capture cards being initialized with a 0x0 resolution when the file metadata query fails
