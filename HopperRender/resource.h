@@ -36,6 +36,7 @@
 #define IDC_TOTALFRAMEDELTA2            1039
 #define IDC_BUFFERFRAMES                1037
 #define IDC_SEARCHRADIUS                1038
+#define IDC_BLENDEDFRAMENOWARP          1040
 
 // Tray icon PNG resources (RCDATA)
 #define IDR_TRAY_ICON_ACTIVE            2001
@@ -49,7 +50,7 @@
 #define _APS_3D_CONTROLS                1
 #define _APS_NEXT_RESOURCE_VALUE        102
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1012
+#define _APS_NEXT_CONTROL_VALUE         1041
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -1,0 +1,57 @@
+{
+    "version": "2.0.0",
+    "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+            "executable": "powershell.exe",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command"
+            ]
+        }
+    },
+    "tasks": [
+        {
+            "label": "Build All",
+            "detail": "Rebuilds Release|x64 and Release|Win32",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Build x64",
+                "Build x86"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Build x64",
+            "detail": "Rebuilds Release|x64 -> x64\\Release\\HopperRender.x64.dll",
+            "type": "shell",
+            "command": "$vswhere = 'C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe'; $msbuild = & $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -find 'MSBuild\\**\\Bin\\MSBuild.exe' | Select-Object -First 1; if (-not $msbuild) { Write-Error 'MSBuild.exe not found. Install the \"Desktop development with C++\" workload.'; exit 1 }; & $msbuild 'HopperRender.sln' /t:Rebuild /p:Configuration=Release /p:Platform=x64 /m /nologo /v:minimal; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Copy-Item -LiteralPath 'x64\\Release\\HopperRender.dll' -Destination 'x64\\Release\\HopperRender.x64.dll' -Force; Write-Host ('-> ' + (Resolve-Path 'x64\\Release\\HopperRender.x64.dll'))",
+            "group": "build",
+            "problemMatcher": "$msCompile",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
+            "label": "Build x86",
+            "detail": "Rebuilds Release|Win32 -> Win32\\Release\\HopperRender.x86.dll",
+            "type": "shell",
+            "command": "$vswhere = 'C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe'; $msbuild = & $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -find 'MSBuild\\**\\Bin\\MSBuild.exe' | Select-Object -First 1; if (-not $msbuild) { Write-Error 'MSBuild.exe not found. Install the \"Desktop development with C++\" workload.'; exit 1 }; & $msbuild 'HopperRender.sln' /t:Rebuild /p:Configuration=Release /p:Platform=Win32 /m /nologo /v:minimal; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Copy-Item -LiteralPath 'Win32\\Release\\HopperRender.dll' -Destination 'Win32\\Release\\HopperRender.x86.dll' -Force; Write-Host ('-> ' + (Resolve-Path 'Win32\\Release\\HopperRender.x86.dll'))",
+            "group": "build",
+            "problemMatcher": "$msCompile",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        }
+    ]
+}

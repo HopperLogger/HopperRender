@@ -149,6 +149,14 @@ __kernel void warpFrameKernel(__global const unsigned char* sourceFrame12, __glo
         }
     }
 
+    // BlendedFrameNoWarp: linearly blend the two source frames together without any motion based warping
+    if (frameOutputMode == 7) {
+        unsigned short blendedValue = (float)sourceFrame12[cz * dimY * inputStride + cy * inputStride + cx] * frameScalar21 + 
+                                      (float)sourceFrame21[cz * dimY * inputStride + cy * inputStride + cx] * frameScalar12;
+        outputFrame[cz * dimY * outputStride + cy * outputStride + cx] = cz ? apply_levelsUV(blendedValue, white_level) : apply_levelsY(blendedValue, black_level, white_level);
+        return;
+    }
+
     // Get the current flow values
     const int scaledCx = cz ? (adjCx >> resolutionScalar) & ~1 : (adjCx >> resolutionScalar);  // The X-Index of the current thread in the offset array
     const int scaledCy = cz ? (adjCy >> resolutionScalar) << 1 : (adjCy >> resolutionScalar);  // The Y-Index of the current thread in the offset array

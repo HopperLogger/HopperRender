@@ -26,7 +26,7 @@ private:
 	CHopperRenderSettings(LPUNKNOWN lpunk, HRESULT* phr);
 
 	bool m_bActivated; // Whether the filter is activated by the user
-	FrameOutput m_iFrameOutput; // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
+	FrameOutput m_iFrameOutput; // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2, 7: BlendedFrame w/o warping)
 	int m_iDeltaScalar;
 	int m_iNeighborScalar;
 	int m_iBlackLevel;
