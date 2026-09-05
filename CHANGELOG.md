@@ -422,3 +422,7 @@
 ## [Version 2.0.3.4] - 2026-08-09 - Fully functional
 ### Fixed
 - Fixed live sources like capture cards being initialized with a 0x0 resolution when the file metadata query fails
+
+## [Version 2.0.3.5] - 2026-09-05 - Fully functional
+### Added
+- Added a "BlendedFrame (w/o warping)" frame output mode that deactivates the optical flow calculation and simply blends the two source frames together without any movement based warping

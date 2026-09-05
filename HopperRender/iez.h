@@ -12,7 +12,7 @@ DEFINE_GUID(IID_SettingsInterface,
 DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 	STDMETHOD(GetCurrentSettings)(THIS_
 		bool* pbActivated, // Whether the filter is activated by the user
-		int* piFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
+		int* piFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2, 7: BlendedFrame w/o warping)
 		double* pdTargetFPS, // The effective target frames per second
 		int* piFrameRateMode, // How the target FPS is determined (-1: Half the display refresh rate, 0: Display refresh rate, 1: Custom target FPS, >=2: integer multiplier of the source FPS)
 		int* piDeltaScalar,
@@ -38,7 +38,7 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 
 	STDMETHOD(UpdateUserSettings)(THIS_
 		bool bActivated, // Whether the filter is activated by the user
-		int iFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
+		int iFrameOutput, // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2, 7: BlendedFrame w/o warping)
 		double dTargetFPS, // The custom target frames per second (used when iFrameRateMode is 1)
 		int iFrameRateMode, // How the target FPS is determined (-1: Half the display refresh rate, 0: Display refresh rate, 1: Custom target FPS, >=2: integer multiplier of the source FPS)
 		int iDeltaScalar,

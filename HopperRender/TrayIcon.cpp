@@ -45,11 +45,12 @@ namespace {
         L"Grey Flow",
         L"Side-by-side 1",
         L"Side-by-side 2",
+        L"BlendedFrame (w/o warping)",
     };
     constexpr int kFrameOutputCount = sizeof(kFrameOutputNames) / sizeof(kFrameOutputNames[0]);
 
     // Display order shown in the tray submenu
-    constexpr int kFrameOutputDisplayOrder[] = { 2, 0, 1, 3, 4, 5, 6 };
+    constexpr int kFrameOutputDisplayOrder[] = { 2, 7, 0, 1, 3, 4, 5, 6 };
 
     const wchar_t kWindowClassName[] = L"HopperRenderTrayWnd";
 }

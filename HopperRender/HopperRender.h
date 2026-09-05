@@ -16,7 +16,8 @@ typedef enum FrameOutput {
     HSVFlow,
     GreyFlow,
     SideBySide1,
-    SideBySide2
+    SideBySide2,
+    BlendedFrameNoWarp
 } FrameOutput;
 
 typedef enum ActiveState {
@@ -116,7 +117,7 @@ STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTarge
     std::ofstream m_logFile; // Log file stream
 
     // Settings
-	FrameOutput m_iFrameOutput; // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2)
+	FrameOutput m_iFrameOutput; // What frame output to use (0: WarpedFrame 1 -> 2, 1: WarpedFrame 2 -> 1, 2: BlendedFrame, 3: HSV Flow, 4: Blurred Frames, 5: Side-by-side 1, 6: Side-by-side 2, 7: BlendedFrame w/o warping)
 
     // Video info
     unsigned int m_iDimX; // The width of the frame

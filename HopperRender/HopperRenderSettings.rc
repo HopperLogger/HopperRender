@@ -54,14 +54,15 @@ BEGIN
         CONTROL         "On", IDC_ON,"Button", BS_AUTORADIOBUTTON | WS_GROUP, 11, 25, 41, 10
         CONTROL         "Off", IDC_OFF,"Button", BS_AUTORADIOBUTTON, 11, 40, 47, 10
 
-    GROUPBOX        "Frame Output", IDS_STATIC, 4, 65, 115, 120
+    GROUPBOX        "Frame Output", IDS_STATIC, 4, 65, 115, 135
         CONTROL         "BlendedFrame (Default)", IDC_BLENDEDFRAME, "Button", BS_AUTORADIOBUTTON | WS_GROUP, 11, 80, 90, 10
-        CONTROL         "WarpedFrame 1 -> 2", IDC_WARPEDFRAME12, "Button", BS_AUTORADIOBUTTON, 11, 95, 80, 10
-        CONTROL         "WarpedFrame 2 -> 1", IDC_WARPEDFRAME21, "Button", BS_AUTORADIOBUTTON, 11, 110, 80, 10
-        CONTROL         "HSV Flow", IDC_HSVFLOW, "Button", BS_AUTORADIOBUTTON, 11, 125, 80, 10
-        CONTROL         "Grey Flow", IDC_GREYFLOW, "Button", BS_AUTORADIOBUTTON, 11, 140, 80, 10
-        CONTROL         "Side-by-side 1", IDC_SIDEBYSIDE1, "Button", BS_AUTORADIOBUTTON, 11, 155, 80, 10
-        CONTROL         "Side-by-side 2", IDC_SIDEBYSIDE2, "Button", BS_AUTORADIOBUTTON, 11, 170, 80, 10
+        CONTROL         "BlendedFrame (w/o warping)", IDC_BLENDEDFRAMENOWARP, "Button", BS_AUTORADIOBUTTON, 11, 95, 100, 10
+        CONTROL         "WarpedFrame 1 -> 2", IDC_WARPEDFRAME12, "Button", BS_AUTORADIOBUTTON, 11, 110, 80, 10
+        CONTROL         "WarpedFrame 2 -> 1", IDC_WARPEDFRAME21, "Button", BS_AUTORADIOBUTTON, 11, 125, 80, 10
+        CONTROL         "HSV Flow", IDC_HSVFLOW, "Button", BS_AUTORADIOBUTTON, 11, 140, 80, 10
+        CONTROL         "Grey Flow", IDC_GREYFLOW, "Button", BS_AUTORADIOBUTTON, 11, 155, 80, 10
+        CONTROL         "Side-by-side 1", IDC_SIDEBYSIDE1, "Button", BS_AUTORADIOBUTTON, 11, 170, 80, 10
+        CONTROL         "Side-by-side 2", IDC_SIDEBYSIDE2, "Button", BS_AUTORADIOBUTTON, 11, 185, 80, 10
 
     GROUPBOX        "Parameters", IDS_STATIC, 125, 10, 190, 125
         EDITTEXT        IDC_TARGETFPS, 200, 25, 40, 13, ES_AUTOHSCROLL
@@ -101,7 +102,7 @@ BEGIN
         LTEXT           "n/a", IDC_FRAMERES, 200, 240, 50, 9
         LTEXT           "n/a", IDC_CALCRES, 200, 255, 50, 9
         LTEXT           "n/a", IDC_SEARCHRADIUS, 200, 270, 50, 9
-    LTEXT           VERSION_STRING_WITH_NAME, IDS_STATIC, 10, 190, 100, 9
+    LTEXT           VERSION_STRING_WITH_NAME, IDS_STATIC, 10, 205, 100, 9
     PUSHBUTTON      "Defaults", IDC_DEFAULTS, 260, 271, 50, 14
 END
 

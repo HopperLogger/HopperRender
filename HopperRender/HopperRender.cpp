@@ -1076,7 +1076,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 
         m_pofcOpticalFlowCalc->updateFrame(pInBuffer);
 
-        if (m_iIntActiveState == Active && m_pofcOpticalFlowCalc->m_frameCount >= 3) {
+        if (m_iIntActiveState == Active && m_pofcOpticalFlowCalc->m_frameCount >= 3 && m_iFrameOutput != BlendedFrameNoWarp) {
             // Calculate the optical flow (frame 1 to frame 2)
             m_pofcOpticalFlowCalc->calculateOpticalFlow();
 
@@ -1094,6 +1094,15 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		       (m_pofcOpticalFlowCalc->m_frameCount - m_frameDeltaHistory.front().frameNumber) > framesIn3Seconds) {
 			m_frameDeltaHistory.pop_front();
 		}
+    } else if (m_iFrameOutput == BlendedFrameNoWarp) {
+		m_pofcOpticalFlowCalc->m_ofcCalcTime = 0.0;
+		m_pofcOpticalFlowCalc->m_ofcAvgCalcTime = 0.0;
+		m_pofcOpticalFlowCalc->m_ofcPeakCalcTime = 0.0;
+		m_pofcOpticalFlowCalc->m_totalFrameDelta = 0;
+		m_frameDeltaHistory.clear();
+		m_sceneChangeDeltaHistory.clear();
+		m_iPeakSceneChangeDelta = 0;
+		m_iPeakSceneChangeDelta2 = 0;
     }
 
     // Assemble the output samples
@@ -1561,6 +1570,11 @@ STDMETHODIMP CHopperRender::UpdateUserSettings(bool bActivated,
 
 // Adjust settings for optimal performance
 void CHopperRender::autoAdjustSettings() {
+	if (m_iFrameOutput == BlendedFrameNoWarp) {
+		m_dTotalWarpDuration = 0.0;
+		return;
+	}
+
 	// Get the time we have in between source frames (WE NEED TO STAY BELOW THIS!)
 	const double dSourceFrameTimeMS = static_cast<double>(m_rtCurrPlaybackFrameTime) / 10000000.0;
 

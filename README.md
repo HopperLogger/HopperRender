@@ -63,6 +63,7 @@ You can access the settings when playing back a video with HopperRender by right
     - _Warped Frame 1 -> 2: Shows just the warping from the previous to the current frame_
     - _Warped Frame 2 -> 1: Shows just the warping from the current to the previous frame_
     - _Blended Frame: Blends both warp directions together_
+    - _Blended Frame (w/o warping): Deactivates the optical flow calculation and simply blends the two source frames together without any movement based warping_
     - _HSV Flow: Visualizes the optical flow as a color representation, where the color indicates the direction of movement_
 
     <div align="center">

@@ -119,7 +119,7 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 					m_iSceneChangeThreshold = DEFAULT_SCENE_CHANGE_THRESHOLD;
 					m_iBufferFrames = DEFAULT_BUFFER_FRAMES;
 					CheckRadioButton(m_Dlg, IDC_ON, IDC_OFF, IDC_ON); 
-					CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_BLENDEDFRAME);
+					CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLENDEDFRAMENOWARP, IDC_BLENDEDFRAME);
 					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%.3f\0"), m_dTargetFPS);
 					SetDlgItemText(m_Dlg, IDC_TARGETFPS, sz);
 					(void)StringCchPrintf(sz, NUMELMS(sz), TEXT("%d\0"), m_iDeltaScalar);
@@ -291,25 +291,28 @@ HRESULT CHopperRenderSettings::OnActivate() {
 	// Update the selected frame output
 	switch (m_iFrameOutput) {
 		case WarpedFrame12:
-			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_WARPEDFRAME12);
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLENDEDFRAMENOWARP, IDC_WARPEDFRAME12);
 			break;
 		case WarpedFrame21:
-			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_WARPEDFRAME21);
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLENDEDFRAMENOWARP, IDC_WARPEDFRAME21);
 			break;
 		case BlendedFrame:
-			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_BLENDEDFRAME);
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLENDEDFRAMENOWARP, IDC_BLENDEDFRAME);
+			break;
+		case BlendedFrameNoWarp:
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLENDEDFRAMENOWARP, IDC_BLENDEDFRAMENOWARP);
 			break;
 		case HSVFlow:
-			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_HSVFLOW);
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLENDEDFRAMENOWARP, IDC_HSVFLOW);
 			break;
 		case GreyFlow:
-			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_GREYFLOW);
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLENDEDFRAMENOWARP, IDC_GREYFLOW);
 			break;
 		case SideBySide1:
-			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_SIDEBYSIDE1);
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLENDEDFRAMENOWARP, IDC_SIDEBYSIDE1);
 			break;
 		case SideBySide2:
-			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_SIDEBYSIDE2, IDC_SIDEBYSIDE2);
+			CheckRadioButton(m_Dlg, IDC_WARPEDFRAME12, IDC_BLENDEDFRAMENOWARP, IDC_SIDEBYSIDE2);
 			break;
 	}
 
@@ -437,6 +440,8 @@ void CHopperRenderSettings::GetControlValues() {
 		m_iFrameOutput = WarpedFrame21;
 	} else if (IsDlgButtonChecked(m_Dlg, IDC_BLENDEDFRAME)) {
 		m_iFrameOutput = BlendedFrame;
+	} else if (IsDlgButtonChecked(m_Dlg, IDC_BLENDEDFRAMENOWARP)) {
+		m_iFrameOutput = BlendedFrameNoWarp;
 	} else if (IsDlgButtonChecked(m_Dlg, IDC_HSVFLOW)) {
 		m_iFrameOutput = HSVFlow;
 	} else if (IsDlgButtonChecked(m_Dlg, IDC_GREYFLOW)) {
