@@ -37,6 +37,7 @@ private:
     HMENU  m_hMenu;
     HMENU  m_hMenuFrameOut;
     bool   m_bIconIsActive;
+    bool   m_bIconShowsOpenCLError;
     bool   m_bMenuVisible;
     ULONG_PTR m_gdiplusToken;
     NOTIFYICONDATAW m_nid;

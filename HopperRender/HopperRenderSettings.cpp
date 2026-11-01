@@ -181,6 +181,9 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 				case TooSlow:
 					SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("Too Slow"));
 					break;
+				case OpenCLError:
+					SetDlgItemText(m_Dlg, IDC_INTACTIVE, TEXT("OpenCL Error"));
+					break;
 			}
 
 			// Update the source frames per second

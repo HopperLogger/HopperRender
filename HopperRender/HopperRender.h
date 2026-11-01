@@ -24,7 +24,8 @@ typedef enum ActiveState {
     Deactivated,
     NotNeeded,
     Active,
-    TooSlow
+    TooSlow,
+    OpenCLError
 } ActiveState;
 
 // How the target (output) frame rate is determined:
@@ -105,6 +106,7 @@ STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTarge
     HRESULT UpdateVideoInfoHeader(CMediaType* pMediaType);
 	HRESULT Receive(IMediaSample *pIn);
     HRESULT DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut);
+    HRESULT PassThroughFrame(IMediaSample* pIn, IMediaSample* pOut);
     void autoAdjustSettings();
 	HRESULT loadSettings(int* deltaScalar, int* neighborScalar, float* blackLevel, float* whiteLevel, int* maxCalcRes);
     void UpdateInterpolationStatus();
@@ -134,12 +136,13 @@ STDMETHODIMP UpdateUserSettings(bool bActivated, int iFrameOutput, double dTarge
 
     // Optical flow calculation
     OpticalFlowCalc* m_pofcOpticalFlowCalc; // Optical flow calculator
+	bool m_bOpenCLFailed; // Whether OpenCL failed on this system
 
     // Frame output
 	int m_iNumIntFrames; // Number of output samples (interpolated frames) for every input sample (source frame)
 
     // Performance and activation status
-	ActiveState m_iIntActiveState; // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
+	ActiveState m_iIntActiveState; // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow, 4: OpenCL Error)
 
     double m_dTotalWarpDuration; // The total duration of the current frame warp
 	double m_dBlendingScalar; // Blends from frame 1 to frame 2 (0.0 shows 100% frame 1, 1.0 shows 100% frame 2)

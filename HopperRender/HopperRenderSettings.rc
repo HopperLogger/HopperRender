@@ -93,7 +93,7 @@ BEGIN
         LTEXT           "Frame Resolution", IDS_STATIC, 132, 240, 60, 9
         LTEXT           "Calc Resolution", IDS_STATIC, 132, 255, 60, 9
         LTEXT           "Search Radius", IDS_STATIC, 132, 270, 60, 9
-        LTEXT           "n/a", IDC_INTACTIVE, 200, 150, 50, 9
+        LTEXT           "n/a", IDC_INTACTIVE, 200, 150, 54, 9
         LTEXT           "n/a", IDC_SOURCEFPS, 200, 165, 50, 9
         LTEXT           "n/a", IDC_OFCCALCTIME, 200, 180, 50, 9
         LTEXT           "n/a", IDC_AVGOFCCALCTIME, 200, 195, 50, 9

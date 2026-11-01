@@ -65,6 +65,7 @@ CTrayIcon::CTrayIcon(CHopperRender* pFilter)
     , m_hMenu(nullptr)
     , m_hMenuFrameOut(nullptr)
     , m_bIconIsActive(false)
+    , m_bIconShowsOpenCLError(false)
     , m_bMenuVisible(false)
     , m_gdiplusToken(0)
     , m_nid{}
@@ -338,6 +339,7 @@ void CTrayIcon::RefreshMenuItems() {
         case NotNeeded:   stateStr = L"Not Needed"; break;
         case Active:      stateStr = L"Active"; break;
         case TooSlow:     stateStr = L"Too Slow"; break;
+        case OpenCLError: stateStr = L"OpenCL Error (not interpolating)"; break;
     }
 
     wchar_t buf[128];
@@ -398,13 +400,27 @@ void CTrayIcon::UpdateIconState(bool force) {
         &iTotalFrameDelta, &iTotalFrameDelta2, &iBufferFrames, &iSearchRadius);
 
     const bool nowActive = (iIntActiveState == Active);
-    if (force || nowActive != m_bIconIsActive) {
-        m_bIconIsActive = nowActive;
+    const bool openCLError = (iIntActiveState == OpenCLError);
+    if (force || nowActive != m_bIconIsActive || openCLError != m_bIconShowsOpenCLError) {
         m_nid.uFlags = NIF_ICON | NIF_TIP;
         m_nid.hIcon = nowActive ? m_hIconActive : m_hIconInactive;
         StringCchCopyW(m_nid.szTip, ARRAYSIZE(m_nid.szTip),
                        nowActive ? L"HopperRender \u2014 Active"
-                                 : L"HopperRender \u2014 Not interpolating");
+                       : openCLError ? L"HopperRender \u2014 OpenCL error, not interpolating"
+                                     : L"HopperRender \u2014 Not interpolating");
+
+        // Notify the user once when OpenCL fails, as the frames are then just passed through
+        if (openCLError && !m_bIconShowsOpenCLError) {
+            m_nid.uFlags |= NIF_INFO;
+            m_nid.dwInfoFlags = NIIF_WARNING;
+            StringCchCopyW(m_nid.szInfoTitle, ARRAYSIZE(m_nid.szInfoTitle), L"HopperRender \u2014 OpenCL error");
+            StringCchCopyW(m_nid.szInfo, ARRAYSIZE(m_nid.szInfo),
+                           L"OpenCL is not working on this system, so the video is played without interpolation. "
+                           L"Please make sure that your GPU supports OpenCL 1.2 or higher and that its drivers are up to date.");
+        }
+
+        m_bIconIsActive = nowActive;
+        m_bIconShowsOpenCLError = openCLError;
         Shell_NotifyIconW(NIM_MODIFY, &m_nid);
     }
 }
