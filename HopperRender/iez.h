@@ -20,7 +20,7 @@ DECLARE_INTERFACE_(SettingsInterface, IUnknown) {
 		int* piBlackLevel,
 		int* piWhiteLevel,
 		int* piSceneChangeThreshold,
-		int* piIntActiveState, // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow)
+		int* piIntActiveState, // The state of the filter (0: Deactivated, 1: Not Needed, 2: Active, 3: Too Slow, 4: OpenCL Error)
 		double* pdSourceFPS, // The source frames per second
 		double* pdOFCCalcTime,
 		double* pdAVGOFCCalcTime,

@@ -1,4 +1,5 @@
 #define CL_TARGET_OPENCL_VERSION 300
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 #include "opticalFlowCalcHDR.h"
 #include "config.h"
@@ -271,8 +272,7 @@ OpticalFlowCalcHDR::OpticalFlowCalcHDR(const int frameHeight, const int frameWid
     CHECK_ERROR(err);
 
     // Create the command queues
-    cl_queue_properties properties[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0};
-    m_queue = clCreateCommandQueueWithProperties(m_clContext, m_clDeviceId, properties, &err);
+    m_queue = clCreateCommandQueue(m_clContext, m_clDeviceId, CL_QUEUE_PROFILING_ENABLE, &err);
     CHECK_ERROR(err);
 
     // Allocate the buffers

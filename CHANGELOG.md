@@ -426,3 +426,13 @@
 ## [Version 2.0.3.5] - 2026-09-05 - Fully functional
 ### Added
 - Added a "BlendedFrame (w/o warping)" frame output mode that deactivates the optical flow calculation and simply blends the two source frames together without any movement based warping
+
+## [Version 2.0.3.6] - 2026-11-01 - Fully functional
+### Changed
+- The log now contains the reason when the OpenCL initialization fails
+- The settings, tray icon and a Windows notification now indicate when OpenCL failed and the video is played without interpolation
+
+### Fixed
+- (Potentially) fixed playback freezing when resuming after a long pause
+- Fixed the player crashing on GPUs that only support OpenCL 1.2
+- Fixed the player crashing when no compatible OpenCL GPU or driver is available

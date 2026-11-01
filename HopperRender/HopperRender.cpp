@@ -169,6 +169,7 @@ CHopperRender::CHopperRender(TCHAR* tszName, LPUNKNOWN punk, HRESULT* phr) : CVi
 
     // Optical Flow calculation
     m_pofcOpticalFlowCalc(nullptr),
+	m_bOpenCLFailed(false),
 
     // Frame output
 	m_iNumIntFrames(1),
@@ -351,6 +352,12 @@ void CHopperRender::useDisplayRefreshRate() {
 
 	// Get the display refresh rate of the monitor the window is on
     double refreshRate = GetDisplayRefreshRateForWindow(hwnd);
+
+	if (!(refreshRate > 0.0)) {
+		Log(LogLevel::Error, "useDisplayRefreshRate", "Failed to query the display refresh rate, keeping the previous target frame time");
+		return;
+	}
+
 	if (m_iFrameRateMode == FRHalfDisplayRate) {
 		refreshRate *= 0.5;
 	}
@@ -900,7 +907,22 @@ HRESULT CHopperRender::Transform(IMediaSample* pIn, IMediaSample* pOut) {
 	CheckPointer(pIn, E_POINTER)
 	CheckPointer(pOut, E_POINTER)
 
-    HRESULT hr = DeliverToRenderer(pIn, pOut);
+    HRESULT hr;
+    try {
+		hr = DeliverToRenderer(pIn, pOut);
+    } catch (const std::exception& e) {
+		// OpenCL failed (e.g. no compatible GPU or driver), so we pass the frames through instead of crashing the player
+		std::string errorMsg = e.what();
+		while (!errorMsg.empty() && errorMsg.back() == '\n') errorMsg.pop_back();
+		Log(LogLevel::Error, "Transform", errorMsg.c_str());
+		Log(LogLevel::Error, "Transform", "OpenCL is not working on this system, frames will be passed through without interpolation");
+		if (m_pofcOpticalFlowCalc) {
+			delete m_pofcOpticalFlowCalc;
+			m_pofcOpticalFlowCalc = nullptr;
+		}
+		m_bOpenCLFailed = true;
+		hr = PassThroughFrame(pIn, pOut);
+    }
     if (FAILED(hr)) {
 		Log(LogLevel::Error, "Transform", "Failed to deliver frame to renderer");
 		return hr;
@@ -958,6 +980,11 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 	}
 	if (pmtOut != nullptr) {
 		DeleteMediaType(pmtOut);
+	}
+
+	// OpenCL is not working on this system, so we just pass the frames through
+	if (m_bOpenCLFailed) {
+		return PassThroughFrame(pIn, pOut);
 	}
 
 	// Get pointers to the sample buffer
@@ -1063,6 +1090,11 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		// We are at the start of a new segment
 		m_rtCurrStartTime = rtStartTime + 2 * m_rtSourceFrameTime + m_iBufferFrames * m_rtTargetFrameTime;
     }
+
+	// Recover from an invalid blending scalar instead of stalling the output
+	if (!(m_dBlendingScalar >= 0.0 && m_dBlendingScalar < 1.0)) {
+		m_dBlendingScalar = 0.0;
+	}
 
 	// Calculate the number of interpolated frames
 	if (m_iIntActiveState == Active) {
@@ -1349,6 +1381,62 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
     return NOERROR;
 }
 
+// Copies the source frame to the output sample without interpolation (used when OpenCL is not working)
+HRESULT CHopperRender::PassThroughFrame(IMediaSample* pIn, IMediaSample* pOut) {
+	unsigned char* pInBuffer;
+	unsigned char* pOutBuffer;
+	HRESULT hr = pIn->GetPointer(&pInBuffer);
+	if (FAILED(hr)) {
+		Log(LogLevel::Error, "PassThroughFrame", "Failed to get input buffer pointer");
+		return hr;
+	}
+	hr = pOut->GetPointer(&pOutBuffer);
+	if (FAILED(hr)) {
+		Log(LogLevel::Error, "PassThroughFrame", "Failed to get output buffer pointer");
+		return hr;
+	}
+
+	// The frame consists of the luma plane followed by the interleaved chroma plane at half height
+	const size_t bytesPerSample = (m_pInput->CurrentMediaType().subtype == MEDIASUBTYPE_P010) ? 2 : 1;
+	const size_t inRowSize = static_cast<size_t>(m_iInputStride) * bytesPerSample;
+	const size_t outRowSize = static_cast<size_t>(m_iOutputStride ? m_iOutputStride : m_iInputStride) * bytesPerSample;
+	const size_t numRows = m_iDimY + m_iDimY / 2;
+	if (numRows == 0 || inRowSize == 0 ||
+		numRows * inRowSize > static_cast<size_t>(pIn->GetSize()) || numRows * outRowSize > static_cast<size_t>(pOut->GetSize())) {
+		Log(LogLevel::Error, "PassThroughFrame", "Frame dimensions do not match the sample buffers");
+		return E_FAIL;
+	}
+	const size_t copySize = (inRowSize < outRowSize) ? inRowSize : outRowSize;
+	for (size_t row = 0; row < numRows; ++row) {
+		memcpy(pOutBuffer + row * outRowSize, pInBuffer + row * inRowSize, copySize);
+	}
+	pOut->SetActualDataLength(static_cast<long>(numRows * outRowSize));
+
+	// Use the source timestamps
+	REFERENCE_TIME rtStartTime, rtEndTime;
+	if (SUCCEEDED(pIn->GetTime(&rtStartTime, &rtEndTime))) {
+		pOut->SetTime(&rtStartTime, &rtEndTime);
+	}
+
+	// Forward the side data (e.g. HDR and Dolby Vision metadata)
+	CComQIPtr<IMediaSideData> sideDataIn = pIn;
+	CComQIPtr<IMediaSideData> sideDataOut = pOut;
+	if (sideDataIn && sideDataOut) {
+		const GUID* sideDataTypes[] = {&IID_MediaSideDataDOVIMetadata, &IID_MediaSideDataDOVIRPU, &IID_MediaSideDataControlFlags,
+									   &IID_MediaSideDataHDR, &IID_MediaSideDataHDR10Plus, &IID_MediaSideDataHDRContentLightLevel,
+									   &IID_MediaSideDataEIA608CC, &IID_MediaSideData3DOffset, &IID_MediaSideDataDOVIMetadataV2};
+		for (const GUID* sideDataType : sideDataTypes) {
+			const BYTE* sideDataBytes;
+			size_t sideDataSize = 0;
+			if (SUCCEEDED(sideDataIn->GetSideData(*sideDataType, &sideDataBytes, &sideDataSize)) && sideDataSize > 0) {
+				sideDataOut->SetSideData(*sideDataType, sideDataBytes, sideDataSize);
+			}
+		}
+	}
+
+	return NOERROR;
+}
+
 #define WRITEOUT(var)  hr = pStream->Write(&var, sizeof(var), NULL); \
                if (FAILED(hr)) return hr;
 
@@ -1441,7 +1529,7 @@ STDMETHODIMP CHopperRender::GetCurrentSettings(bool* pbActivated,
 		*piBlackLevel = (int)blackLevel;
 		*piWhiteLevel = (int)whiteLevel;
 		*piSceneChangeThreshold = m_iSceneChangeThreshold;
-		*piIntActiveState = Active;
+		*piIntActiveState = m_bOpenCLFailed ? OpenCLError : Active;
 		*pdSourceFPS = 0.0;
 		*pdOFCCalcTime = 0.0;
 		*pdAVGOFCCalcTime = 0.0;
