@@ -27,6 +27,20 @@
 
 HopperRender is a DirectShow video filter that generates intermediate frames using GPU-accelerated optical flow, interpolating any source frame rate up to your display's refresh rate. It plugs into DirectShow media players such as [MPC-HC](https://github.com/clsid2/mpc-hc) and [MPC-BE](https://sourceforge.net/projects/mpcbe) and offers a range of settings to tune the quality and presentation of the interpolation.
 
+<div align="center">
+  <img width="800" alt="Big Buck Bunny camera pan at 0.25x speed: original 24 fps on the left, HopperRender interpolated to 60 fps on the right" src="https://github.com/user-attachments/assets/543bb7e4-48d0-42c9-b0f6-10fbf37b3929">
+  <br>
+  <sub>Original 24 fps (left) vs. HopperRender at 60 fps (right), slowed down to 0.25× speed</sub>
+</div>
+
+<details>
+<summary><strong>Watch the full comparison video (normal speed and 0.25×)</strong></summary>
+<br>
+
+https://github.com/user-attachments/assets/87d722d1-2915-4b75-901c-5ab1036622e2
+
+</details>
+
 > [!TIP]
 > On Linux? HopperRender is also available as an mpv integration: **[mpv-frame-interpolator](https://github.com/HopperLogger/mpv-frame-interpolator)**.
 
@@ -230,3 +244,4 @@ HopperRender is licensed under the [GNU General Public License v3.0](LICENSE).
 - Based on Microsoft's [EZRGB24 Filter Sample](https://learn.microsoft.com/en-us/windows/win32/directshow/ezrgb24-filter-sample).
 - DirectShow core parts were inspired by [LAV Filters](https://github.com/clsid2/LAVFilters).
 - Dolby Vision metadata passthrough was adapted from [MPC Video Renderer](https://github.com/Aleksoid1978/VideoRenderer).
+- Demo footage: [Big Buck Bunny](https://peach.blender.org/) © Blender Foundation | www.bigbuckbunny.org, licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
