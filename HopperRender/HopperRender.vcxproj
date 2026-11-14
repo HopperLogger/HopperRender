@@ -93,7 +93,6 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="$(SolutionDir)common\common.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 13.1.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -161,10 +160,10 @@
       <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;cudart_static.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib;OpenCL.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib</AdditionalDependencies>
       <ModuleDefinitionFile>HopperRender.def</ModuleDefinitionFile>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">$(CUDA_LIB_PATH);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <OptimizeReferences Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </OptimizeReferences>
       <PerUserRedirection Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</PerUserRedirection>
@@ -172,19 +171,6 @@
     <Manifest>
       <AdditionalManifestFiles>%(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
-    <CudaCompile>
-      <CompileOut Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
-      <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">compute_89,sm_89;compute_86,sm_86;compute_75,sm_75;compute_70,sm_70;compute_61,sm_61;compute_52,sm_52</CodeGeneration>
-      <FastMath Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</FastMath>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">EditAndContinue</DebugInformationFormat>
-      <PtxAsOptionV Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</PtxAsOptionV>
-      <SplitCompile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MaxThreads</SplitCompile>
-      <SplitCompileCustomThreads Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">16</SplitCompileCustomThreads>
-    </CudaCompile>
-    <CudaLink>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">EditAndContinue</DebugInformationFormat>
-      <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</GPUDebugInfo>
-    </CudaLink>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
     <ClCompile>
@@ -209,10 +195,10 @@
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib;OpenCL.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib</AdditionalDependencies>
       <ModuleDefinitionFile>HopperRender.def</ModuleDefinitionFile>
-      <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">$(CUDA_LIB_PATH);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">$(CUDA_LIB_PATH);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='Release|x64'">UseFastLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <OptimizeReferences Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</OptimizeReferences>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -226,44 +212,6 @@
     </CustomBuildStep>
     <Manifest>
     </Manifest>
-    <CudaCompile>
-      <CompileOut Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
-      <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Release|x64'">compute_89,sm_89;compute_86,sm_86;compute_75,sm_75;compute_70,sm_70;compute_61,sm_61;compute_52,sm_52</CodeGeneration>
-      <FastMath Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</FastMath>
-      <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</GPUDebugInfo>
-      <HostDebugInfo Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</HostDebugInfo>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Release|x64'">EditAndContinue</DebugInformationFormat>
-      <SplitCompile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">MaxThreads</SplitCompile>
-      <SplitCompileCustomThreads Condition="'$(Configuration)|$(Platform)'=='Release|x64'">16</SplitCompileCustomThreads>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">O2</Optimization>
-      <PtxAsOptionV Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</PtxAsOptionV>
-      <Runtime Condition="'$(Configuration)|$(Platform)'=='Release|x64'">MT</Runtime>
-      <RuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Default</RuntimeChecks>
-    </CudaCompile>
-    <CudaLink>
-      <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</GPUDebugInfo>
-    </CudaLink>
-    <CudaLink>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Release|x64'">None</DebugInformationFormat>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">O2</Optimization>
-    </CudaLink>
-    <CudaLink>
-      <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</GPUDebugInfo>
-    </CudaLink>
-    <CudaLink>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">O2</Optimization>
-    </CudaLink>
-    <CudaCompile>
-      <CompileOut Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
-      <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">compute_89,sm_89;compute_86,sm_86;compute_75,sm_75;compute_70,sm_70;compute_61,sm_61;compute_52,sm_52</CodeGeneration>
-      <SplitCompile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">MaxThreads</SplitCompile>
-      <SplitCompileCustomThreads Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">16</SplitCompileCustomThreads>
-      <FastMath Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</FastMath>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">EditAndContinue</DebugInformationFormat>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">O2</Optimization>
-      <Runtime Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">MT</Runtime>
-      <RuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Default</RuntimeChecks>
-    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='DirectShow'">
     <ClCompile>
@@ -290,10 +238,10 @@
       <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;cudart_static.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib;OpenCL.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib</AdditionalDependencies>
       <ModuleDefinitionFile>HopperRender.def</ModuleDefinitionFile>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">$(CUDA_LIB_PATH);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">UseFastLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <OptimizeReferences Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</OptimizeReferences>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
@@ -306,27 +254,6 @@
       <Inputs>$(TargetDir)\$(TargetName)$(TargetExt)</Inputs>
     </CustomBuildStep>
     <Manifest />
-    <CudaCompile>
-      <CompileOut Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">$(SolutionDir)$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
-      <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">compute_89,sm_89;compute_86,sm_86;compute_75,sm_75;compute_70,sm_70;compute_61,sm_61;compute_52,sm_52</CodeGeneration>
-      <FastMath Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</FastMath>
-      <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</GPUDebugInfo>
-      <HostDebugInfo Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</HostDebugInfo>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">EditAndContinue</DebugInformationFormat>
-      <SplitCompile Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Default</SplitCompile>
-      <SplitCompileCustomThreads Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">16</SplitCompileCustomThreads>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">O2</Optimization>
-      <PtxAsOptionV Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</PtxAsOptionV>
-      <Runtime Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">MT</Runtime>
-      <RuntimeChecks Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">Default</RuntimeChecks>
-    </CudaCompile>
-    <CudaLink>
-      <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">false</GPUDebugInfo>
-    </CudaLink>
-    <CudaLink>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">None</DebugInformationFormat>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">O2</Optimization>
-    </CudaLink>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Exporter'">
     <ClCompile>
@@ -350,7 +277,7 @@
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">/Gw /Zo %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;cudart_static.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;ole32.lib;gdi32.lib;winmm.lib;user32.lib;oleaut32.lib;shell32.lib;Shlwapi.lib;Comctl32.lib;d3d9.lib;mfuuid.lib;dmoguids.lib;kernel32.lib;winspool.lib;comdlg32.lib;uuid.lib;odbc32.lib;odbccp32.lib</AdditionalDependencies>
       <ModuleDefinitionFile>HopperRender.def</ModuleDefinitionFile>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -366,27 +293,6 @@
       <Inputs>$(TargetDir)\$(TargetName)$(TargetExt)</Inputs>
     </CustomBuildStep>
     <Manifest />
-    <CudaCompile>
-      <CompileOut Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">$(SolutionDir)$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
-      <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">compute_89,sm_89;compute_86,sm_86;compute_75,sm_75;compute_70,sm_70;compute_61,sm_61;compute_52,sm_52</CodeGeneration>
-      <FastMath Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">true</FastMath>
-      <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">false</GPUDebugInfo>
-      <HostDebugInfo Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">false</HostDebugInfo>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">EditAndContinue</DebugInformationFormat>
-      <SplitCompile Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">Default</SplitCompile>
-      <SplitCompileCustomThreads Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">16</SplitCompileCustomThreads>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">O2</Optimization>
-      <PtxAsOptionV Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">false</PtxAsOptionV>
-      <Runtime Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">MT</Runtime>
-      <RuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">Default</RuntimeChecks>
-    </CudaCompile>
-    <CudaLink>
-      <GPUDebugInfo Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">false</GPUDebugInfo>
-    </CudaLink>
-    <CudaLink>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">None</DebugInformationFormat>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Exporter|x64'">O2</Optimization>
-    </CudaLink>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="CustomAllocator.cpp" />
@@ -398,6 +304,7 @@
     <ClCompile Include="opticalFlowCalcHDR.cpp" />
     <ClCompile Include="CustomInputPin.cpp" />
     <ClCompile Include="TrayIcon.cpp" />
+    <ClCompile Include="OpenCLLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\common\baseclasses\baseclasses.vcxproj">
@@ -443,6 +350,5 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 13.1.targets" />
   </ImportGroup>
 </Project>

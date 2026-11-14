@@ -17,7 +17,6 @@
 #include "HopperRenderSettings.h"
 #include "HopperRender.h"
 
-#include <cuda_runtime_api.h>
 #include <dvdmedia.h>
 #include <numeric>
 
@@ -341,13 +340,13 @@ void CHopperRender::useDisplayRefreshRate() {
 	// Get the window handle of the renderer
     HWND hwnd = nullptr;
     if (m_pGraph) {
-        CComPtr<IVideoWindow> pVW;
-        if (SUCCEEDED(m_pGraph->QueryInterface(IID_IVideoWindow, (void**)&pVW)) && pVW) {
-            OAHWND oahwnd = 0;
-            if (SUCCEEDED(pVW->get_Owner(&oahwnd))) {
+    CComPtr<IVideoWindow> pVW;
+    if (SUCCEEDED(m_pGraph->QueryInterface(IID_IVideoWindow, (void**)&pVW)) && pVW) {
+        OAHWND oahwnd = 0;
+        if (SUCCEEDED(pVW->get_Owner(&oahwnd))) {
                 hwnd = reinterpret_cast<HWND>(oahwnd);
-            }
         }
+    }
     }
 
 	// Get the display refresh rate of the monitor the window is on

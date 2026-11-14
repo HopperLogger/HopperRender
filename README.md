@@ -1,123 +1,222 @@
 <div align="center">
-  <img alt="logo" height="200px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/faa253f0-3276-4404-aa4a-bb9c2b35056c">
+  <img alt="HopperRender logo" height="200px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/faa253f0-3276-4404-aa4a-bb9c2b35056c">
+
+  <h1>HopperRender</h1>
+
+  <p><strong>Real-time optical flow frame interpolation for DirectShow players.</strong><br>
+  Watch any local video at the native refresh rate of your monitor.</p>
+
+  <p>
+    <a href="https://github.com/HopperLogger/HopperRender/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/HopperLogger/HopperRender?style=flat-square"></a>
+    <a href="https://github.com/HopperLogger/HopperRender/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/HopperLogger/HopperRender/total?style=flat-square"></a>
+    <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/github/license/HopperLogger/HopperRender?style=flat-square"></a>
+    <img alt="Platform: Windows" src="https://img.shields.io/badge/platform-Windows-0078D6?style=flat-square">
+    <img alt="GPU: OpenCL" src="https://img.shields.io/badge/GPU-OpenCL%201.2%2B-ED1C24?style=flat-square">
+  </p>
+
+  <p>
+    <a href="#installation">Installation</a> •
+    <a href="#configuration">Configuration</a> •
+    <a href="#how-it-works">How it works</a> •
+    <a href="#building-from-source">Building</a> •
+    <a href="CHANGELOG.md">Changelog</a>
+  </p>
 </div>
 
-# HopperRender
-An optical flow frame interpolator with DirectShow integration that allows you to watch any local media file at the native refresh rate of your monitor.
-This is my first project using DirectShow and CUDA, which has now transitioned to OpenCL for better cross-platform compatibility. The goal is to achieve pretty decent frame interpolation with a variety of user customizable settings.
-The filter can be added to a DirectShow media player like MPC-HC or MPC-BE.
-> Note: This project is also availbale on Linux as an integration into mpv. You can find it here: [mpv frame interpolator](https://github.com/HopperLogger/mpv-frame-interpolator).
+---
+
+HopperRender is a DirectShow video filter that generates intermediate frames using GPU-accelerated optical flow, interpolating any source frame rate up to your display's refresh rate. It plugs into DirectShow media players such as [MPC-HC](https://github.com/clsid2/mpc-hc) and [MPC-BE](https://sourceforge.net/projects/mpcbe) and offers a range of settings to tune the quality and presentation of the interpolation.
+
+> [!TIP]
+> On Linux? HopperRender is also available as an mpv integration: **[mpv-frame-interpolator](https://github.com/HopperLogger/mpv-frame-interpolator)**.
+
+## Table of Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [How it works](#how-it-works)
+- [Building from source](#building-from-source)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
 
 ## Features
-- Realtime frame interpolation of any source framerate to the native refresh rate of your monitor
-- Compatible with HDR video _(usage of madVR recommended)_
-- All resolutions _(even DVDs and 4K Blu-rays)_ are supported
-- No installation or internet connection required
-- Cross-platform compatible with most NVIDIA and AMD cards
-- Warps frames in both directions and blends them for the smoothest experience
-- User customizable settings to adjust the quality and presentation of the interpolation
-- HSV Flow visualization lets you see the calculated movements of objects in a scene
-- Automatically adjusts internal settings to match the PC's performance
-- Compatible with madVR, MPC-Video Renderer, Enhanced Video Renderer, and more
-- Automatically detects the source frame rate (as well as playback speed) and disables interpolation if not needed
 
-## How to get started?
-To use this filter, you need to use a DirectShow player like [MPC-HC](https://github.com/clsid2/mpc-hc/releases) or [MPC-BE](https://sourceforge.net/projects/mpcbe).
+- **Real-time interpolation** of any source frame rate to your monitor's native refresh rate, half of it, an integer multiple of the source rate, or a custom target
+- **Bidirectional warping**: frames are warped in both directions and blended for the smoothest result
+- **HDR support**, including Dolby Vision metadata passthrough
+- **Any resolution**, from DVDs up to 4K Blu-rays
+- **Cross-vendor GPU acceleration** via OpenCL on most NVIDIA and AMD graphics cards
+- **Adaptive performance**: internal settings adjust automatically to your PC's capabilities
+- **Smart activation**: detects the source frame rate (including variable frame rate and playback speed changes) and turns interpolation off when it isn't needed
+- **Scene change detection** so cuts don't get interpolated
+- **Flow visualization**: HSV and greyscale views show the motion that was detected in a scene
+- **System tray icon** for toggling the filter, switching output modes, and viewing live statistics
+- **Portable**: no installer and no internet connection required
+- **Renderer-agnostic**: works with madVR, MPC Video Renderer, Enhanced Video Renderer, and more
 
-The usage of [madVR](https://www.videohelp.com/software/madVR) or [MPC Video Renderer](https://github.com/Aleksoid1978/VideoRenderer) is recommended as they are the most up to date and properly support HDR.
+## Requirements
 
-### Installation
-1. Open MPC-HC or MPC-BE's settings.
-2. Select the External Filters submenu.
-3. Click on Add Filter.
-<div align="left">
-  <img alt="install1" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/ecf7003b-09f1-4195-8c13-7767f195ee62">
-</div>
-4. Click on Browse.
-<div align="left">
-  <img alt="install2" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/59b27a26-8889-4549-a67b-bbdec7f7eec6">
-</div>
-5. Select the HopperRender.dll file.
-<div align="left">
-  <img alt="install3" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/be6dc452-2f4d-4570-8745-3d49102006ee">
-</div>
-<div>6. Select Prefer.</div>
-7. Close the settings and the media player.
-<div align="left">
-  <img alt="install4" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/9cbc1894-8ff3-410a-bd0d-2f9e785bcac3">
-</div>
+| Component | Requirement |
+| --- | --- |
+| OS | Windows 10 or later |
+| GPU | NVIDIA, AMD or Intel GPU with an OpenCL 1.2+ capable driver |
+| Player | A DirectShow media player such as [MPC-HC](https://github.com/clsid2/mpc-hc/releases) or [MPC-BE](https://sourceforge.net/projects/mpcbe) |
+| Renderer *(recommended)* | [madVR](https://www.videohelp.com/software/madVR) or [MPC Video Renderer](https://github.com/Aleksoid1978/VideoRenderer). Both are actively maintained and handle HDR properly |
 
-That's it! You can now play a video with MPC-HC/BE and HopperRender will interpolate it to 60fps or more.
+## Installation
 
-> Note: Do not move or delete the folder containing the HopperRender.dll file, otherwise the media player won't find it.
+1. Download the latest version from the [**Releases**](https://github.com/HopperLogger/HopperRender/releases/latest) page.
+2. Copy `HopperRender.x64.dll` to a permanent location, such as `C:\Program Files\HopperRender\`.
+3. Register it as an external filter in your player (MPC-HC / MPC-BE):
+   1. Open **Options** → **External Filters**.
+   2. Click **Add Filter...**, then **Browse...**, and select `HopperRender.x64.dll`.
+   3. Select the newly added HopperRender entry and set it to **Prefer**.
+   4. Close the settings and restart the player.
 
-### Settings
-You can access the settings when playing back a video with HopperRender by right clicking on the video in MPC-HC/BE, selecting the Filters menu and then HopperRender.
+That's it. Videos played in MPC-HC/BE will now be interpolated to your display's refresh rate.
+
+> [!IMPORTANT]
+> Don't move or delete the folder containing `HopperRender.x64.dll` after registering it, or the player won't be able to find the filter.
+
+<details>
+<summary><strong>Show step-by-step screenshots</strong></summary>
+<br>
+
+**Open External Filters and click Add Filter:**
+
+<img alt="Add filter" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/ecf7003b-09f1-4195-8c13-7767f195ee62">
+
+**Click Browse:**
+
+<img alt="Browse" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/59b27a26-8889-4549-a67b-bbdec7f7eec6">
+
+**Select HopperRender.x64![Uploading HR-Settings.png…]()
+.dll:**
+
+<img alt="Select DLL" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/be6dc452-2f4d-4570-8745-3d49102006ee">
+
+**Set the filter to Prefer:**
+
+<img alt="Prefer filter" height="400px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/9cbc1894-8ff3-410a-bd0d-2f9e785bcac3">
+
+</details>
+
+## Configuration
+
+While a video is playing, right-click it in MPC-HC/BE and choose **Filters** → **HopperRender** to open the settings. You can also use the HopperRender **system tray icon** for quick access to common options and statistics.
 
 <div align="center">
-  <img alt="properties" height="500px" src="https://github.com/user-attachments/assets/e73060fc-177b-403f-80ab-f42ec73762ef">
+  <img alt="HopperRender settings dialog" height="500px" src="https://github.com/user-attachments/assets/6f7d675a-8938-481b-a90e-0507591958aa">
 </div>
 
-- You can activate and deactivate the interpolation
-- You can select which type of frame output you want to see:
-    - _Warped Frame 1 -> 2: Shows just the warping from the previous to the current frame_
-    - _Warped Frame 2 -> 1: Shows just the warping from the current to the previous frame_
-    - _Blended Frame: Blends both warp directions together_
-    - _Blended Frame (w/o warping): Deactivates the optical flow calculation and simply blends the two source frames together without any movement based warping_
-    - _HSV Flow: Visualizes the optical flow as a color representation, where the color indicates the direction of movement_
+Settings are saved automatically to `HKEY_CURRENT_USER\Software\HopperRender` and restored the next time the filter is loaded.
 
-    <div align="center">
-    <img alt="color-circle" height="200px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/b025d4ce-cfa2-4702-b184-2c09f4254246">
-    </div>
+### Settings
 
-    - _Grey Flow: Visualizes the optical flow as a black and white representation, where the brightness indicates the magnitude of movement_
-    - _Side-by-side 1: Shows the difference between no interpolation on the left, and interpolation on the right (split in the middle)_
-    - _Side-by-side 2: Shows the difference between no interpolation on the left, and interpolation on the right (scaled down side by side)_
-- You can set a custom target fps that should be interpolated to. Setting this to 0 will automatically use the display refresh rate.
-- You can set the Delta Scalar (controls how much the filter will try to move the frames to simulate the motion on screen)
-- You can set the Neighbor Scalar (controls how much the filter will be biased by the surrounding motion, higher values will lead to more uniform interpolation but might miss small motions)
-- You can set the Black and White levels which allows for level correction if the input has limited range (i.e. the blacks look grey, and the whites are not full brightness)
-- You can set the Scene Change Threshold to avoid scene changes from being interpolated. You can watch the peak detected scene change next to the selector. Anything higher than the selected threshold will not be interpolated.
-- You can set the Buffer Frames to a value like 15 if you're playing a live video stream (e.g. from a capture card) which fixes dropped frames. For normal video playback this should be kept at 0!
-- In the status section, you can see the current state of HopperRender, the source and target framerate, the frame and calculation resolutions, as well as the calculation times of the optical flow calulcation and frame warping pipeline *(both times combined should always be lower than 1/source framerate!)*
-- The settings will be automatically saved to the registry `HKEY_CURRENT_USER\Software\HopperRender` so next time the filter is used, it loads the settings automatically
-- It is also possible to manually configure the resolution used in the internal optical flow calculation and thus change the load on the GPU. Although this isn't recommended, as higher resolutions actually produce a worse result, and lower resolutions don't provide much benifit as the calculation is already limited to 270p. If you still want to experiment with this, open the registry editor, navigate to `HKEY_CURRENT_USER\Software\HopperRender` and create a new DWORD value named `MaxCalcRes`. When setting a value, please make sure to use the _Decimal_ type. The resolution of the input video will be repeatedly halved until the frame height is less or equal to the configured value. This means you can't specify the exact resolution used, but a limit that ensures the used resolution isn't too high. To use the default value of 270, simply delete the DWORD value.
+| Setting | Description |
+| --- | --- |
+| **On / Off** | Turns interpolation on or off. |
+| **Frame Output** | Selects what is displayed (see [Frame output modes](#frame-output-modes)). |
+| **Target Frame Rate** | The frame rate to interpolate to: *Display Rate* (default), *1/2x Display Rate*, an integer multiple of the source frame rate (e.g. 48 fps for 24 fps content), or *Custom*. |
+| **Delta Scalar** | How strongly frames are moved to follow the on-screen motion. |
+| **Neighbor Scalar** | How strongly each region is biased by the motion around it. Higher values give more uniform interpolation but may miss small movements. |
+| **Black / White Levels** | Level correction for limited-range sources (e.g. when blacks look grey or whites aren't fully bright). |
+| **Scene Change Threshold** | Frame transitions with a difference above this threshold are treated as scene cuts and aren't interpolated. The peak detected value is shown next to the control to help with tuning. |
+| **Buffer Frames** | Set to around `15` for live sources (e.g. capture cards) to prevent dropped frames. **Leave at `0` for normal video playback.** |
+
+### Frame output modes
+
+| Mode | Description |
+| --- | --- |
+| **Warped Frame 1 → 2** | Only the warp from the previous frame to the current frame. |
+| **Warped Frame 2 → 1** | Only the warp from the current frame to the previous frame. |
+| **Blended Frame** | Both warp directions blended together *(default)*. |
+| **Blended Frame (w/o warping)** | Skips optical flow entirely and simply blends the two source frames. |
+| **HSV Flow** | Visualizes the optical flow as color, where hue indicates the direction of motion (see the color wheel below). |
+| **Grey Flow** | Visualizes the optical flow in greyscale, where brightness indicates the magnitude of motion. |
+| **Side-by-side 1** | Original on the left, interpolated on the right (split down the middle). |
+| **Side-by-side 2** | Original on the left, interpolated on the right (both scaled down). |
+
+<div align="center">
+  <img alt="HSV flow color wheel" height="200px" src="https://github.com/HopperLogger/HopperRender/assets/121826818/b025d4ce-cfa2-4702-b184-2c09f4254246">
+</div>
+
+### Status
+
+The status section shows the current state of the filter, the source and target frame rates, the frame and calculation resolutions, and the processing times of the optical flow calculation and the frame warping.
+
+> [!NOTE]
+> For smooth playback, the optical flow and warping times **combined** must stay below the source frame time (`1 / source fps`, e.g. 41.7 ms for 24 fps content).
+
+### Advanced: calculation resolution
+
+<details>
+<summary>Manually limit the internal optical flow resolution (not recommended)</summary>
+<br>
+
+By default, the optical flow is calculated at a resolution of at most 270p. Higher resolutions tend to produce *worse* results, and lower resolutions offer little benefit, so changing this is not recommended. If you want to experiment anyway:
+
+1. Open the Registry Editor and navigate to `HKEY_CURRENT_USER\Software\HopperRender`.
+2. Create a new **DWORD (32-bit) Value** named `MaxCalcRes`.
+3. Enter the desired maximum height using the **Decimal** base.
+
+The input resolution is repeatedly halved until the frame height is less than or equal to `MaxCalcRes`, so this value is an upper bound rather than an exact resolution. Delete the value to restore the default of 270.
+
+</details>
 
 ## How it works
-> Note: The following is a very brief overview of how the filter works. It is not a complete, or 100% accurate description of the interpolation process. Refer to the source code for more details.
 
-- To prevent the algorithm from focusing on pixel level details or compression artifacts, we first (depending on the user setting) blur the frames internally to use for the optical flow calculation
-- HopperRender uses an offset array that shifts the frame according to the values contained in it
-- The offset array has 5 layers that contain different shifts that can be 'tried out' at the same time to find the best one
-- The first step involves setting the 5 layers to a horizontal shift of -2, -1, 0, 1, and 2
-- Then, the first frame is shifted accordingly and we subtract the y-channel difference of the shifted frame to the unshifted next frame
-- We then reduce all the absolute pixel deltas to one value and find out which layer (i.e. which horizontal shift) contains the lowest value and therefore difference
-- Depending on the resulting layer index, we can either move on to the same procedure for the vertical movement, or continue moving in the negative or positive x direction
-- We repeat this process until we are certain we found the best offset, or are out of calculation steps
-- After having found the best offset for the entire frame, we decrease our window size to a quarter the size and continue the search again for every individual window starting at the previous position
-- Depending on the user setting, we do this until we get to the individual pixel level
-- Finally, we flip the offset array to give us not just the ideal shift to warp frame 1 to frame 2, but also to warp frame 2 to frame 1
-- We then blur both offset arrays depending on the user settings to get a more smooth warp
-- Then we use these offset arrays to generate intermediate frames by multiplying the offset values by certain scalars
-- We add a bit of artifact removal for the pixels that weren't ideally moved and blend the warped frames from both directions together
+> [!NOTE]
+> This is a simplified overview of the interpolation pipeline. Refer to the source code for the full details.
 
-## Compilation
-To compile HopperRender, you need to have Visual Studio 2022 installed with C++ support as well as the Windows 10 SDK.
+1. **Pre-processing:** The frames are blurred internally (depending on the settings) so that the search ignores pixel-level detail and compression artifacts.
+2. **Layered offset search:** An offset array with 5 layers holds different candidate shifts that are evaluated in parallel. Starting with horizontal shifts of `-2, -1, 0, 1, 2`, the first frame is shifted accordingly and compared against the next frame using the luma (Y) channel difference.
+3. **Best-match selection:** The absolute pixel deltas are reduced to a single value per layer, and the layer with the lowest difference wins. Depending on which layer wins, the search either moves on to vertical motion or keeps going further in the negative or positive x direction. This repeats until the best offset is found or the step budget runs out.
+4. **Hierarchical refinement:** Once the best offset for the whole frame is found, the window size is reduced to a quarter and the search continues for every window from its previous position, down to the individual pixel level if the settings allow.
+5. **Bidirectional flow:** The offset array is flipped to get the warp from frame 2 → 1 in addition to frame 1 → 2, and both arrays are blurred for a smoother warp.
+6. **Frame synthesis:** Intermediate frames are generated by scaling the offsets to the intermediate time position. Poorly matched pixels get artifact removal, and the two warp directions are blended into the final frame.
 
-To compile the OpenCL parts, you need to have CUDA Toolkit 13.1 installed.
+## Building from source
 
-> Visual Studio 2026 currently only works by manually copying the CUDA Build Customization files from the VS2022 installation folder to the VS2026 installation folder.
->
-> Newer CUDA versions can be used as well, but the references to the CUDA 13.1 Build Customization files need to be updated in the HopperRender.vcxproj file.
+### Prerequisites
 
-1. Clone the repository
-2. Open the HopperRender.sln file in Visual Studio
-3. Set the build configuration to Release
-4. Build the solution (Build -> Build Solution)
-5. The compiled HopperRender.dll file can be found in the x64\Release folder
+- [Visual Studio 2026](https://visualstudio.microsoft.com/) with the **Desktop development with C++** workload (the project uses the `v145` platform toolset and the Windows SDK included with the workload)
+
+No GPU SDK is needed. The [Khronos OpenCL headers](https://github.com/KhronosGroup/OpenCL-Headers) are included in [`common/OpenCL`](common/OpenCL), and the OpenCL API is loaded at runtime from the `OpenCL.dll` installed with the GPU driver.
+
+### Build
+
+```sh
+git clone https://github.com/HopperLogger/HopperRender.git
+```
+
+1. Open `HopperRender.sln` in Visual Studio.
+2. Select the **Release** configuration and the platform:
+   - **x64** for 64-bit players (most setups)
+   - **Win32** for 32-bit players
+3. Build the solution (**Build** → **Build Solution**).
+4. The compiled DLL is placed in `x64\Release\HopperRender.dll` or `Win32\Release\HopperRender.dll`.
+
+## Troubleshooting
+
+- **No interpolation / filter shows as inactive:** Make sure your GPU driver supports OpenCL 1.2 or newer. If OpenCL fails to initialize, the settings dialog, tray icon, and a Windows notification will tell you, and the video plays without interpolation.
+- **Stuttering or dropped frames:** Check the calculation times in the status section. If they come close to the source frame time, your GPU can't keep up at the current settings.
+- **Log files:** Each session writes a log to your temp folder (`%TEMP%\HopperRender_<timestamp>.log`). Please attach it when [opening an issue](https://github.com/HopperLogger/HopperRender/issues).
+
+## Contributing
+
+Bug reports, feature requests, and pull requests are welcome! Please [open an issue](https://github.com/HopperLogger/HopperRender/issues) to report a problem or discuss a larger change before submitting a PR. By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+HopperRender is licensed under the [GNU General Public License v3.0](LICENSE).
 
 ## Acknowledgements
 
-This project is based on the [EZRGB24 Filter Sample](https://learn.microsoft.com/en-us/windows/win32/directshow/ezrgb24-filter-sample) and the DirectShow core parts were inspired by the [LAV Video Decoder](https://github.com/clsid2/LAVFilters).
-
-The Dolby Vision Metadata passthrough code elements were adapted from the [MPC Video Renderer](https://github.com/Aleksoid1978/VideoRenderer).
+- Based on Microsoft's [EZRGB24 Filter Sample](https://learn.microsoft.com/en-us/windows/win32/directshow/ezrgb24-filter-sample).
+- DirectShow core parts were inspired by [LAV Filters](https://github.com/clsid2/LAVFilters).
+- Dolby Vision metadata passthrough was adapted from [MPC Video Renderer](https://github.com/Aleksoid1978/VideoRenderer).
