@@ -360,7 +360,7 @@ void CHopperRender::useDisplayRefreshRate() {
 	if (m_iFrameRateMode == FRHalfDisplayRate) {
 		refreshRate *= 0.5;
 	}
-	m_rtTargetFrameTime = (1.0 / (double)refreshRate) * 1e7;
+	m_rtTargetFrameTime = static_cast<REFERENCE_TIME>((1.0 / refreshRate) * 1e7);
 }
 
 // Computes the target (output) frame time based on the selected frame rate mode
@@ -1122,7 +1122,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 		
 		// Remove entries older than 3 seconds
 		while (!m_frameDeltaHistory.empty() && 
-		       (m_pofcOpticalFlowCalc->m_frameCount - m_frameDeltaHistory.front().frameNumber) > framesIn3Seconds) {
+		       (m_pofcOpticalFlowCalc->m_frameCount - m_frameDeltaHistory.front().frameNumber) > static_cast<unsigned int>(framesIn3Seconds)) {
 			m_frameDeltaHistory.pop_front();
 		}
     } else if (m_iFrameOutput == BlendedFrameNoWarp) {
@@ -1321,7 +1321,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 				
 				// Remove entries older than 1 seconds
 				while (!m_sceneChangeDeltaHistory.empty() && 
-				       (m_pofcOpticalFlowCalc->m_frameCount - m_sceneChangeDeltaHistory.front().frameNumber) > framesIn1Second) {
+				       (m_pofcOpticalFlowCalc->m_frameCount - m_sceneChangeDeltaHistory.front().frameNumber) > static_cast<unsigned int>(framesIn1Second)) {
 					m_sceneChangeDeltaHistory.pop_front();
 				}
 				
@@ -1344,7 +1344,7 @@ HRESULT CHopperRender::DeliverToRenderer(IMediaSample* pIn, IMediaSample* pOut) 
 
 		// Interpolate the frame if necessary
 			if (m_iIntActiveState == Active && m_pofcOpticalFlowCalc->m_frameCount >= 3 && !sceneChangeDetected) {
-				m_pofcOpticalFlowCalc->warpFrames(m_dBlendingScalar, m_iFrameOutput);
+				m_pofcOpticalFlowCalc->warpFrames(static_cast<float>(m_dBlendingScalar), m_iFrameOutput);
 			} else {
 				m_pofcOpticalFlowCalc->copyFrame();
 			}

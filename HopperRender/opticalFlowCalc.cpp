@@ -44,10 +44,10 @@ void OpticalFlowCalc::cl_create_kernel(cl_kernel* kernel, cl_context context, cl
 // Detects the OpenCL platforms and devices
 void OpticalFlowCalc::detectDevices() {
     // Capabilities we are going to check for (we assume HDR as worst case)
-    const cl_ulong requiredVRAM = 9.0 * m_frameHeight * m_inputStride + 3.0 * m_frameHeight * m_outputStride +
+    const cl_ulong requiredVRAM = static_cast<cl_ulong>(9.0 * m_frameHeight * m_inputStride + 3.0 * m_frameHeight * m_outputStride +
                                   6lu * m_opticalFlowFrameHeight * m_opticalFlowFrameWidth * sizeof(short) +
                                   MAX_SEARCH_RADIUS * m_opticalFlowFrameHeight * m_opticalFlowFrameWidth * sizeof(unsigned int) +
-                                  m_opticalFlowFrameHeight * m_opticalFlowFrameWidth;
+                                  m_opticalFlowFrameHeight * m_opticalFlowFrameWidth);
     const size_t requiredWorkGroupSizes[3] = {16, 16, 1};
     const cl_ulong requiredSharedMemSize = 2048;
 

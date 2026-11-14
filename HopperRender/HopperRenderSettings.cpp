@@ -163,7 +163,7 @@ INT_PTR CHopperRenderSettings::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
 			// Update the status for every frame
 			if (currentFPS != m_dSourceFPS) {
 				KillTimer(m_Dlg, 1);
-				int delay = (1.0 / m_dSourceFPS) * 1000.0;
+				int delay = static_cast<int>((1.0 / m_dSourceFPS) * 1000.0);
 				SetTimer(m_Dlg, 1, delay, nullptr);
 			}
 
@@ -353,7 +353,7 @@ HRESULT CHopperRenderSettings::OnActivate() {
 	Edit_SetText(GetDlgItem(m_Dlg, IDC_BUFFERFRAMES), sz);
 
 	// Update the status for every frame
-	int delay = (1.0 / m_dSourceFPS) * 1000.0;
+	int delay = static_cast<int>((1.0 / m_dSourceFPS) * 1000.0);
 	SetTimer(m_Dlg, 1, delay, nullptr);
 	m_bIsInitialized = true;
 

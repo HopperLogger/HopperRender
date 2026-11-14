@@ -62,7 +62,7 @@ void OpticalFlowCalcSDR::calculateOpticalFlow() {
     // We only want to compute windows that are 2x2 or larger, so we adjust the needed iterations
     int opticalFlowIterations = NUM_ITERATIONS;
     if (NUM_ITERATIONS == 0 || NUM_ITERATIONS > log2(windowSize)) {
-        opticalFlowIterations = log2(windowSize);
+        opticalFlowIterations = static_cast<int>(log2(windowSize));
     }
 
     // Prepare the initial offset array
@@ -219,8 +219,8 @@ OpticalFlowCalcSDR::OpticalFlowCalcSDR(const int frameHeight, const int frameWid
     while (frameHeight >> m_opticalFlowResScalar > maxCalcRes) {
 	m_opticalFlowResScalar++;
     }
-    m_opticalFlowFrameWidth = ceil(m_frameWidth / pow(2, m_opticalFlowResScalar));
-    m_opticalFlowFrameHeight = ceil(m_frameHeight / pow(2, m_opticalFlowResScalar));
+    m_opticalFlowFrameWidth = static_cast<int>(ceil(m_frameWidth / pow(2, m_opticalFlowResScalar)));
+    m_opticalFlowFrameHeight = static_cast<int>(ceil(m_frameHeight / pow(2, m_opticalFlowResScalar)));
     m_ofcCalcTime = 0.0;
     m_ofcAvgCalcTime = 0.0;
     m_ofcPeakCalcTime = 0.0;
@@ -233,20 +233,20 @@ OpticalFlowCalcSDR::OpticalFlowCalcSDR(const int frameHeight, const int frameWid
 	m_frameCount = 0;
 
     // Define the global and local work sizes
-    m_lowGrid16x16x2[0] = ceil(m_opticalFlowFrameWidth / 16.0) * 16.0;
-    m_lowGrid16x16x2[1] = ceil(m_opticalFlowFrameHeight / 16.0) * 16.0;
+    m_lowGrid16x16x2[0] = static_cast<size_t>(ceil(m_opticalFlowFrameWidth / 16.0) * 16.0);
+    m_lowGrid16x16x2[1] = static_cast<size_t>(ceil(m_opticalFlowFrameHeight / 16.0) * 16.0);
     m_lowGrid16x16x2[2] = 2;
-    m_lowGrid16x16x1[0] = ceil(m_opticalFlowFrameWidth / 16.0) * 16.0;
-    m_lowGrid16x16x1[1] = ceil(m_opticalFlowFrameHeight / 16.0) * 16.0;
+    m_lowGrid16x16x1[0] = static_cast<size_t>(ceil(m_opticalFlowFrameWidth / 16.0) * 16.0);
+    m_lowGrid16x16x1[1] = static_cast<size_t>(ceil(m_opticalFlowFrameHeight / 16.0) * 16.0);
     m_lowGrid16x16x1[2] = 1;
-    m_lowGrid8x8xL[0] = ceil(m_opticalFlowFrameWidth / 8.0) * 8.0;
-    m_lowGrid8x8xL[1] = ceil(m_opticalFlowFrameHeight / 8.0) * 8.0;
+    m_lowGrid8x8xL[0] = static_cast<size_t>(ceil(m_opticalFlowFrameWidth / 8.0) * 8.0);
+    m_lowGrid8x8xL[1] = static_cast<size_t>(ceil(m_opticalFlowFrameHeight / 8.0) * 8.0);
     m_lowGrid8x8xL[2] = m_opticalFlowSearchRadius;
-    m_halfGrid16x16x1[0] = ceil(m_frameWidth / 16.0) * 16.0;
-    m_halfGrid16x16x1[1] = ceil((m_frameHeight >> 1) / 16.0) * 16.0;
+    m_halfGrid16x16x1[0] = static_cast<size_t>(ceil(m_frameWidth / 16.0) * 16.0);
+    m_halfGrid16x16x1[1] = static_cast<size_t>(ceil((m_frameHeight >> 1) / 16.0) * 16.0);
     m_halfGrid16x16x1[2] = 1;
-    m_grid16x16x1[0] = ceil(m_frameWidth / 16.0) * 16.0;
-    m_grid16x16x1[1] = ceil(m_frameHeight / 16.0) * 16.0;
+    m_grid16x16x1[0] = static_cast<size_t>(ceil(m_frameWidth / 16.0) * 16.0);
+    m_grid16x16x1[1] = static_cast<size_t>(ceil(m_frameHeight / 16.0) * 16.0);
     m_grid16x16x1[2] = 1;
 
     m_threads16x16x1[0] = 16;
@@ -269,10 +269,10 @@ OpticalFlowCalcSDR::OpticalFlowCalcSDR(const int frameHeight, const int frameWid
     CHECK_ERROR(err);
 
     // Allocate the buffers
-    m_inputFrameArray[0] = clCreateBuffer(m_clContext, CL_MEM_READ_ONLY, 1.5 * m_frameHeight * m_inputStride, NULL, &err);
-    m_inputFrameArray[1] = clCreateBuffer(m_clContext, CL_MEM_READ_ONLY, 1.5 * m_frameHeight * m_inputStride, NULL, &err);
-    m_inputFrameArray[2] = clCreateBuffer(m_clContext, CL_MEM_READ_ONLY, 1.5 * m_frameHeight * m_inputStride, NULL, &err);
-    m_outputFrameArray = clCreateBuffer(m_clContext, CL_MEM_WRITE_ONLY, 1.5 * m_frameHeight * m_outputStride, NULL, &err);
+    m_inputFrameArray[0] = clCreateBuffer(m_clContext, CL_MEM_READ_ONLY, static_cast<size_t>(1.5 * m_frameHeight * m_inputStride), NULL, &err);
+    m_inputFrameArray[1] = clCreateBuffer(m_clContext, CL_MEM_READ_ONLY, static_cast<size_t>(1.5 * m_frameHeight * m_inputStride), NULL, &err);
+    m_inputFrameArray[2] = clCreateBuffer(m_clContext, CL_MEM_READ_ONLY, static_cast<size_t>(1.5 * m_frameHeight * m_inputStride), NULL, &err);
+    m_outputFrameArray = clCreateBuffer(m_clContext, CL_MEM_WRITE_ONLY, static_cast<size_t>(1.5 * m_frameHeight * m_outputStride), NULL, &err);
     m_offsetArray = clCreateBuffer(m_clContext, CL_MEM_READ_WRITE, 2 * m_opticalFlowFrameHeight * m_opticalFlowFrameWidth * sizeof(short), NULL, &err);
     m_blurredOffsetArray[0] = clCreateBuffer(m_clContext, CL_MEM_READ_WRITE, 2 * m_opticalFlowFrameHeight * m_opticalFlowFrameWidth * sizeof(short), NULL, &err);
     m_blurredOffsetArray[1] = clCreateBuffer(m_clContext, CL_MEM_READ_WRITE, 2 * m_opticalFlowFrameHeight * m_opticalFlowFrameWidth * sizeof(short), NULL, &err);

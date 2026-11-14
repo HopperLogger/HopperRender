@@ -170,7 +170,7 @@
       <FunctionLevelLinking Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">
       </FunctionLevelLinking>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">/Gw /Zo %(AdditionalOptions)</AdditionalOptions>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">ProgramDatabase</DebugInformationFormat>
       <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='DirectShow|x64'">true</MultiProcessorCompilation>
     </ClCompile>
     <Lib>

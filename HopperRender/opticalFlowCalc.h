@@ -12,7 +12,9 @@
 // debugger output as well as stderr without pulling in windows.h here.
 extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char*);
 
+#ifndef max // <Windows.h> may already define an equivalent max macro
 #define max(a, b) ((a) > (b) ? (a) : (b))
+#endif
 #define CHECK_ERROR(err)                                                                                  \
     if (err) {                                                                                            \
         char _hr_buf[256];                                                                                \

@@ -302,6 +302,7 @@ BOOL WINAPI _DllEntryPoint(HINSTANCE hInstance, ULONG ulReason, __inout_opt LPVO
             g_amPlatform = VER_PLATFORM_WIN32_WINDOWS; // win95 assumed in case GetVersionEx fails
 
             g_osInfo.dwOSVersionInfoSize = sizeof(g_osInfo);
+            #pragma warning(suppress : 4996) // GetVersionEx is deprecated, but only used for legacy platform detection
             if (GetVersionEx(&g_osInfo))
             {
                 g_amPlatform = g_osInfo.dwPlatformId;
