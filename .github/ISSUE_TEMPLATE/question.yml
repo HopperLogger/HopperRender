@@ -1,0 +1,27 @@
+name: Question
+description: Ask a question about using or configuring HopperRender.
+title: "[Question] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before asking, please check the [README](https://github.com/HopperLogger/HopperRender#readme), especially the [Configuration](https://github.com/HopperLogger/HopperRender#configuration) and [Troubleshooting](https://github.com/HopperLogger/HopperRender#troubleshooting) sections.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+
+  - type: textarea
+    id: setup
+    attributes:
+      label: Your setup (if relevant)
+      placeholder: |
+        HopperRender version:
+        Player and renderer:
+        GPU:
+    validations:
+      required: false

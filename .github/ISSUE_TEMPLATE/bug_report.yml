@@ -1,0 +1,140 @@
+name: Bug report
+description: Report a crash, freeze, visual artifact, or other problem with HopperRender.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! The details below make it much easier to reproduce and fix the problem.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I'm using the [latest release](https://github.com/HopperLogger/HopperRender/releases/latest) of HopperRender.
+          required: true
+        - label: I searched the [existing issues](https://github.com/HopperLogger/HopperRender/issues?q=is%3Aissue) and this hasn't been reported yet.
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem. Include what you expected to happen instead.
+      placeholder: e.g. MPC-HC freezes when I resume playback after pausing for a few minutes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a 24 fps MKV file in MPC-HC
+        2. Pause playback for ~5 minutes
+        3. Press play
+        4. The player freezes
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: HopperRender version
+      description: Shown at the bottom of the HopperRender settings window and on the first line of the log file.
+      placeholder: e.g. 2.0.3.6
+    validations:
+      required: true
+
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: DLL architecture
+      options:
+        - x64 (HopperRender.x64.dll)
+        - x86 (HopperRender.x86.dll)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: player
+    attributes:
+      label: Media player
+      options:
+        - MPC-HC
+        - MPC-BE
+        - PotPlayer
+        - Other (please specify below)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: renderer
+    attributes:
+      label: Video renderer
+      description: In MPC-HC/BE, see Options → Playback → Output.
+      options:
+        - madVR
+        - MPC Video Renderer
+        - Enhanced Video Renderer (EVR)
+        - Enhanced Video Renderer (custom presenter)
+        - Other (please specify below)
+    validations:
+      required: true
+
+  - type: input
+    id: decoder
+    attributes:
+      label: Video decoder and hardware acceleration
+      description: The decoder and its hardware decoding mode, if known.
+      placeholder: e.g. LAV Video Decoder, D3D11 (copy-back)
+    validations:
+      required: false
+
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU and driver version
+      placeholder: e.g. NVIDIA GeForce RTX 3070, driver 581.57
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Windows version
+      placeholder: e.g. Windows 11 24H2
+    validations:
+      required: true
+
+  - type: textarea
+    id: video
+    attributes:
+      label: Video details
+      description: Anything relevant about the video being played.
+      placeholder: |
+        Resolution / frame rate: 3840x2160, 23.976 fps
+        HDR: HDR10 / Dolby Vision / SDR
+        Source: local file / Blu-ray / capture card / stream
+    validations:
+      required: false
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Log file
+      description: |
+        **Please attach the log file. It is the most useful piece of information for diagnosing problems.**
+        HopperRender writes a log for each session to `%TEMP%\HopperRender_<timestamp>.log`. Paste `%TEMP%` into the Explorer address bar to open the folder, then drag the most recent log file into this field.
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Screenshots (e.g. of the status section in the HopperRender settings), other installed filters, player settings, or anything else that might help.
+    validations:
+      required: false

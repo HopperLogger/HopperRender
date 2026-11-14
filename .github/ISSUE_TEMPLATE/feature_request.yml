@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest a new feature or an improvement to HopperRender.
+title: "[Feature Request] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion! Please check the [existing issues](https://github.com/HopperLogger/HopperRender/issues?q=is%3Aissue) first to see if it has already been requested.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe what you're trying to do and what currently gets in the way.
+      placeholder: e.g. My display runs at 144 Hz, but my GPU can't interpolate 4K content to the full refresh rate.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How would you like HopperRender to handle this?
+      placeholder: e.g. A target frame rate option for half of the display refresh rate.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds
+      description: Other solutions you've considered, or how other tools (e.g. madVR Smooth Motion, SVP) handle this.
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Your setup (player, renderer, GPU), screenshots, sample videos, or anything else that helps explain the request.
+    validations:
+      required: false

@@ -69,18 +69,27 @@ HopperRender is a DirectShow video filter that generates intermediate frames usi
 
 ## Installation
 
-1. Download the latest version from the [**Releases**](https://github.com/HopperLogger/HopperRender/releases/latest) page.
-2. Copy `HopperRender.x64.dll` to a permanent location, such as `C:\Program Files\HopperRender\`.
+1. Download the DLL that matches your media player from the [**Releases**](https://github.com/HopperLogger/HopperRender/releases/latest) page:
+
+   | File | Use it for |
+   | --- | --- |
+   | `HopperRender.x64.dll` | 64-bit players (e.g. `mpc-hc64.exe`, `mpc-be64.exe`, `PotPlayerMini64.exe`). **This is what most people need.** |
+   | `HopperRender.x86.dll` | 32-bit players (e.g. `mpc-hc.exe`, `mpc-be.exe`, `PotPlayerMini.exe`) |
+
+   The DLL must match the player's architecture, not the Windows version. A 32-bit player can't load the 64-bit DLL, and the other way around.
+2. Copy the DLL to a permanent location, such as `C:\Program Files\HopperRender\`.
 3. Register it as an external filter in your player (MPC-HC / MPC-BE):
    1. Open **Options** → **External Filters**.
-   2. Click **Add Filter...**, then **Browse...**, and select `HopperRender.x64.dll`.
+   2. Click **Add Filter...**, then **Browse...**, and select the DLL.
    3. Select the newly added HopperRender entry and set it to **Prefer**.
    4. Close the settings and restart the player.
 
 That's it. Videos played in MPC-HC/BE will now be interpolated to your display's refresh rate.
 
 > [!IMPORTANT]
-> Don't move or delete the folder containing `HopperRender.x64.dll` after registering it, or the player won't be able to find the filter.
+> Don't move or delete the folder containing the DLL after registering it, or the player won't be able to find the filter.
+>
+> To update HopperRender, close the player and replace the DLL with the new version, using the same file name and location. You don't need to register it again.
 
 <details>
 <summary><strong>Show step-by-step screenshots</strong></summary>
@@ -205,7 +214,8 @@ git clone https://github.com/HopperLogger/HopperRender.git
 
 - **No interpolation / filter shows as inactive:** Make sure your GPU driver supports OpenCL 1.2 or newer. If OpenCL fails to initialize, the settings dialog, tray icon, and a Windows notification will tell you, and the video plays without interpolation.
 - **Stuttering or dropped frames:** Check the calculation times in the status section. If they come close to the source frame time, your GPU can't keep up at the current settings.
-- **Log files:** Each session writes a log to your temp folder (`%TEMP%\HopperRender_<timestamp>.log`). Please attach it when [opening an issue](https://github.com/HopperLogger/HopperRender/issues).
+- **Filter doesn't show up or isn't used:** Make sure you downloaded the DLL that matches your player's architecture (x64 for 64-bit players, x86 for 32-bit players).
+- **Log files:** Each session writes a log to your temp folder (`%TEMP%\HopperRender_<timestamp>.log`). Please attach it when [reporting a bug](https://github.com/HopperLogger/HopperRender/issues/new/choose).
 
 ## Contributing
 

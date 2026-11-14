@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Troubleshooting guide
+    url: https://github.com/HopperLogger/HopperRender#troubleshooting
+    about: Common problems and how to fix them.
+  - name: mpv / Linux version (mpv-frame-interpolator)
+    url: https://github.com/HopperLogger/mpv-frame-interpolator/issues
+    about: Issues with the mpv integration belong in the mpv-frame-interpolator repository.
