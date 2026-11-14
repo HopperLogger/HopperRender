@@ -219,7 +219,7 @@ git clone https://github.com/HopperLogger/HopperRender.git
 
 ## Contributing
 
-Bug reports, feature requests, and pull requests are welcome! Please [open an issue](https://github.com/HopperLogger/HopperRender/issues) to report a problem or discuss a larger change before submitting a PR. By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+Bug reports, feature requests, and pull requests are welcome! Please read the [contributing guide](CONTRIBUTING.md) to learn how to report issues, set up a development build, and submit changes. By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
